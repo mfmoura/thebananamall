@@ -5,7 +5,7 @@ umask 0002
 # Laravel precisa gravar nessas pastas durante a execucao.
 for directory in storage bootstrap/cache; do
     if [ -d "$directory" ]; then
-        chmod -R ug+rwX "$directory"
+        chmod -R ug+rwX "$directory" 2>/dev/null || true
     fi
 done
 

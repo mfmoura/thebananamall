@@ -3,15 +3,21 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
+use Database\Factories\UsuarioFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable
+class Usuario extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    /** @use HasFactory<UsuarioFactory> */
+    use HasApiTokens, HasFactory, Notifiable;
+
+    /** The existing Laravel migration creates the "users" table. */
+    protected $table = 'users';
 
     /**
      * The attributes that are mass assignable.
@@ -19,7 +25,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
+        'login',
         'email',
         'password',
     ];
@@ -45,5 +51,25 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function cliente(): HasOne
+    {
+        return $this->hasOne(Cliente::class);
+    }
+
+    public function administrador(): HasOne
+    {
+        return $this->hasOne(Administrador::class);
+    }
+
+    public function logistica(): HasOne
+    {
+        return $this->hasOne(Logistica::class);
+    }
+
+    public function enderecos(): HasMany
+    {
+        return $this->hasMany(Endereco::class);
     }
 }

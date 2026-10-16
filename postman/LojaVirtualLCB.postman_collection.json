@@ -1,0 +1,1335 @@
+﻿{
+    "info":  {
+                 "_postman_id":  "3e3a0dbc-bfd6-49c5-9c88-1965fd473460",
+                 "name":  "Loja Virtual LCB API",
+                 "description":  "ColeÃ§Ã£o de API: autenticaÃ§Ã£o, clientes, catÃ¡logo de produtos, estoque, carrinhos Redis, pedidos PostgreSQL e administraÃ§Ã£o. Cadastre/login um cliente para os fluxos de compra; login administrativo para catÃ¡logo, imagens e estoque. Rode docker compose exec php php artisan migrate --seed para popular produtos LCB. Consulte postman/README.md.",
+                 "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+             },
+    "variable":  [
+                     {
+                         "key":  "baseUrl",
+                         "value":  "http://localhost/api",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "clienteLogin",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "clienteEmail",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "clientePassword",
+                         "value":  "Senha@12345",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "clienteId",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "clienteToken",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "adminLogin",
+                         "value":  "superadmin-teste",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "adminPassword",
+                         "value":  "Senha@12345",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "adminToken",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "adminId",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "logisticaId",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "carrinhoId",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "codigoProduto",
+                         "value":  "1",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "senhaTeste",
+                         "value":  "Senha@12345",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "formaPagamentoId",
+                         "type":  "string",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "pedidoId",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "idempotencyKey",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "produtoId",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "imagemProdutoId",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "movimentacaoEstoqueId",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "codigoNovoProduto",
+                         "type":  "string",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "movimentacaoSaidaId",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "precoIdNovo",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "precoAntigoId",
+                         "value":  "",
+                         "type":  "string"
+                     }
+                 ],
+    "item":  [
+                 {
+                     "name":  "AutenticaÃ§Ã£o e Cliente",
+                     "item":  [
+                                  {
+                                      "name":  "1. Cadastrar Cliente com endereÃ§o",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "prerequest",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "const runId = Date.now();",
+                                                                                    "pm.collectionVariables.set(\u0027clienteLogin\u0027, `cliente_${runId}`);",
+                                                                                    "pm.collectionVariables.set(\u0027clienteEmail\u0027, `cliente_${runId}@example.test`);"
+                                                                                ]
+                                                                   }
+                                                    },
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Cliente criado\u0027, () =\u003e pm.response.to.have.status(201));",
+                                                                                    "const body = pm.response.json();",
+                                                                                    "pm.collectionVariables.set(\u0027clienteId\u0027, String(body.id));",
+                                                                                    "pm.test(\u0027Perfil Cliente e endereÃ§o retornados\u0027, () =\u003e {",
+                                                                                    "  pm.expect(body.cliente).to.be.an(\u0027object\u0027);",
+                                                                                    "  pm.expect(body.enderecos).to.be.an(\u0027array\u0027).that.is.not.empty;",
+                                                                                    "});"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"login\": \"{{clienteLogin}}\",\n  \"email\": \"{{clienteEmail}}\",\n  \"password\": \"{{clientePassword}}\",\n  \"password_confirmation\": \"{{clientePassword}}\",\n  \"endereco\": {\n    \"logradouro\": \"Rua de Teste\",\n    \"numero\": \"123\",\n    \"complemento\": \"Apto 10\",\n    \"cidade\": \"SÃ£o Paulo\",\n    \"estado\": \"SP\",\n    \"pais\": \"BR\",\n    \"cep\": \"01001-000\"\n  }\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/usuarios",
+                                                      "description":  "Rota pÃºblica. O tipo padrÃ£o Ã© cliente; endereÃ§o Ã© opcional. O script gera login e e-mail Ãºnicos em cada envio."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "2. Login de Cliente (e-mail)",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Login realizado\u0027, () =\u003e pm.response.to.have.status(200));",
+                                                                                    "const body = pm.response.json();",
+                                                                                    "pm.collectionVariables.set(\u0027clienteToken\u0027, body.token);",
+                                                                                    "pm.collectionVariables.set(\u0027clienteId\u0027, String(body.usuario.id));",
+                                                                                    "pm.test(\u0027Token Bearer retornado\u0027, () =\u003e pm.expect(body.token_type).to.eql(\u0027Bearer\u0027));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"login\": \"{{clienteEmail}}\",\n  \"password\": \"{{clientePassword}}\",\n  \"device_name\": \"postman-cliente\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/login",
+                                                      "description":  "Pode usar o e-mail ou o login do Cliente. Salva o token na variÃ¡vel clienteToken."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "3. Consultar o prÃ³prio usuÃ¡rio",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/usuarios/{{clienteId}}"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "4. Atualizar login do Cliente",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027UsuÃ¡rio atualizado\u0027, () =\u003e pm.response.to.have.status(200));",
+                                                                                    "pm.collectionVariables.set(\u0027clienteLogin\u0027, pm.response.json().login);"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"login\": \"{{clienteLogin}}_atualizado\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/usuarios/{{clienteId}}"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "5. Logout do Cliente",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/logout",
+                                                      "description":  "Revoga o token usado no login. Para testar a exclusÃ£o depois, faÃ§a login novamente."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "6. Excluir o prÃ³prio usuÃ¡rio",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/usuarios/{{clienteId}}",
+                                                      "description":  "Antes de enviar, execute novamente Login de Cliente para obter um token vÃ¡lido. A resposta esperada Ã© 204; usuÃ¡rio, endereÃ§os, perfil e tokens sÃ£o removidos."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Login com senha incorreta (espera 401)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"login\": \"{{clienteEmail}}\",\n  \"password\": \"senha-incorreta\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/login"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Cadastro pÃºblico de Administrador (espera 403)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"login\": \"admin-nao-autorizado\",\n  \"email\": \"admin-nao-autorizado@example.test\",\n  \"password\": \"{{senhaTeste}}\",\n  \"password_confirmation\": \"{{senhaTeste}}\",\n  \"tipo\": \"administrador\",\n  \"perfil\": {\n    \"nivel_de_acesso\": \"administrador\"\n  }\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/usuarios",
+                                                      "description":  "Demonstra que a rota pÃºblica sÃ³ permite cadastro de Cliente."
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Carrinho Redis (somente Cliente autenticado)",
+                     "description":  "Carrinho temporÃ¡rio no Redis. O campo codigo neste fluxo Ã© o ID numÃ©rico do produto; o catÃ¡logo tambÃ©m expÃµe seu cÃ³digo SKU textual. O TTL padrÃ£o Ã© sete dias, configurÃ¡vel por CARRINHO_TTL.",
+                     "item":  [
+                                  {
+                                      "name":  "1. Criar ou obter carrinho",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Carrinho retornado\u0027, () =\u003e pm.response.to.have.status(200));",
+                                                                                    "pm.collectionVariables.set(\u0027carrinhoId\u0027, String(pm.response.json().id));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/carrinho",
+                                                      "description":  "Cria um carrinho vazio quando ainda nÃ£o existe; caso contrÃ¡rio retorna o atual."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "2. Consultar carrinho",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/carrinho"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "3. Criar item no carrinho",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Produto adicionado\u0027, () =\u003e pm.response.to.have.status(200));",
+                                                                                    "pm.expect(pm.response.json().itens).to.be.an(\u0027array\u0027).that.is.not.empty;"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"codigo\": {{codigoProduto}},\n  \"quantidade\": 2.5\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/carrinho/itens",
+                                                      "description":  "Se o carrinho ainda nÃ£o existir, esta operaÃ§Ã£o cria-o automaticamente. Repetir o mesmo cÃ³digo soma a quantidade; aceita quantidades fracionÃ¡rias."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "4. Alterar quantidade de um item",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"quantidade\": 1.75\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/carrinho/itens/{{codigoProduto}}",
+                                                      "description":  "Atualiza a quantidade; a resposta do item inclui modificado=true quando o valor mudou."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "5. Substituir os itens do carrinho",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "PUT",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"itens\": [\n    { \"codigo\": {{codigoProduto}}, \"quantidade\": 3.5 },\n    { \"codigo\": 2, \"quantidade\": 1 }\n  ]\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/carrinho"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "6. Excluir item do carrinho",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/carrinho/itens/{{codigoProduto}}",
+                                                      "description":  "Retorna 204 se o item existia; caso contrÃ¡rio, 404."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "7. Excluir carrinho",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/carrinho",
+                                                      "description":  "Remove o carrinho do Redis e retorna 204."
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Produtos e Estoque",
+                     "description":  "Leitura do catÃ¡logo Ã© pÃºblica. AlteraÃ§Ãµes, imagens e movimentaÃ§Ãµes exigem adminToken. O estoque Ã© a soma das entradas menos as saÃ­das; exclusÃ£o de movimentaÃ§Ã£o cria um estorno auditÃ¡vel.",
+                     "item":  [
+                                  {
+                                      "name":  "1. Listar catÃ¡logo pÃºblico",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/produtos"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "2. Criar produto",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "prerequest",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.collectionVariables.set(\u0027codigoNovoProduto\u0027, `LCB-POSTMAN-${Date.now()}`);"
+                                                                                ]
+                                                                   }
+                                                    },
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Produto criado\u0027, () =\u003e pm.response.to.have.status(201));",
+                                                                                    "pm.collectionVariables.set(\u0027produtoId\u0027, String(pm.response.json().id));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"codigo\": \"{{codigoNovoProduto}}\",\n  \"nome\": \"Produto manual da LCB\",\n  \"categoria\": \"bandeira\",\n  \"preco\": 35.00,\n  \"ativo\": true\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/produtos"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "3. Atualizar produto",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"nome\": \"Bandeira da Liga Comunista Brasileira\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "4. Adicionar imagem do produto",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Imagem criada\u0027, () =\u003e pm.response.to.have.status(201));",
+                                                                                    "pm.collectionVariables.set(\u0027imagemProdutoId\u0027, String(pm.response.json().id));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"path\": \"https://example.test/imagens/bandeira-lcb.jpg\",\n  \"principal\": true\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}/imagens"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "5. Atualizar imagem",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"principal\": true\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}/imagens/{{imagemProdutoId}}"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "6. Excluir imagem",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}/imagens/{{imagemProdutoId}}"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "7. Registrar entrada no estoque",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Entrada registrada\u0027, () =\u003e pm.response.to.have.status(201));",
+                                                                                    "pm.collectionVariables.set(\u0027movimentacaoEstoqueId\u0027, String(pm.response.json().id));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"produto_id\": {{produtoId}},\n  \"direcao\": \"entrada\",\n  \"quantidade\": 20,\n  \"nota\": \"NF-DEMO-001\",\n  \"observacao\": \"ReposiÃ§Ã£o de artigos da militÃ¢ncia\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/estoque/movimentacoes"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "11. Listar movimentaÃ§Ãµes",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/estoque/movimentacoes/{{movimentacaoSaidaId}}",
+                                                      "description":  "Cria uma entrada de estorno, mantendo a saÃ­da original no histÃ³rico."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "11. Listar movimentaÃ§Ãµes",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/estoque/movimentacoes"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "12. Estornar movimentaÃ§Ã£o de entrada",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/estoque/movimentacoes/{{movimentacaoEstoqueId}}",
+                                                      "description":  "O registro original Ã© mantido; a API cria outra movimentaÃ§Ã£o com direÃ§Ã£o oposta."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "13. Desativar produto",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}",
+                                                      "description":  "Desativa o produto sem apagar referÃªncias histÃ³ricas."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "14. Registrar novo preço (mantém histórico)",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Novo preço registrado\u0027, () =\u003e pm.response.to.have.status(201));",
+                                                                                    "pm.collectionVariables.set(\u0027precoIdNovo\u0027, String(pm.response.json().id));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"preco\": 39.90\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}/precos"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "15. Consultar histórico de preços",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Histórico retornado\u0027, () =\u003e pm.response.to.have.status(200));",
+                                                                                    "const precos = pm.response.json();",
+                                                                                    "if (precos.length \u003e 1) pm.collectionVariables.set(\u0027precoAntigoId\u0027, String(precos[precos.length - 1].id));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}/precos"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "16. Excluir preço antigo sem pedidos",
+                                      "event":  [
+
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/precos/{{precoAntigoId}}"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Pedidos (checkout PostgreSQL)",
+                     "description":  "O checkout copia os itens e o preÃ§o vigente do catÃ¡logo para o pedido em uma transaÃ§Ã£o. Idempotency-Key evita pedidos duplicados. O pedido permanece no PostgreSQL mesmo apÃ³s cancelado.",
+                     "item":  [
+                                  {
+                                      "name":  "1. Comprar (converter carrinho em pedido)",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "prerequest",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.collectionVariables.set(\u0027idempotencyKey\u0027, pm.variables.replaceIn(\u0027{{$guid}}\u0027));"
+                                                                                ]
+                                                                   }
+                                                    },
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Pedido criado\u0027, () =\u003e pm.response.to.have.status(201));",
+                                                                                    "const body = pm.response.json();",
+                                                                                    "pm.collectionVariables.set(\u0027pedidoId\u0027, String(body.id));",
+                                                                                    "pm.test(\u0027Pedido contÃ©m itens e status\u0027, () =\u003e { pm.expect(body.itens).to.be.an(\u0027array\u0027).that.is.not.empty; pm.expect(body.status).to.eql(\u0027aguardando_pagamento\u0027); });"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Idempotency-Key",
+                                                                         "value":  "{{idempotencyKey}}"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"forma_pagamento_id\": {{formaPagamentoId}}\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/pedidos",
+                                                      "description":  "Execute apÃ³s adicionar um produto ao carrinho. O seeder cria PIX como forma 1 e produto 1. Gere uma nova chave para uma nova compra."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "2. Listar meus pedidos",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/pedidos"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "3. Consultar pedido",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/pedidos/{{pedidoId}}"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "4. Cancelar pedido aguardando pagamento",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/pedidos/{{pedidoId}}/cancelar",
+                                                      "description":  "Altera o status para cancelado e mantÃ©m o registro e seus itens no PostgreSQL."
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "OperaÃ§Ãµes administrativas (requer adminToken)",
+                     "description":  "Use a requisiÃ§Ã£o de login com superadmin-teste / Senha@12345. Veja postman/README.md.",
+                     "item":  [
+                                  {
+                                      "name":  "Login de Administrador",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Login administrativo realizado\u0027, () =\u003e pm.response.to.have.status(200));",
+                                                                                    "pm.collectionVariables.set(\u0027adminToken\u0027, pm.response.json().token);",
+                                                                                    "pm.collectionVariables.set(\u0027adminId\u0027, String(pm.response.json().usuario.id));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"login\": \"{{adminLogin}}\",\n  \"password\": \"{{adminPassword}}\",\n  \"device_name\": \"postman-admin\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/login"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Criar Administrador",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "prerequest",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "const runId = Date.now();",
+                                                                                    "pm.collectionVariables.set(\u0027novoAdminLogin\u0027, `admin_${runId}`);",
+                                                                                    "pm.collectionVariables.set(\u0027novoAdminEmail\u0027, `admin_${runId}@example.test`);"
+                                                                                ]
+                                                                   }
+                                                    },
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Administrador criado\u0027, () =\u003e pm.response.to.have.status(201));",
+                                                                                    "pm.collectionVariables.set(\u0027novoAdminId\u0027, String(pm.response.json().id));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"login\": \"{{novoAdminLogin}}\",\n  \"email\": \"{{novoAdminEmail}}\",\n  \"password\": \"{{senhaTeste}}\",\n  \"password_confirmation\": \"{{senhaTeste}}\",\n  \"tipo\": \"administrador\",\n  \"perfil\": {\n    \"nivel_de_acesso\": \"administrador\"\n  }\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/usuarios"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Criar LogÃ­stica",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "prerequest",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "const runId = Date.now();",
+                                                                                    "pm.collectionVariables.set(\u0027logisticaLogin\u0027, `logistica_${runId}`);",
+                                                                                    "pm.collectionVariables.set(\u0027logisticaEmail\u0027, `logistica_${runId}@example.test`);"
+                                                                                ]
+                                                                   }
+                                                    },
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027UsuÃ¡rio de LogÃ­stica criado\u0027, () =\u003e pm.response.to.have.status(201));",
+                                                                                    "pm.collectionVariables.set(\u0027logisticaId\u0027, String(pm.response.json().id));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"login\": \"{{logisticaLogin}}\",\n  \"email\": \"{{logisticaEmail}}\",\n  \"password\": \"{{senhaTeste}}\",\n  \"password_confirmation\": \"{{senhaTeste}}\",\n  \"tipo\": \"logistica\",\n  \"perfil\": {\n    \"nome\": \"Webhook de pagamentos\",\n    \"webhook\": \"https://example.test/webhooks/pagamentos\"\n  }\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/usuarios"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Criar Super Administrador (requer super_admin)",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "prerequest",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "const runId = Date.now();",
+                                                                                    "pm.collectionVariables.set(\u0027superAdminLogin\u0027, `superadmin_${runId}`);",
+                                                                                    "pm.collectionVariables.set(\u0027superAdminEmail\u0027, `superadmin_${runId}@example.test`);"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"login\": \"{{superAdminLogin}}\",\n  \"email\": \"{{superAdminEmail}}\",\n  \"password\": \"{{senhaTeste}}\",\n  \"password_confirmation\": \"{{senhaTeste}}\",\n  \"tipo\": \"administrador\",\n  \"perfil\": {\n    \"nivel_de_acesso\": \"super_administrador\"\n  }\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/usuarios"
+                                                  }
+                                  }
+                              ]
+                 }
+             ]
+}

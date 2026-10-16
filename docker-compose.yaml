@@ -30,6 +30,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
   db:
     image: postgres:16
@@ -48,6 +50,17 @@ services:
       test: ["CMD-SHELL", "pg_isready -U default -d default"]
       interval: 5s
       timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    networks:
+      - dockernet
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 10
 
   node:

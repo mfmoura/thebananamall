@@ -40,6 +40,7 @@ RUN install-php-extensions \
     mbstring \
     sodium \
     sqlite3 \
+    redis \
     xsl \
     xmlrpc \
     opcache \

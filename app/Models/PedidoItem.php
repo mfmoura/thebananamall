@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class PedidoItem extends Model
+{
+    protected $table = 'pedido_itens';
+
+    protected $fillable = [
+        'pedido_id',
+        'codigo',
+        'preco_id',
+        'preco',
+        'quantidade',
+        'data',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'preco' => 'decimal:2',
+            'quantidade' => 'decimal:3',
+            'data' => 'date:Y-m-d',
+        ];
+    }
+
+    public function pedido(): BelongsTo
+    {
+        return $this->belongsTo(Pedido::class);
+    }
+
+    public function produto(): BelongsTo
+    {
+        return $this->belongsTo(Produto::class, 'codigo');
+    }
+
+    public function precoOriginal(): BelongsTo
+    {
+        return $this->belongsTo(Preco::class, 'preco_id');
+    }
+
+    public function alterarQuantidade(float $quantidade): bool
+    {
+        if (! is_finite($quantidade) || $quantidade <= 0) {
+            return false;
+        }
+
+        $this->quantidade = $quantidade;
+        $this->data = now()->toDateString();
+
+        return $this->save();
+    }
+}
