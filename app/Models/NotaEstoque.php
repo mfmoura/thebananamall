@@ -10,7 +10,7 @@ class NotaEstoque extends Model
 {
     protected $table = 'notas_estoque';
 
-    protected $fillable = ['pedido_id', 'usuario_id', 'referencia', 'observacao'];
+    protected $fillable = ['pedido_id', 'nota_fiscal_id', 'usuario_id', 'referencia', 'observacao'];
 
     public function pedido(): BelongsTo
     {
@@ -20,6 +20,11 @@ class NotaEstoque extends Model
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(Usuario::class);
+    }
+
+    public function notaFiscal(): BelongsTo
+    {
+        return $this->belongsTo(NotaFiscal::class, 'nota_fiscal_id');
     }
 
     public function movimentacoes(): HasMany

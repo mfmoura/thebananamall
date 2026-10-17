@@ -21,15 +21,12 @@ class UpdateUsuarioRequest extends FormRequest
         $usuario = $this->route('usuario');
 
         return [
+            'email' => ['prohibited'],
             'login' => [
                 'sometimes', 'required', 'string', 'max:255',
                 Rule::unique('users', 'login')->ignore($usuario->id),
             ],
-            'email' => [
-                'sometimes', 'required', 'email', 'max:255',
-                Rule::unique('users', 'email')->ignore($usuario->id),
-            ],
-            'password' => ['sometimes', 'required', 'string', 'min:8', 'confirmed'],
+            'password' => ['sometimes', 'required', 'string', 'min:15', 'max:64', 'confirmed'],
         ];
     }
 }

@@ -11,7 +11,7 @@ class Produto extends Model
 {
     protected $table = 'produtos';
 
-    protected $fillable = ['codigo', 'nome', 'categoria', 'ativo'];
+    protected $fillable = ['codigo', 'nome', 'descricao', 'categoria', 'ativo', 'configuracao_fiscal'];
 
     protected $appends = ['preco'];
 
@@ -20,6 +20,7 @@ class Produto extends Model
     protected function casts(): array
     {
         return [
+            'configuracao_fiscal' => 'array',
             'categoria' => CategoriaProduto::class,
             'ativo' => 'boolean',
         ];

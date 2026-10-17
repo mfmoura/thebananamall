@@ -1,11 +1,13 @@
-﻿{
+{
     "info":  {
                  "_postman_id":  "3e3a0dbc-bfd6-49c5-9c88-1965fd473460",
                  "name":  "Loja Virtual LCB API",
-                 "description":  "ColeÃ§Ã£o de API: autenticaÃ§Ã£o, clientes, catÃ¡logo de produtos, estoque, carrinhos Redis, pedidos PostgreSQL e administraÃ§Ã£o. Cadastre/login um cliente para os fluxos de compra; login administrativo para catÃ¡logo, imagens e estoque. Rode docker compose exec php php artisan migrate --seed para popular produtos LCB. Consulte postman/README.md.",
+                 "description":  "ColeÃƒÂ§ÃƒÂ£o de API: autenticaÃƒÂ§ÃƒÂ£o, clientes, catÃƒÂ¡logo de produtos, estoque, carrinhos Redis, pedidos PostgreSQL e administraÃƒÂ§ÃƒÂ£o. Cadastre/login um cliente para os fluxos de compra; login administrativo para catÃƒÂ¡logo, imagens e estoque. Rode docker compose exec php php artisan migrate --seed para popular produtos LCB. Consulte postman/README.md. A disponibilidade de estoque desconta reservas ativas dos carrinhos, e itens acima do saldo disponível são rejeitados.",
                  "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
              },
     "variable":  [
+                     {"key": "bffUrl", "value": "http://localhost/bff", "type": "string"},
+                     {"key": "csrfToken", "value": "", "type": "string"},
                      {
                          "key":  "baseUrl",
                          "value":  "http://localhost/api",
@@ -125,14 +127,152 @@
                          "key":  "precoAntigoId",
                          "value":  "",
                          "type":  "string"
+                     },
+                     {
+                         "key":  "passwordRecoveryEmail",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "passwordRecoveryToken",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "passwordRecoveryNewPassword",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "contoraIdempotencyKey",
+                         "value":  "22222222-2222-4222-8222-222222222222",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "notaFiscalContoraId",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "logisticaToken",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "horizonUrl",
+                         "value":  "http://localhost/horizon",
+                         "type":  "string"
                      }
                  ],
     "item":  [
                  {
-                     "name":  "AutenticaÃ§Ã£o e Cliente",
+                     "name": "Descricao de produtos",
+                     "item": [
+                         {
+                             "name": "Atualizar descricao do produto",
+                             "request": {
+                                 "method": "PUT",
+                                 "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{adminToken}}", "type": "string"}]},
+                                 "url": "{{baseUrl}}/admin/produtos/{{produtoId}}",
+                                 "header": [{"key": "Content-Type", "value": "application/json"}],
+                                 "body": {"mode": "raw", "raw": "{\n  \"descricao\": \"Artigo da Liga Comunista Brasileira para acompanhar a militância e expressar nossa identidade coletiva.\"\n}"},
+                                 "description": "Exige Administrador com pagina Estoque e escopo admin:manage. Aceita texto de ate 10000 caracteres ou null para remover a descricao."
+                             }
+                         },
+                         {
+                             "name": "Consultar produto com descricao",
+                             "request": {"method": "GET", "auth": {"type": "noauth"}, "url": "{{baseUrl}}/produtos/{{produtoId}}"}
+                         }
+                     ]
+                 },
+                 {
+                     "name": "BFF - sessao HttpOnly",
+                     "description": "Preserve os cookies no Postman. Obtenha o CSRF em /oauth/csrf e copie csrf_token para csrfToken. Login usa /oauth/login; a autorizacao e callback acontecem pelo navegador. Tokens OAuth nunca sao retornados pelo BFF.",
+                     "item": [
+                         {"name": "Consultar sessao BFF", "request": {"method": "GET", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/session"}},
+                         {"name": "Catalogo pelo BFF", "request": {"method": "GET", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/produtos?per_page=5&page=1"}},
+                         {"name": "Minha conta pelo BFF", "request": {"method": "GET", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/me"}},
+                         {"name": "Carrinho pelo BFF", "request": {"method": "GET", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/carrinho"}},
+                         {"name": "Iniciar autorizacao BFF apos login", "request": {"method": "POST", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/authorize", "header": [{"key": "Accept", "value": "application/json"}, {"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}]}},
+                         {"name": "Criar carrinho sem expor token visitante", "request": {"method": "POST", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/carrinho", "header": [{"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}]}},
+                         {"name": "Adicionar produto pelo BFF", "request": {"method": "POST", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/carrinho/itens", "header": [{"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}, {"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"codigo\": {{produtoId}}, \"quantidade\": 1}"}}},
+                         {"name": "Mesclar carrinho pelo BFF", "request": {"method": "POST", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/carrinho/mesclar", "header": [{"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}]}},
+                         {"name": "Encerrar sessao e revogar tokens BFF", "request": {"method": "POST", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/logout", "header": [{"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}]}}
+                     ]
+                 },
+                 {
+                     "name": "Catalogo paginado e galeria",
+                     "item": [
+                         {
+                             "name": "Primeiros cinco produtos",
+                             "request": {
+                                 "method": "GET",
+                                 "auth": {"type": "noauth"},
+                                 "header": [{"key": "Accept", "value": "application/json"}],
+                                 "url": "{{baseUrl}}/produtos?per_page=5&page=1",
+                                 "description": "data.data contem cinco itens; data.next_page_url informa a proxima pagina. Cada produto inclui imagens e principal."
+                             }
+                         },
+                         {
+                             "name": "Proximos cinco produtos",
+                             "request": {
+                                 "method": "GET",
+                                 "auth": {"type": "noauth"},
+                                 "header": [{"key": "Accept", "value": "application/json"}],
+                                 "url": "{{baseUrl}}/produtos?per_page=5&page=2"
+                             }
+                         }
+                     ]
+                 },
+                 {
+                     "name": "Frontend React - sessao e checkout",
+                     "item": [
+                         {
+                             "name": "Consultar minha conta autenticada",
+                             "request": {
+                                 "method": "GET",
+                                 "header": [{"key": "Accept", "value": "application/json"}],
+                                 "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{clienteToken}}", "type": "string"}]},
+                                 "url": "{{baseUrl}}/me",
+                                 "description": "Retorna somente a conta do token atual, incluindo perfis e enderecos; requer OAuth2."
+                             }
+                         },
+                         {
+                             "name": "Listar formas de pagamento ativas",
+                             "request": {
+                                 "method": "GET",
+                                 "auth": {"type": "noauth"},
+                                 "header": [{"key": "Accept", "value": "application/json"}],
+                                 "url": "{{baseUrl}}/formas-pagamento",
+                                 "description": "Consulta publica para o seletor do checkout. Nao efetua cobranca."
+                             }
+                         },
+                         {
+                             "name": "Obter CSRF da sessao web",
+                             "request": {
+                                 "method": "GET",
+                                 "auth": {"type": "noauth"},
+                                 "url": "http://localhost/oauth/csrf",
+                                 "description": "Copie csrf_token da resposta para a variavel csrfToken e preserve os cookies desta sessao."
+                             }
+                         },
+                         {
+                             "name": "Encerrar sessao web OAuth",
+                             "request": {
+                                 "method": "POST",
+                                 "auth": {"type": "noauth"},
+                                 "header": [{"key": "Accept", "value": "application/json"}, {"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}],
+                                 "url": "http://localhost/oauth/logout",
+                                 "description": "Invalida sessao e cookies web. Use tambem POST /api/logout para revogar o token OAuth atual."
+                             }
+                         }
+                     ]
+                 },
+                 {
+                     "name":  "AutenticaÃƒÂ§ÃƒÂ£o e Cliente",
                      "item":  [
                                   {
-                                      "name":  "1. Cadastrar Cliente com endereÃ§o",
+                                      "name":  "1. Cadastrar Cliente com endereÃƒÂ§o",
                                       "event":  [
                                                     {
                                                         "listen":  "prerequest",
@@ -153,7 +293,7 @@
                                                                                     "pm.test(\u0027Cliente criado\u0027, () =\u003e pm.response.to.have.status(201));",
                                                                                     "const body = pm.response.json();",
                                                                                     "pm.collectionVariables.set(\u0027clienteId\u0027, String(body.id));",
-                                                                                    "pm.test(\u0027Perfil Cliente e endereÃ§o retornados\u0027, () =\u003e {",
+                                                                                    "pm.test(\u0027Perfil Cliente e endereÃƒÂ§o retornados\u0027, () =\u003e {",
                                                                                     "  pm.expect(body.cliente).to.be.an(\u0027object\u0027);",
                                                                                     "  pm.expect(body.enderecos).to.be.an(\u0027array\u0027).that.is.not.empty;",
                                                                                     "});"
@@ -171,7 +311,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"login\": \"{{clienteLogin}}\",\n  \"email\": \"{{clienteEmail}}\",\n  \"password\": \"{{clientePassword}}\",\n  \"password_confirmation\": \"{{clientePassword}}\",\n  \"endereco\": {\n    \"logradouro\": \"Rua de Teste\",\n    \"numero\": \"123\",\n    \"complemento\": \"Apto 10\",\n    \"cidade\": \"SÃ£o Paulo\",\n    \"estado\": \"SP\",\n    \"pais\": \"BR\",\n    \"cep\": \"01001-000\"\n  }\n}",
+                                                                   "raw":  "{\n  \"login\": \"{{clienteLogin}}\",\n  \"email\": \"{{clienteEmail}}\",\n  \"password\": \"{{clientePassword}}\",\n  \"password_confirmation\": \"{{clientePassword}}\",\n  \"endereco\": {\n    \"logradouro\": \"Rua de Teste\",\n    \"numero\": \"123\",\n    \"complemento\": \"Apto 10\",\n    \"cidade\": \"SÃƒÂ£o Paulo\",\n    \"estado\": \"SP\",\n    \"pais\": \"BR\",\n    \"cep\": \"01001-000\"\n  }\n}",
                                                                    "options":  {
                                                                                    "raw":  {
                                                                                                "language":  "json"
@@ -179,7 +319,7 @@
                                                                                }
                                                                },
                                                       "url":  "{{baseUrl}}/usuarios",
-                                                      "description":  "Rota pÃºblica. O tipo padrÃ£o Ã© cliente; endereÃ§o Ã© opcional. O script gera login e e-mail Ãºnicos em cada envio."
+                                                      "description":  "Rota pÃƒÂºblica. O tipo padrÃƒÂ£o ÃƒÂ© cliente; endereÃƒÂ§o ÃƒÂ© opcional. O script gera login e e-mail ÃƒÂºnicos em cada envio."
                                                   }
                                   },
                                   {
@@ -217,11 +357,11 @@
                                                                                }
                                                                },
                                                       "url":  "{{baseUrl}}/login",
-                                                      "description":  "Pode usar o e-mail ou o login do Cliente. Salva o token na variÃ¡vel clienteToken."
+                                                      "description":  "Pode usar o e-mail ou o login do Cliente. Salva o token na variÃƒÂ¡vel clienteToken."
                                                   }
                                   },
                                   {
-                                      "name":  "3. Consultar o prÃ³prio usuÃ¡rio",
+                                      "name":  "3. Consultar o prÃƒÂ³prio usuÃƒÂ¡rio",
                                       "request":  {
                                                       "auth":  {
                                                                    "type":  "bearer",
@@ -248,7 +388,7 @@
                                                         "script":  {
                                                                        "type":  "text/javascript",
                                                                        "exec":  [
-                                                                                    "pm.test(\u0027UsuÃ¡rio atualizado\u0027, () =\u003e pm.response.to.have.status(200));",
+                                                                                    "pm.test(\u0027UsuÃƒÂ¡rio atualizado\u0027, () =\u003e pm.response.to.have.status(200));",
                                                                                     "pm.collectionVariables.set(\u0027clienteLogin\u0027, pm.response.json().login);"
                                                                                 ]
                                                                    }
@@ -302,11 +442,11 @@
 
                                                                  ],
                                                       "url":  "{{baseUrl}}/logout",
-                                                      "description":  "Revoga o token usado no login. Para testar a exclusÃ£o depois, faÃ§a login novamente."
+                                                      "description":  "Revoga o token usado no login. Para testar a exclusÃƒÂ£o depois, faÃƒÂ§a login novamente."
                                                   }
                                   },
                                   {
-                                      "name":  "6. Excluir o prÃ³prio usuÃ¡rio",
+                                      "name":  "6. Excluir o prÃƒÂ³prio usuÃƒÂ¡rio",
                                       "request":  {
                                                       "auth":  {
                                                                    "type":  "bearer",
@@ -323,7 +463,7 @@
 
                                                                  ],
                                                       "url":  "{{baseUrl}}/usuarios/{{clienteId}}",
-                                                      "description":  "Antes de enviar, execute novamente Login de Cliente para obter um token vÃ¡lido. A resposta esperada Ã© 204; usuÃ¡rio, endereÃ§os, perfil e tokens sÃ£o removidos."
+                                                      "description":  "Antes de enviar, execute novamente Login de Cliente para obter um token vÃƒÂ¡lido. A resposta esperada ÃƒÂ© 204; usuÃƒÂ¡rio, endereÃƒÂ§os, perfil e tokens sÃƒÂ£o removidos."
                                                   }
                                   },
                                   {
@@ -349,7 +489,7 @@
                                                   }
                                   },
                                   {
-                                      "name":  "Cadastro pÃºblico de Administrador (espera 403)",
+                                      "name":  "Cadastro pÃƒÂºblico de Administrador (espera 403)",
                                       "request":  {
                                                       "method":  "POST",
                                                       "header":  [
@@ -368,14 +508,14 @@
                                                                                }
                                                                },
                                                       "url":  "{{baseUrl}}/usuarios",
-                                                      "description":  "Demonstra que a rota pÃºblica sÃ³ permite cadastro de Cliente."
+                                                      "description":  "Demonstra que a rota pÃƒÂºblica sÃƒÂ³ permite cadastro de Cliente."
                                                   }
                                   }
                               ]
                  },
                  {
                      "name":  "Carrinho Redis (somente Cliente autenticado)",
-                     "description":  "Carrinho temporÃ¡rio no Redis. O campo codigo neste fluxo Ã© o ID numÃ©rico do produto; o catÃ¡logo tambÃ©m expÃµe seu cÃ³digo SKU textual. O TTL padrÃ£o Ã© sete dias, configurÃ¡vel por CARRINHO_TTL.",
+                     "description":  "Carrinho temporÃƒÂ¡rio no Redis. O campo codigo neste fluxo ÃƒÂ© o ID numÃƒÂ©rico do produto; o catÃƒÂ¡logo tambÃƒÂ©m expÃƒÂµe seu cÃƒÂ³digo SKU textual. O TTL padrÃƒÂ£o ÃƒÂ© sete dias, configurÃƒÂ¡vel por CARRINHO_TTL.",
                      "item":  [
                                   {
                                       "name":  "1. Criar ou obter carrinho",
@@ -407,7 +547,7 @@
 
                                                                  ],
                                                       "url":  "{{baseUrl}}/carrinho",
-                                                      "description":  "Cria um carrinho vazio quando ainda nÃ£o existe; caso contrÃ¡rio retorna o atual."
+                                                      "description":  "Cria um carrinho vazio quando ainda nÃƒÂ£o existe; caso contrÃƒÂ¡rio retorna o atual."
                                                   }
                                   },
                                   {
@@ -472,7 +612,7 @@
                                                                                }
                                                                },
                                                       "url":  "{{baseUrl}}/carrinho/itens",
-                                                      "description":  "Se o carrinho ainda nÃ£o existir, esta operaÃ§Ã£o cria-o automaticamente. Repetir o mesmo cÃ³digo soma a quantidade; aceita quantidades fracionÃ¡rias."
+                                                      "description":  "Se o carrinho ainda nÃƒÂ£o existir, esta operaÃƒÂ§ÃƒÂ£o cria-o automaticamente. Repetir o mesmo cÃƒÂ³digo soma a quantidade; aceita quantidades fracionÃƒÂ¡rias."
                                                   }
                                   },
                                   {
@@ -558,7 +698,7 @@
 
                                                                  ],
                                                       "url":  "{{baseUrl}}/carrinho/itens/{{codigoProduto}}",
-                                                      "description":  "Retorna 204 se o item existia; caso contrÃ¡rio, 404."
+                                                      "description":  "Retorna 204 se o item existia; caso contrÃƒÂ¡rio, 404."
                                                   }
                                   },
                                   {
@@ -586,10 +726,10 @@
                  },
                  {
                      "name":  "Produtos e Estoque",
-                     "description":  "Leitura do catÃ¡logo Ã© pÃºblica. AlteraÃ§Ãµes, imagens e movimentaÃ§Ãµes exigem adminToken. O estoque Ã© a soma das entradas menos as saÃ­das; exclusÃ£o de movimentaÃ§Ã£o cria um estorno auditÃ¡vel.",
+                     "description":  "Leitura do catÃƒÂ¡logo ÃƒÂ© pÃƒÂºblica. AlteraÃƒÂ§ÃƒÂµes, imagens e movimentaÃƒÂ§ÃƒÂµes exigem adminToken. O estoque ÃƒÂ© a soma das entradas menos as saÃƒÂ­das; exclusÃƒÂ£o de movimentaÃƒÂ§ÃƒÂ£o cria um estorno auditÃƒÂ¡vel.",
                      "item":  [
                                   {
-                                      "name":  "1. Listar catÃ¡logo pÃºblico",
+                                      "name":  "1. Listar catÃƒÂ¡logo pÃƒÂºblico",
                                       "request":  {
                                                       "method":  "GET",
                                                       "header":  [
@@ -641,7 +781,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"codigo\": \"{{codigoNovoProduto}}\",\n  \"nome\": \"Produto manual da LCB\",\n  \"categoria\": \"bandeira\",\n  \"preco\": 35.00,\n  \"ativo\": true\n}",
+                                                                   "raw":  "{\n  \"codigo\": \"{{codigoNovoProduto}}\",\n  \"nome\": \"Produto manual da LCB\",\n  \"descricao\": \"Artigo da Liga Comunista Brasileira para expressar a identidade da nossa militância.\",\n  \"categoria\": \"bandeira\",\n  \"preco\": 35.00,\n  \"ativo\": true,\n  \"configuracao_fiscal\": {\"ncm\":\"63079090\",\"cfop_interno\":\"5102\",\"cfop_interestadual\":\"6102\",\"unidade\":\"UN\",\"tributos\":{\"icms\":{\"code\":\"102\",\"origin\":0}}}\n}",
                                                                    "options":  {
                                                                                    "raw":  {
                                                                                                "language":  "json"
@@ -673,7 +813,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"nome\": \"Bandeira da Liga Comunista Brasileira\"\n}",
+                                                                   "raw":  "{\n  \"nome\": \"Bandeira da Liga Comunista Brasileira\",\n  \"configuracao_fiscal\": {\"ncm\":\"63079090\",\"cfop_interno\":\"5102\",\"cfop_interestadual\":\"6102\",\"unidade\":\"UN\",\"tributos\":{\"icms\":{\"code\":\"102\",\"origin\":0}}}\n}",
                                                                    "options":  {
                                                                                    "raw":  {
                                                                                                "language":  "json"
@@ -780,7 +920,7 @@
                                                   }
                                   },
                                   {
-                                      "name":  "7. Registrar entrada no estoque",
+                                      "name":  "7. Registrar ajuste de entrada (Estoque ou Manutencao)",
                                       "event":  [
                                                     {
                                                         "listen":  "test",
@@ -788,7 +928,7 @@
                                                                        "type":  "text/javascript",
                                                                        "exec":  [
                                                                                     "pm.test(\u0027Entrada registrada\u0027, () =\u003e pm.response.to.have.status(201));",
-                                                                                    "pm.collectionVariables.set(\u0027movimentacaoEstoqueId\u0027, String(pm.response.json().id));"
+                                                                                    "pm.collectionVariables.set(\u0027movimentacaoEstoqueId\u0027, String(pm.response.json().data.id));"
                                                                                 ]
                                                                    }
                                                     }
@@ -813,7 +953,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"produto_id\": {{produtoId}},\n  \"direcao\": \"entrada\",\n  \"quantidade\": 20,\n  \"nota\": \"NF-DEMO-001\",\n  \"observacao\": \"ReposiÃ§Ã£o de artigos da militÃ¢ncia\"\n}",
+                                                                   "raw":  "{\n  \"produto_id\": {{produtoId}},\n  \"direcao\": \"entrada\",\n  \"quantidade\": 20,\n  \"nota\": \"AJUSTE-DEMO-001\",\n  \"observacao\": \"Ajuste de inventario\"\n}",
                                                                    "options":  {
                                                                                    "raw":  {
                                                                                                "language":  "json"
@@ -824,7 +964,7 @@
                                                   }
                                   },
                                   {
-                                      "name":  "11. Listar movimentaÃ§Ãµes",
+                                      "name":  "11. Listar movimentaÃƒÂ§ÃƒÂµes",
                                       "request":  {
                                                       "auth":  {
                                                                    "type":  "bearer",
@@ -841,11 +981,11 @@
 
                                                                  ],
                                                       "url":  "{{baseUrl}}/admin/estoque/movimentacoes/{{movimentacaoSaidaId}}",
-                                                      "description":  "Cria uma entrada de estorno, mantendo a saÃ­da original no histÃ³rico."
+                                                      "description":  "Cria uma entrada de estorno, mantendo a saÃƒÂ­da original no histÃƒÂ³rico."
                                                   }
                                   },
                                   {
-                                      "name":  "11. Listar movimentaÃ§Ãµes",
+                                      "name":  "11. Listar movimentaÃƒÂ§ÃƒÂµes",
                                       "request":  {
                                                       "auth":  {
                                                                    "type":  "bearer",
@@ -865,7 +1005,7 @@
                                                   }
                                   },
                                   {
-                                      "name":  "12. Estornar movimentaÃ§Ã£o de entrada",
+                                      "name":  "12. Estornar movimentaÃƒÂ§ÃƒÂ£o de entrada",
                                       "request":  {
                                                       "auth":  {
                                                                    "type":  "bearer",
@@ -882,7 +1022,7 @@
 
                                                                  ],
                                                       "url":  "{{baseUrl}}/admin/estoque/movimentacoes/{{movimentacaoEstoqueId}}",
-                                                      "description":  "O registro original Ã© mantido; a API cria outra movimentaÃ§Ã£o com direÃ§Ã£o oposta."
+                                                      "description":  "O registro original ÃƒÂ© mantido; a API cria outra movimentaÃƒÂ§ÃƒÂ£o com direÃƒÂ§ÃƒÂ£o oposta."
                                                   }
                                   },
                                   {
@@ -903,18 +1043,18 @@
 
                                                                  ],
                                                       "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}",
-                                                      "description":  "Desativa o produto sem apagar referÃªncias histÃ³ricas."
+                                                      "description":  "Desativa o produto sem apagar referÃƒÂªncias histÃƒÂ³ricas."
                                                   }
                                   },
                                   {
-                                      "name":  "14. Registrar novo preço (mantém histórico)",
+                                      "name":  "14. Registrar novo preÃ§o (mantÃ©m histÃ³rico)",
                                       "event":  [
                                                     {
                                                         "listen":  "test",
                                                         "script":  {
                                                                        "type":  "text/javascript",
                                                                        "exec":  [
-                                                                                    "pm.test(\u0027Novo preço registrado\u0027, () =\u003e pm.response.to.have.status(201));",
+                                                                                    "pm.test(\u0027Novo preÃ§o registrado\u0027, () =\u003e pm.response.to.have.status(201));",
                                                                                     "pm.collectionVariables.set(\u0027precoIdNovo\u0027, String(pm.response.json().id));"
                                                                                 ]
                                                                    }
@@ -951,14 +1091,14 @@
                                                   }
                                   },
                                   {
-                                      "name":  "15. Consultar histórico de preços",
+                                      "name":  "15. Consultar histÃ³rico de preÃ§os",
                                       "event":  [
                                                     {
                                                         "listen":  "test",
                                                         "script":  {
                                                                        "type":  "text/javascript",
                                                                        "exec":  [
-                                                                                    "pm.test(\u0027Histórico retornado\u0027, () =\u003e pm.response.to.have.status(200));",
+                                                                                    "pm.test(\u0027HistÃ³rico retornado\u0027, () =\u003e pm.response.to.have.status(200));",
                                                                                     "const precos = pm.response.json();",
                                                                                     "if (precos.length \u003e 1) pm.collectionVariables.set(\u0027precoAntigoId\u0027, String(precos[precos.length - 1].id));"
                                                                                 ]
@@ -984,7 +1124,7 @@
                                                   }
                                   },
                                   {
-                                      "name":  "16. Excluir preço antigo sem pedidos",
+                                      "name":  "16. Excluir preÃ§o antigo sem pedidos",
                                       "event":  [
 
                                                 ],
@@ -1005,12 +1145,57 @@
                                                                  ],
                                                       "url":  "{{baseUrl}}/admin/precos/{{precoAntigoId}}"
                                                   }
+                                  },
+                                  {
+                                      "name":  "8. Registrar nota fiscal de entrada (Contabilidade)",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"natureza_operacao\": \"compra\",\n  \"provedor\": \"manual\",\n  \"referencia_provedor\": \"NF-COMPRA-DEMO-001\",\n  \"numero\": \"DEMO-001\",\n  \"data_emissao\": \"2026-10-16T12:00:00-03:00\",\n  \"itens\": [\n    {\n      \"produto_id\": {{produtoId}},\n      \"quantidade\": 10,\n      \"valor_unitario\": 25.00\n    }\n  ]\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/notas-fiscais",
+                                                      "description":  "Registra uma nota autorizada de compra, remessa ou devolucao e gera a entrada de estoque."
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Nota fiscal registrada\u0027, () =\u003e pm.response.to.have.status(201));",
+                                                                                    "pm.collectionVariables.set(\u0027notaFiscalId\u0027, String(pm.response.json().data.id));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
                                   }
                               ]
                  },
                  {
                      "name":  "Pedidos (checkout PostgreSQL)",
-                     "description":  "O checkout copia os itens e o preÃ§o vigente do catÃ¡logo para o pedido em uma transaÃ§Ã£o. Idempotency-Key evita pedidos duplicados. O pedido permanece no PostgreSQL mesmo apÃ³s cancelado.",
+                     "description":  "O checkout copia os itens e o preÃƒÂ§o vigente do catÃƒÂ¡logo para o pedido em uma transaÃƒÂ§ÃƒÂ£o. Idempotency-Key evita pedidos duplicados. O pedido permanece no PostgreSQL mesmo apÃƒÂ³s cancelado.",
                      "item":  [
                                   {
                                       "name":  "1. Comprar (converter carrinho em pedido)",
@@ -1020,7 +1205,7 @@
                                                         "script":  {
                                                                        "type":  "text/javascript",
                                                                        "exec":  [
-                                                                                    "pm.collectionVariables.set(\u0027idempotencyKey\u0027, pm.variables.replaceIn(\u0027{{$guid}}\u0027));"
+                                                                                    "const key = pm.collectionVariables.get(\"idempotencyKey\"); if (!key || key.startsWith(\"{{\")) pm.collectionVariables.set(\"idempotencyKey\", pm.variables.replaceIn(\"{{$guid}}\"));"
                                                                                 ]
                                                                    }
                                                     },
@@ -1030,9 +1215,8 @@
                                                                        "type":  "text/javascript",
                                                                        "exec":  [
                                                                                     "pm.test(\u0027Pedido criado\u0027, () =\u003e pm.response.to.have.status(201));",
-                                                                                    "const body = pm.response.json();",
-                                                                                    "pm.collectionVariables.set(\u0027pedidoId\u0027, String(body.id));",
-                                                                                    "pm.test(\u0027Pedido contÃ©m itens e status\u0027, () =\u003e { pm.expect(body.itens).to.be.an(\u0027array\u0027).that.is.not.empty; pm.expect(body.status).to.eql(\u0027aguardando_pagamento\u0027); });"
+                                                                                    "if (pm.response.code === 201) pm.collectionVariables.set(\u0027pedidoId\u0027, String(pm.response.json().data.id));",
+                                                                                    "pm.test(\u0027Processamento fiscal pendente\u0027, () =\u003e pm.expect(pm.response.json().data.processamento_fiscal.status).to.eql(\u0027processando\u0027));"
                                                                                 ]
                                                                    }
                                                     }
@@ -1061,7 +1245,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"forma_pagamento_id\": {{formaPagamentoId}}\n}",
+                                                                   "raw":  "{\r\n    \"forma_pagamento_id\":  {{formaPagamentoId}},\r\n    \"dados_fiscais\":  {\r\n                          \"nome\":  \"NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL\",\r\n                          \"documento\":  \"12345678909\",\r\n                          \"indicador_ie\":  9,\r\n                          \"endereco\":  {\r\n                                           \"logradouro\":  \"Rua de Teste\",\r\n                                           \"numero\":  \"2\",\r\n                                           \"bairro\":  \"Centro\",\r\n                                           \"cidade\":  \"Sao Paulo\",\r\n                                           \"codigo_municipio\":  \"3550308\",\r\n                                           \"estado\":  \"SP\",\r\n                                           \"cep\":  \"01001000\"\r\n                                       }\r\n                      }\r\n}",
                                                                    "options":  {
                                                                                    "raw":  {
                                                                                                "language":  "json"
@@ -1069,7 +1253,7 @@
                                                                                }
                                                                },
                                                       "url":  "{{baseUrl}}/pedidos",
-                                                      "description":  "Execute apÃ³s adicionar um produto ao carrinho. O seeder cria PIX como forma 1 e produto 1. Gere uma nova chave para uma nova compra."
+                                                      "description":  "Cria pedido e acompanhamento fiscal sem chamar o provedor. A emissao entra na fila fiscal somente quando o backend confirma o pagamento. Consulte o pedido para acompanhar processamento_fiscal. Nao existe endpoint publico para marcar pagamento."
                                                   }
                                   },
                                   {
@@ -1130,14 +1314,35 @@
 
                                                                  ],
                                                       "url":  "{{baseUrl}}/pedidos/{{pedidoId}}/cancelar",
-                                                      "description":  "Altera o status para cancelado e mantÃ©m o registro e seus itens no PostgreSQL."
+                                                      "description":  "Altera o status para cancelado e mantÃƒÂ©m o registro e seus itens no PostgreSQL."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "5. Baixar meu DANFE apos processamento",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/pedidos/{{pedidoId}}/danfe",
+                                                      "description":  "Retorna PDF quando pronto; 409 enquanto processando. Somente o Cliente dono do pedido."
                                                   }
                                   }
                               ]
                  },
                  {
-                     "name":  "OperaÃ§Ãµes administrativas (requer adminToken)",
-                     "description":  "Use a requisiÃ§Ã£o de login com superadmin-teste / Senha@12345. Veja postman/README.md.",
+                     "name":  "OperaÃƒÂ§ÃƒÂµes administrativas (requer adminToken)",
+                     "description":  "Use a requisiÃƒÂ§ÃƒÂ£o de login com superadmin-teste / Senha@12345. Veja postman/README.md.",
                      "item":  [
                                   {
                                       "name":  "Login de Administrador",
@@ -1230,7 +1435,7 @@
                                                   }
                                   },
                                   {
-                                      "name":  "Criar LogÃ­stica",
+                                      "name":  "Criar LogÃƒÂ­stica",
                                       "event":  [
                                                     {
                                                         "listen":  "prerequest",
@@ -1248,7 +1453,7 @@
                                                         "script":  {
                                                                        "type":  "text/javascript",
                                                                        "exec":  [
-                                                                                    "pm.test(\u0027UsuÃ¡rio de LogÃ­stica criado\u0027, () =\u003e pm.response.to.have.status(201));",
+                                                                                    "pm.test(\u0027UsuÃƒÂ¡rio de LogÃƒÂ­stica criado\u0027, () =\u003e pm.response.to.have.status(201));",
                                                                                     "pm.collectionVariables.set(\u0027logisticaId\u0027, String(pm.response.json().id));"
                                                                                 ]
                                                                    }
@@ -1327,6 +1532,267 @@
                                                                                }
                                                                },
                                                       "url":  "{{baseUrl}}/admin/usuarios"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "RecuperaÃ§Ã£o de senha",
+                     "item":  [
+                                  {
+                                      "name":  "1. Solicitar link de recuperaÃ§Ã£o",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"{{passwordRecoveryEmail}}\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/senha/recuperar",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "senha",
+                                                                               "recuperar"
+                                                                           ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "2. Redefinir senha",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"token\": \"{{passwordRecoveryToken}}\",\n  \"password\": \"{{passwordRecoveryNewPassword}}\",\n  \"password_confirmation\": \"{{passwordRecoveryNewPassword}}\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/senha/redefinir",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "senha",
+                                                                               "redefinir"
+                                                                           ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Fiscal Contora (homologacao)",
+                     "description":  "Configure token e CNPJ no .env do backend. Admin Contabilidade com admin:manage; Logistica com logistics:manage. Reutilize a chave em retentativas. Somente homologacao, sem movimentar estoque real. Downloads retornam arquivos.",
+                     "item":  [
+                                  {
+                                      "name":  "1. Emitir NF-e de homologacao",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/emitir",
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"idempotency_key\": \"{{contoraIdempotencyKey}}\",\n  \"natureza_operacao\": \"venda\",\n  \"numero\": 1,\n  \"serie\": 1,\n  \"consumidor_final\": true,\n  \"finalidade\": 1,\n  \"destinatario\": {\n    \"nome\": \"NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL\",\n    \"documento\": \"12345678909\",\n    \"indicador_ie\": 9,\n    \"endereco\": {\n      \"logradouro\": \"Rua de Teste\",\n      \"numero\": \"2\",\n      \"bairro\": \"Centro\",\n      \"cidade\": \"Sao Paulo\",\n      \"codigo_municipio\": \"3550308\",\n      \"estado\": \"SP\",\n      \"cep\": \"01001000\"\n    }\n  },\n  \"pagamentos\": [{\"meio\": \"17\", \"valor\": 25.00}],\n  \"itens\": [{\n    \"produto_id\": {{produtoId}},\n    \"ncm\": \"63079090\",\n    \"cfop\": \"5102\",\n    \"unidade_comercial\": \"UN\",\n    \"quantidade\": 1,\n    \"valor_unitario\": 25.00,\n    \"tributos\": {\"icms\": {\"code\": \"102\", \"origin\": 0}}\n  }]\n}\n",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Emissao aceita\u0027, () =\u003e pm.response.to.have.status(202));",
+                                                                                    "if (pm.response.code === 202) pm.collectionVariables.set(\u0027notaFiscalContoraId\u0027, String(pm.response.json().data.id));"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "2. Consultar nota local",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalContoraId}}"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "3. Sincronizar autorizacao e gerar DANFE",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalContoraId}}/sincronizar"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "4. Baixar XML autorizado",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalContoraId}}/xml"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "5. Baixar DANFE PDF",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalContoraId}}/danfe"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "6. Logistica baixar DANFE",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{logisticaToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/logistica/notas-fiscais/{{notaFiscalContoraId}}/danfe"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Filas (Horizon)",
+                     "item":  [
+                                  {
+                                      "name":  "Consultar estatisticas (Manutencao)",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "url":  "{{horizonUrl}}/api/stats",
+                                                      "description":  "Exige Administrador Manutencao com admin:manage, inclusive no ambiente local. Endpoint operacional nativo do Horizon."
                                                   }
                                   }
                               ]

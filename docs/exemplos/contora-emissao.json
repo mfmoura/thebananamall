@@ -1,0 +1,32 @@
+{
+  "idempotency_key": "22222222-2222-4222-8222-222222222222",
+  "natureza_operacao": "venda",
+  "numero": 1,
+  "serie": 1,
+  "consumidor_final": true,
+  "finalidade": 1,
+  "destinatario": {
+    "nome": "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL",
+    "documento": "12345678909",
+    "indicador_ie": 9,
+    "endereco": {
+      "logradouro": "Rua de Teste",
+      "numero": "2",
+      "bairro": "Centro",
+      "cidade": "Sao Paulo",
+      "codigo_municipio": "3550308",
+      "estado": "SP",
+      "cep": "01001000"
+    }
+  },
+  "pagamentos": [{"meio": "17", "valor": 25.00}],
+  "itens": [{
+    "produto_id": 1,
+    "ncm": "63079090",
+    "cfop": "5102",
+    "unidade_comercial": "UN",
+    "quantidade": 1,
+    "valor_unitario": 25.00,
+    "tributos": {"icms": {"code": "102", "origin": 0}}
+  }]
+}

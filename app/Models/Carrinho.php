@@ -6,7 +6,7 @@ use JsonSerializable;
 
 /**
  * Carrinho armazenado no Redis, não é um model Eloquent.
- * O ID do carrinho é o ID do Cliente, pois cada cliente possui um carrinho ativo.
+ * Um carrinho ativo pertence a um Cliente ou a um Visitante e é persistido no Redis.
  */
 final class Carrinho implements JsonSerializable
 {
@@ -15,8 +15,9 @@ final class Carrinho implements JsonSerializable
      */
     public function __construct(
         public readonly int $id,
-        public readonly int $id_cliente,
+        public readonly ?int $id_cliente,
         public readonly array $itens = [],
+        public readonly ?int $id_visitante = null,
     ) {}
 
     /** @param array<string, mixed> $dados */
@@ -24,15 +25,26 @@ final class Carrinho implements JsonSerializable
     {
         return new self(
             (int) $dados['id'],
-            (int) $dados['id_cliente'],
+            isset($dados['id_cliente']) ? (int) $dados['id_cliente'] : null,
             array_map(
                 static fn (array $item): CarrinhoItem => CarrinhoItem::deArray($item),
                 $dados['itens'] ?? [],
             ),
+            isset($dados['id_visitante']) ? (int) $dados['id_visitante'] : null,
         );
     }
 
-    public function adicionarProduto(int $codigo, float $quantidade = 1): self
+    public static function paraCliente(int $clienteId): self
+    {
+        return new self($clienteId, $clienteId);
+    }
+
+    public static function paraVisitante(int $visitanteId): self
+    {
+        return new self($visitanteId, null, [], $visitanteId);
+    }
+
+    public function adicionarProduto(int $codigo, float $quantidade = 1, ?string $preco = null): self
     {
         $itens = $this->itens;
 
@@ -41,13 +53,13 @@ final class Carrinho implements JsonSerializable
                 $item->alterarQuantidade($item->quantidade() + $quantidade);
                 $itens[$indice] = $item;
 
-                return new self($this->id, $this->id_cliente, $itens);
+                return new self($this->id, $this->id_cliente, $itens, $this->id_visitante);
             }
         }
 
-        $itens[] = CarrinhoItem::criar($codigo, $quantidade);
+        $itens[] = CarrinhoItem::criar($codigo, $quantidade, $preco);
 
-        return new self($this->id, $this->id_cliente, $itens);
+        return new self($this->id, $this->id_cliente, $itens, $this->id_visitante);
     }
 
     public function alterarQuantidade(int $codigo, float $quantidade): ?self
@@ -56,7 +68,7 @@ final class Carrinho implements JsonSerializable
             if ($item->codigo === $codigo) {
                 $item->alterarQuantidade($quantidade);
 
-                return new self($this->id, $this->id_cliente, $this->itens);
+                return new self($this->id, $this->id_cliente, $this->itens, $this->id_visitante);
             }
         }
 
@@ -74,7 +86,7 @@ final class Carrinho implements JsonSerializable
             return null;
         }
 
-        return new self($this->id, $this->id_cliente, $itens);
+        return new self($this->id, $this->id_cliente, $itens, $this->id_visitante);
     }
 
     /**
@@ -90,15 +102,27 @@ final class Carrinho implements JsonSerializable
             $itens,
         );
 
-        return new self($this->id, $this->id_cliente, array_values($itens));
+        return new self($this->id, $this->id_cliente, array_values($itens), $this->id_visitante);
     }
 
-    /** @return array{id: int, id_cliente: int, itens: array<int, array{codigo: int, quantidade: float, data: string}>} */
+    public function mesclar(self $outro): self
+    {
+        $carrinho = $this;
+
+        foreach ($outro->itens as $item) {
+            $carrinho = $carrinho->adicionarProduto($item->codigo, $item->quantidade(), $item->preco());
+        }
+
+        return $carrinho;
+    }
+
+    /** @return array{id: int, id_cliente: ?int, id_visitante: ?int, itens: array<int, array{codigo: int, quantidade: float, data: string, preco: ?string}>} */
     public function toArray(): array
     {
         return [
             'id' => $this->id,
             'id_cliente' => $this->id_cliente,
+            'id_visitante' => $this->id_visitante,
             'itens' => array_map(
                 static fn (CarrinhoItem $item): array => $item->toArray(),
                 $this->itens,
@@ -111,6 +135,7 @@ final class Carrinho implements JsonSerializable
         return [
             'id' => $this->id,
             'id_cliente' => $this->id_cliente,
+            'id_visitante' => $this->id_visitante,
             'itens' => $this->itens,
         ];
     }

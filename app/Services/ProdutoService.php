@@ -10,24 +10,36 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class ProdutoService
 {
-    public function __construct(private readonly ProdutoMovimentacaoService $movimentacaoService) {}
+    public function __construct(
+        private readonly ProdutoMovimentacaoService $movimentacaoService,
+        private readonly CarrinhoService $carrinhoService,
+    ) {}
 
-    public function listar(): Collection
+    public function listar(?int $porPagina = null, int $pagina = 1): Collection|\Illuminate\Pagination\LengthAwarePaginator
     {
-        return Produto::query()->where('ativo', true)->with(['imagens', 'precoAtual'])
+        return $this->carrinhoService->comBloqueioDeEstoque(function () use ($porPagina, $pagina) {
+            $consulta = Produto::query()->where('ativo', true)->with(['imagens', 'precoAtual'])
             ->withSum([
                 'movimentacoes as quantidade_entrada' => fn ($query) => $query->where('direcao', 'entrada'),
             ], 'quantidade')
             ->withSum([
                 'movimentacoes as quantidade_saida' => fn ($query) => $query->where('direcao', 'saida'),
             ], 'quantidade')
-            ->orderBy('nome')->get()->each(function (Produto $produto): void {
+            ->orderBy('nome')->orderBy('id');
+            $resultado = $porPagina === null ? $consulta->get() : $consulta->paginate($porPagina, ['*'], 'page', $pagina)->withQueryString();
+            $produtos = $resultado instanceof Collection ? $resultado : $resultado->getCollection();
+            $produtos->each(function (Produto $produto): void {
+                $estoqueContado = (float) $produto->quantidade_entrada - (float) $produto->quantidade_saida;
+                $produto->setAttribute('estoque_contado', round($estoqueContado, 3));
                 $produto->setAttribute(
                     'estoque',
-                    (float) $produto->quantidade_entrada - (float) $produto->quantidade_saida,
+                    round($estoqueContado - $this->movimentacaoService->contarReservado($produto->id), 3),
                 );
                 $produto->makeHidden(['quantidade_entrada', 'quantidade_saida']);
             });
+
+            return $resultado;
+        });
     }
 
     public function consultar(Produto $produto): Produto
@@ -36,7 +48,13 @@ class ProdutoService
             throw (new ModelNotFoundException())->setModel(Produto::class, [$produto->id]);
         }
 
-        return $produto->load(['imagens', 'precoAtual'])->setAttribute('estoque', $this->contarEstoque($produto));
+        return $this->carrinhoService->comBloqueioDeEstoque(function () use ($produto): Produto {
+            $estoqueContado = $this->contarEstoque($produto);
+
+            return $produto->load(['imagens', 'precoAtual'])
+                ->setAttribute('estoque_contado', $estoqueContado)
+                ->setAttribute('estoque', round($estoqueContado - $this->movimentacaoService->contarReservado($produto->id), 3));
+        });
     }
 
     public function criar(array $dados): Produto
@@ -53,7 +71,7 @@ class ProdutoService
             return $produto->load(['imagens', 'precoAtual']);
         });
 
-        return $produto->setAttribute('estoque', 0.0);
+        return $produto->setAttribute('estoque_contado', 0.0)->setAttribute('estoque', 0.0);
     }
 
     public function atualizar(Produto $produto, array $dados): Produto
@@ -61,7 +79,11 @@ class ProdutoService
         unset($dados['preco']);
         $produto->update($dados);
 
-        return $produto->refresh()->load(['imagens', 'precoAtual'])->setAttribute('estoque', $this->contarEstoque($produto));
+        $estoqueContado = $this->contarEstoque($produto);
+
+        return $produto->refresh()->load(['imagens', 'precoAtual'])
+            ->setAttribute('estoque_contado', $estoqueContado)
+            ->setAttribute('estoque', round($estoqueContado - $this->movimentacaoService->contarReservado($produto->id), 3));
     }
 
     /** Desativação preserva referências históricas de pedidos e movimentações. */
@@ -75,6 +97,11 @@ class ProdutoService
     public function contarEstoque(Produto $produto): float
     {
         return $this->movimentacaoService->contarEstoque($produto);
+    }
+
+    public function contarDisponivel(Produto $produto): float
+    {
+        return $this->movimentacaoService->contarDisponivel($produto);
     }
 
     public function movimentacoes(): Collection

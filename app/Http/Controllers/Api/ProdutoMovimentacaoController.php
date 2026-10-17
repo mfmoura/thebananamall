@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\ListProdutoMovimentacoesRequest;
 use App\Http\Requests\Api\StoreProdutoMovimentacaoRequest;
+use App\Http\Requests\Api\ShowProdutoEstoqueRequest;
 use App\Models\Produto;
 use App\Models\ProdutoMovimentacao;
 use App\Services\ProdutoMovimentacaoService;
@@ -19,14 +20,11 @@ class ProdutoMovimentacaoController extends Controller
     }
 
     public function contarEstoque(
-        ListProdutoMovimentacoesRequest $request,
+        ShowProdutoEstoqueRequest $request,
         Produto $produto,
         ProdutoService $service,
     ): JsonResponse {
-        return response()->json([
-            'produto_id' => $produto->id,
-            'estoque' => $service->contarEstoque($produto),
-        ]);
+        return response()->json(['produto_id' => $produto->id] + $service->resumoEstoque($produto));
     }
 
     public function store(

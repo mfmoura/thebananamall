@@ -15,9 +15,15 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            OAuthClientSeeder::class,
             UsuarioTesteSeeder::class,
             FormaPagamentoSeeder::class,
             ProdutoTesteSeeder::class,
+            ProdutoCatalogoSeeder::class,
+            ProdutoDescricaoSeeder::class,
         ]);
+        if (config('bff.client_secret')) {
+            $this->call(BffClientSeeder::class);
+        }
     }
 }

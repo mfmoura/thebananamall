@@ -1,0 +1,1398 @@
+openapi: 3.1.0
+info:
+  title: Loja Virtual LCB API
+  version: 1.0.0
+  description: >-
+    API REST da Loja Virtual LCB. Respostas JSON em /api usam o envelope
+    {status, statusCode, data}. Downloads fiscais bem-sucedidos retornam XML/PDF.
+    Status HTTP continua sendo enviado no transporte.
+servers:
+  - url: /api
+tags:
+  - name: Visitante
+  - name: Produtos
+  - name: Carrinho
+  - name: Pedidos
+  - name: Clientes
+  - name: Endereços
+  - name: Administração
+  - name: Conta
+  - name: E-mail
+  - name: AutenticaÃ§Ã£o
+paths:
+  /bff/session:
+    servers: [{url: /}]
+    get:
+      tags: [Conta]
+      summary: Consultar estado da sessão BFF sem devolver tokens
+      responses:
+        '200':
+          description: Estado público da sessão, com cookie HttpOnly
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  autenticado: {type: boolean}
+  /bff/authorize:
+    servers: [{url: /}]
+    post:
+      tags: [Conta]
+      summary: Iniciar Authorization Code com PKCE guardado no servidor
+      description: Exige sessão web autenticada e X-CSRF-TOKEN obtido em /oauth/csrf. Retorna somente authorization_url; não recebe scopes nem destinos arbitrários.
+      security: [{BffSession: []}]
+      responses:
+        '200': {description: URL de autorização Passport}
+        '401': {$ref: '#/components/responses/Error'}
+        '419': {$ref: '#/components/responses/Error'}
+  /bff/callback:
+    servers: [{url: /}]
+    get:
+      tags: [Conta]
+      summary: Validar state e trocar código OAuth no servidor
+      parameters:
+        - {in: query, name: code, required: true, schema: {type: string}}
+        - {in: query, name: state, required: true, schema: {type: string, minLength: 64, maxLength: 64}}
+      responses:
+        '302': {description: Redirecionamento para /oauth/callback sem tokens}
+        '422': {$ref: '#/components/responses/Error'}
+  /bff/logout:
+    servers: [{url: /}]
+    post:
+      tags: [Conta]
+      summary: Revogar os tokens da sessão BFF e invalidar a sessão web
+      description: Requer X-CSRF-TOKEN. Não usa bearer no navegador.
+      responses:
+        '200': {description: Sessão encerrada}
+        '419': {$ref: '#/components/responses/Error'}
+  /bff/visitante:
+    servers: [{url: /}]
+    post:
+      tags: [Visitante]
+      summary: Migrar uma credencial de visitante da versão anterior para a sessão BFF
+      description: Requer X-CSRF-TOKEN; não devolve o token recebido.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: {type: string, minLength: 64, maxLength: 64}
+      responses:
+        '200': {description: Credencial migrada}
+        '401': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /bff/api/{path}:
+    servers: [{url: /}]
+    parameters:
+      - in: path
+        name: path
+        required: true
+        schema: {type: string}
+        description: Somente rotas de Cliente explicitamente permitidas em BffProxyService. Não aceita hosts ou URLs.
+    get:
+      tags: [Conta]
+      summary: Consultar recursos da loja pela sessão BFF
+      description: Preserva o envelope e as permissões da API. Recursos públicos aceitam visitante; privados exigem sessão OAuth no BFF. Downloads retornam PDF.
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    post:
+      tags: [Conta]
+      summary: Criar recursos ou executar ações permitidas pelo BFF
+      description: Exige CSRF. Mesmo payload da rota /api correspondente; checkout preserva Idempotency-Key. Credenciais OAuth e de visitante são inseridas somente no servidor.
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '201': {$ref: '#/components/responses/Created'}
+        '419': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    put:
+      tags: [Conta]
+      summary: Atualizar recurso autorizado com cookie e CSRF
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '419': {$ref: '#/components/responses/Error'}
+    patch:
+      tags: [Carrinho]
+      summary: Atualizar quantidade de item com cookie e CSRF
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '419': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [Conta]
+      summary: Excluir recurso autorizado com cookie e CSRF
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '419': {$ref: '#/components/responses/Error'}
+  /oauth/logout:
+    servers: [{url: /}]
+    post:
+      tags: [Conta]
+      summary: Encerrar a sessão web usada pelo OAuth
+      description: Requer cookies da sessão e token CSRF obtido em /oauth/csrf. Não substitui a revogação do access token em /api/logout. Resposta web sem envelope da API.
+      parameters:
+        - in: header
+          name: X-CSRF-TOKEN
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Sessão invalidada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: {type: string}
+        '419':
+          description: Token CSRF inválido
+  /me:
+    get:
+      tags: [Conta]
+      summary: Consultar o usuário autenticado e seus próprios perfis e endereços
+      security: [{OAuth2: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+  /formas-pagamento:
+    get:
+      tags: [Pedidos]
+      summary: Listar formas de pagamento ativas para o checkout
+      description: Retorna id, codigo e nome. Não efetua cobrança e não recebe dados de cartão.
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+  /visitantes:
+    post:
+      tags: [Visitante]
+      summary: Criar uma identidade temporária de visitante
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '429': {$ref: '#/components/responses/Error'}
+  /email/confirmar:
+    post:
+      tags: [E-mail]
+      summary: Confirmar e-mail ou concluir troca de e-mail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: {type: string, minLength: 64, maxLength: 64}
+                password: {type: string, minLength: 8, description: Obrigatória ao confirmar uma troca de e-mail.}
+                password_confirmation: {type: string}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+  /email/reenviar-confirmacao:
+    post:
+      tags: [E-mail]
+      summary: Solicitar reenvio do link de confirmação
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: {type: string, format: email}
+      responses:
+        '202': {$ref: '#/components/responses/Accepted'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+  /senha/recuperar:
+    post:
+      tags: [AutenticaÃ§Ã£o]
+      summary: Solicitar recuperaÃ§Ã£o de senha por e-mail
+      description: Sempre retorna a mesma mensagem para nÃ£o revelar se o e-mail estÃ¡ cadastrado. O link enviado expira conforme PASSWORD_RECOVERY_TTL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: {type: string, format: email, maxLength: 255}
+      responses:
+        '202': {$ref: '#/components/responses/Accepted'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+  /senha/redefinir:
+    post:
+      tags: [AutenticaÃ§Ã£o]
+      summary: Redefinir senha usando o token enviado por e-mail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password, password_confirmation]
+              properties:
+                token: {type: string, minLength: 64, maxLength: 64}
+                password: {type: string, minLength: 8, format: password}
+                password_confirmation: {type: string, format: password}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+  /clientes:
+    post:
+      tags: [Clientes]
+      summary: Cadastrar Cliente (público)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ClienteCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '422': {$ref: '#/components/responses/Error'}
+  /usuarios:
+    post:
+      tags: [Clientes]
+      summary: Compatibilidade para cadastro público de Cliente
+      deprecated: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ClienteCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '422': {$ref: '#/components/responses/Error'}
+  /clientes/{cliente}:
+    parameters:
+      - {$ref: '#/components/parameters/ClienteId'}
+    get:
+      tags: [Clientes]
+      summary: Consultar Cliente
+      security: [{OAuth2: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    put:
+      tags: [Clientes]
+      summary: Atualizar login ou senha do Cliente
+      security: [{OAuth2: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                login: {type: string, maxLength: 255}
+                password: {type: string, minLength: 8}
+                password_confirmation: {type: string}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [Clientes]
+      summary: Excluir Cliente e seu carrinho Redis
+      security: [{OAuth2: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+  /enderecos:
+    post:
+      tags: [Endereços]
+      summary: Criar endereço do usuário autenticado ou, como Administrador, de outro usuário
+      security: [{OAuth2: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/EnderecoCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '401': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /enderecos/{endereco}:
+    parameters:
+      - {$ref: '#/components/parameters/EnderecoId'}
+    get:
+      tags: [Endereços]
+      summary: Consultar endereço próprio ou como Administrador
+      security: [{OAuth2: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    put:
+      tags: [Endereços]
+      summary: Atualizar endereço próprio ou como Administrador
+      security: [{OAuth2: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Endereco'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [Endereços]
+      summary: Excluir endereço próprio ou como Administrador
+      security: [{OAuth2: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+  /admin/administradores:
+    post:
+      tags: [Administração]
+      summary: Criar Administrador; só pode conceder páginas que o solicitante possui
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdministradorCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /admin/administradores/{administrador}:
+    parameters:
+      - {$ref: '#/components/parameters/AdministradorId'}
+    get:
+      tags: [Administração]
+      summary: Consultar Administrador
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    put:
+      tags: [Administração]
+      summary: Atualizar Administrador
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdministradorUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [Administração]
+      summary: Excluir Administrador
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+  /admin/logisticas:
+    post:
+      tags: [Administração]
+      summary: Criar usuário de Logística
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LogisticaCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /admin/logisticas/{logistica}:
+    parameters:
+      - {$ref: '#/components/parameters/LogisticaId'}
+    get:
+      tags: [Administração]
+      summary: Consultar usuário de Logística
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    put:
+      tags: [Administração]
+      summary: Atualizar usuário de Logística
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LogisticaUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [Administração]
+      summary: Excluir usuário de Logística
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+  /produtos:
+    get:
+      description: Sem per_page preserva a lista completa. Com per_page retorna data.data (itens), data.current_page, data.last_page e data.next_page_url dentro do envelope padrão. A loja solicita cinco produtos por página.
+      parameters:
+        - in: query
+          name: page
+          schema: {type: integer, minimum: 1, default: 1}
+        - in: query
+          name: per_page
+          schema: {type: integer, minimum: 1, maximum: 50}
+      tags: [Produtos]
+      summary: Listar produtos ativos
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+  /produtos/{produto}:
+    parameters:
+      - {$ref: '#/components/parameters/ProdutoId'}
+    get:
+      tags: [Produtos]
+      summary: Consultar produto
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '404': {$ref: '#/components/responses/Error'}
+  /produtos/{produto}/precos:
+    parameters:
+      - {$ref: '#/components/parameters/ProdutoId'}
+    get:
+      tags: [Produtos]
+      summary: Consultar histórico de preços
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+  /produtos/{produto}/estoque:
+    parameters:
+      - {$ref: '#/components/parameters/ProdutoId'}
+    get:
+      tags: [Produtos]
+      summary: Consultar saldo contado e disponibilidade após reservas dos carrinhos
+      responses:
+        '200':
+          description: Estoque contado, reservado e disponível após descontar carrinhos Redis ativos.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/SuccessEnvelope'}
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          produto_id: {type: integer}
+                          estoque: {type: number, description: Saldo contado em entradas menos saídas.}
+                          estoque_reservado: {type: number}
+                          estoque_disponivel: {type: number}
+        '404': {$ref: '#/components/responses/Error'}
+  /admin/produtos:
+    post:
+      tags: [Produtos]
+      summary: Cadastrar produto e preço inicial
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProdutoCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /admin/produtos/{produto}:
+    parameters:
+      - {$ref: '#/components/parameters/ProdutoId'}
+    put:
+      tags: [Produtos]
+      summary: Atualizar cadastro do produto
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProdutoUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    patch:
+      tags: [Produtos]
+      summary: Atualizar parcialmente cadastro do produto
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProdutoUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [Produtos]
+      summary: Desativar produto
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+  /admin/produtos/{produto}/precos:
+    parameters:
+      - {$ref: '#/components/parameters/ProdutoId'}
+    post:
+      tags: [Produtos]
+      summary: Registrar novo preço vigente
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [preco]
+              properties:
+                preco: {type: number, exclusiveMinimum: 0, multipleOf: 0.01}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /admin/precos/{preco}:
+    parameters:
+      - name: preco
+        in: path
+        required: true
+        schema: {type: integer}
+    delete:
+      tags: [Produtos]
+      summary: Excluir preço histórico sem referências
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /admin/produtos/{produto}/imagens:
+    parameters:
+      - {$ref: '#/components/parameters/ProdutoId'}
+    post:
+      tags: [Produtos]
+      summary: Adicionar imagem ao produto
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: {type: string, format: uri}
+                principal: {type: boolean, default: false}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /admin/produtos/{produto}/imagens/{imagem}:
+    parameters:
+      - {$ref: '#/components/parameters/ProdutoId'}
+      - name: imagem
+        in: path
+        required: true
+        schema: {type: integer}
+    put:
+      tags: [Produtos]
+      summary: Atualizar imagem do produto
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ImagemUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    patch:
+      tags: [Produtos]
+      summary: Atualizar parcialmente imagem do produto
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ImagemUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [Produtos]
+      summary: Excluir imagem do produto
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+  /admin/estoque/movimentacoes:
+    get:
+      tags: [Produtos]
+      summary: Listar movimentações de estoque
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+    post:
+      tags: [Produtos]
+      summary: Registrar ajuste manual de entrada no estoque
+      description: Requer administrador com página estoque ou manutencao. Ajustes manuais de saída não são aceitos.
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/MovimentacaoAjusteCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /admin/notas-fiscais:
+    post:
+      tags: [Administração]
+      summary: Registrar nota fiscal autorizada e atualizar o estoque
+      description: Requer administrador com página contabilidade. Venda vinculada a pedido não baixa o estoque novamente.
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NotaFiscalEstoqueCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /admin/notas-fiscais/emitir:
+    post:
+      tags: [Administração]
+      summary: Solicitar NF-e ao Fiscal Contora em homologação
+      description: Requer Contabilidade. Idempotency_key UUID deve ser mantida ao repetir o mesmo payload. Resposta 202 não garante autorização. Homologação não movimenta estoque. Tributação e destinatário devem ser informados; código e descrição vêm do catálogo.
+      security: [{OAuth2: [admin:manage]}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ContoraEmissao'}
+      responses:
+        '202': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '502': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /admin/notas-fiscais/{notaFiscal}:
+    parameters:
+      - {$ref: '#/components/parameters/NotaFiscalId'}
+    get:
+      tags: [Administração]
+      summary: Consultar nota local (Contabilidade)
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /admin/notas-fiscais/{notaFiscal}/sincronizar:
+    parameters:
+      - {$ref: '#/components/parameters/NotaFiscalId'}
+    post:
+      tags: [Administração]
+      summary: Conciliar status remoto e gerar DANFE local (Contabilidade)
+      description: Após autorização, baixa XML para armazenamento privado e gera PDF com NFePHP. Aplicar intervalos crescentes entre consultas; limite de dez chamadas por minuto.
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '502': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /admin/notas-fiscais/{notaFiscal}/xml:
+    parameters:
+      - {$ref: '#/components/parameters/NotaFiscalId'}
+    get:
+      tags: [Administração]
+      summary: Baixar XML autorizado (Contabilidade)
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200':
+          description: Arquivo privado XML, sem envelope JSON.
+          content:
+            application/xml:
+              schema: {type: string, format: binary}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /admin/notas-fiscais/{notaFiscal}/danfe:
+    parameters:
+      - {$ref: '#/components/parameters/NotaFiscalId'}
+    get:
+      tags: [Administração]
+      summary: Baixar DANFE (Contabilidade)
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/DanfeDownload'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /logistica/notas-fiscais/{notaFiscal}/danfe:
+    parameters:
+      - {$ref: '#/components/parameters/NotaFiscalId'}
+    get:
+      tags: [Administração]
+      summary: Baixar DANFE como usuário Logística
+      security: [{OAuth2: [logistics:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/DanfeDownload'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /admin/estoque/movimentacoes/{movimentacao}:
+    parameters:
+      - name: movimentacao
+        in: path
+        required: true
+        schema: {type: integer}
+    delete:
+      tags: [Produtos]
+      summary: Estornar movimentação de estoque
+      security: [{OAuth2: [admin:manage]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /carrinho:
+    get:
+      tags: [Carrinho]
+      summary: Consultar carrinho do visitante ou Cliente
+      security: [{OAuth2: []}, {}]
+      parameters: [{$ref: '#/components/parameters/VisitanteToken'}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '404': {$ref: '#/components/responses/Error'}
+    post:
+      tags: [Carrinho]
+      summary: Criar carrinho
+      security: [{OAuth2: []}, {}]
+      parameters: [{$ref: '#/components/parameters/VisitanteToken'}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+    put:
+      tags: [Carrinho]
+      summary: Substituir os itens do carrinho
+      security: [{OAuth2: []}, {}]
+      parameters: [{$ref: '#/components/parameters/VisitanteToken'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [itens]
+              properties:
+                itens:
+                  type: array
+                  maxItems: 100
+                  items:
+                    type: object
+                    required: [codigo, quantidade]
+                    properties:
+                      codigo: {type: integer, minimum: 1}
+                      quantidade: {type: number, exclusiveMinimum: 0}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '404': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [Carrinho]
+      summary: Excluir carrinho
+      security: [{OAuth2: []}, {}]
+      parameters: [{$ref: '#/components/parameters/VisitanteToken'}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '404': {$ref: '#/components/responses/Error'}
+  /carrinho/itens:
+    post:
+      tags: [Carrinho]
+      summary: Adicionar produto ao carrinho
+      security: [{OAuth2: []}, {}]
+      parameters: [{$ref: '#/components/parameters/VisitanteToken'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [codigo]
+              properties:
+                codigo: {type: integer, minimum: 1}
+                quantidade: {type: number, exclusiveMinimum: 0, default: 1}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '422': {$ref: '#/components/responses/Error'}
+  /carrinho/itens/{codigo}:
+    parameters:
+      - name: codigo
+        in: path
+        required: true
+        schema: {type: integer}
+      - {$ref: '#/components/parameters/VisitanteToken'}
+    patch:
+      tags: [Carrinho]
+      summary: Alterar quantidade de um item
+      security: [{OAuth2: []}, {}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantidade]
+              properties:
+                quantidade: {type: number, exclusiveMinimum: 0}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '404': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [Carrinho]
+      summary: Remover item do carrinho
+      security: [{OAuth2: []}, {}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '404': {$ref: '#/components/responses/Error'}
+  /carrinho/mesclar:
+    post:
+      tags: [Carrinho]
+      summary: Mesclar carrinho de visitante no carrinho de Cliente autenticado
+      security: [{OAuth2: [cart:write]}]
+      parameters: [{$ref: '#/components/parameters/VisitanteToken'}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /pedidos:
+    get:
+      tags: [Pedidos]
+      summary: Listar pedidos do Cliente autenticado
+      security: [{OAuth2: [orders:write]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+    post:
+      tags: [Pedidos]
+      summary: Converter carrinho em pedido
+      description: Cria acompanhamento fiscal com mensagem de processamento. A emissão é enfileirada em Redis/Horizon somente após pagamento confirmado pelo backend. Nenhuma chamada ao provedor fiscal é feita nesta requisição.
+      security: [{OAuth2: [orders:write]}]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [forma_pagamento_id, dados_fiscais]
+              properties:
+                forma_pagamento_id: {type: integer}
+                dados_fiscais: {$ref: '#/components/schemas/ContoraEmissao/properties/destinatario'}
+      responses:
+        '201': {$ref: '#/components/responses/Created'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /pedidos/{pedido}:
+    parameters:
+      - name: pedido
+        in: path
+        required: true
+        schema: {type: integer}
+    get:
+      tags: [Pedidos]
+      summary: Consultar pedido próprio
+      security: [{OAuth2: [orders:write]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /pedidos/{pedido}/cancelar:
+    parameters:
+      - name: pedido
+        in: path
+        required: true
+        schema: {type: integer}
+    post:
+      tags: [Pedidos]
+      summary: Cancelar pedido conforme as regras de status
+      security: [{OAuth2: [orders:write]}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /pedidos/{pedido}/danfe:
+    parameters:
+      - name: pedido
+        in: path
+        required: true
+        schema: {type: integer}
+    get:
+      tags: [Pedidos]
+      summary: Baixar DANFE do próprio pedido após processamento
+      security: [{OAuth2: [orders:write]}]
+      responses:
+        '200': {$ref: '#/components/responses/DanfeDownload'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /usuarios/{usuario}:
+    parameters:
+      - name: usuario
+        in: path
+        required: true
+        schema: {type: integer}
+    get:
+      tags: [Conta]
+      summary: Consultar a própria conta ou conta autorizada
+      security: [{OAuth2: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    put:
+      tags: [Conta]
+      summary: Atualizar dados da própria conta autorizada
+      security: [{OAuth2: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ClienteUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    patch:
+      tags: [Conta]
+      summary: Atualizar parcialmente dados da própria conta autorizada
+      security: [{OAuth2: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ClienteUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [Conta]
+      summary: Excluir conta autorizada
+      security: [{OAuth2: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '403': {$ref: '#/components/responses/Error'}
+  /logout:
+    post:
+      tags: [Conta]
+      summary: Revogar o token OAuth2 atual
+      security: [{OAuth2: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '401': {$ref: '#/components/responses/Error'}
+  /usuarios/{usuario}/email:
+    parameters:
+      - name: usuario
+        in: path
+        required: true
+        schema: {type: integer}
+    post:
+      tags: [E-mail]
+      summary: Solicitar troca de e-mail
+      security: [{OAuth2: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: {type: string, format: email}
+      responses:
+        '202': {$ref: '#/components/responses/Accepted'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+components:
+  securitySchemes:
+    BffSession:
+      type: apiKey
+      in: cookie
+      name: loja-virtual-lcb-session
+      description: Cookie HttpOnly definido pelo Laravel; o nome pode ser configurado por SESSION_COOKIE. Escritas exigem também X-CSRF-TOKEN.
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: /oauth/authorize
+          tokenUrl: /oauth/token
+          scopes:
+            admin:manage: Gerenciar recursos administrativos
+            logistics:manage: Acessar documentos de logística
+            cart:write: Mesclar carrinhos
+            orders:write: Gerenciar pedidos
+  parameters:
+    NotaFiscalId:
+      name: notaFiscal
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    ClienteId:
+      name: cliente
+      in: path
+      required: true
+      schema: {type: integer}
+    EnderecoId:
+      name: endereco
+      in: path
+      required: true
+      schema: {type: integer}
+    AdministradorId:
+      name: administrador
+      in: path
+      required: true
+      schema: {type: integer}
+    LogisticaId:
+      name: logistica
+      in: path
+      required: true
+      schema: {type: integer}
+    ProdutoId:
+      name: produto
+      in: path
+      required: true
+      schema: {type: integer}
+    VisitanteToken:
+      name: X-Visitante-Token
+      in: header
+      required: false
+      schema: {type: string, minLength: 64, maxLength: 64}
+      description: Obrigatório para operações públicas do carrinho; dispensado quando OAuth2 identifica o Cliente.
+  responses:
+    DanfeDownload:
+      description: PDF privado do DANFE de homologação, sem envelope JSON.
+      content:
+        application/pdf:
+          schema: {type: string, format: binary}
+    Success:
+      description: Resposta processada com sucesso
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/SuccessEnvelope'}
+    Created:
+      description: Recurso criado
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/SuccessEnvelope'}
+    Accepted:
+      description: Solicitação aceita para processamento
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/SuccessEnvelope'}
+    Error:
+      description: Erro de validação, autenticação, autorização ou processamento
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+  schemas:
+    ContoraEmissao:
+      type: object
+      required: [idempotency_key, natureza_operacao, numero, serie, consumidor_final, finalidade, destinatario, pagamentos, itens]
+      properties:
+        idempotency_key: {type: string, format: uuid}
+        pedido_id: {type: [integer, 'null'], description: Somente para venda; produtos e quantidades devem pertencer ao pedido.}
+        natureza_operacao: {type: string, enum: [compra, remessa, devolucao, doacao, venda, perda]}
+        numero: {type: integer, minimum: 1, maximum: 999999999}
+        serie: {type: integer, minimum: 1, maximum: 889}
+        consumidor_final: {type: boolean}
+        finalidade: {type: integer, enum: [1, 2, 3, 4]}
+        chaves_referenciadas:
+          type: array
+          description: Obrigatório para finalidades 2 e 4.
+          items: {type: string, pattern: '^\d{44}$'}
+        destinatario:
+          type: object
+          required: [nome, documento, indicador_ie, endereco]
+          properties:
+            nome: {type: string, maxLength: 60}
+            documento: {type: string, pattern: '^(\d{11}|\d{14})$'}
+            indicador_ie: {type: integer, enum: [1, 2, 9]}
+            inscricao_estadual: {type: [string, 'null'], maxLength: 20, description: Obrigatória quando indicador_ie for 1.}
+            email: {type: string, format: email}
+            endereco:
+              type: object
+              required: [logradouro, numero, bairro, cidade, codigo_municipio, estado, cep]
+              properties:
+                logradouro: {type: string, maxLength: 60}
+                numero: {type: string, maxLength: 60}
+                bairro: {type: string, maxLength: 60}
+                cidade: {type: string, maxLength: 60}
+                codigo_municipio: {type: string, pattern: '^\d{7}$'}
+                estado: {type: string, minLength: 2, maxLength: 2}
+                cep: {type: string, pattern: '^\d{8}$'}
+        pagamentos:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [meio, valor]
+            properties:
+              meio: {type: string, pattern: '^\d{2}$', description: Código fiscal do pagamento; 99 não é suportado neste recorte.}
+              valor: {type: number, minimum: 0}
+        itens:
+          type: array
+          minItems: 1
+          maxItems: 990
+          items:
+            type: object
+            required: [produto_id, ncm, cfop, unidade_comercial, quantidade, valor_unitario, tributos]
+            properties:
+              produto_id: {type: integer}
+              ncm: {type: string, pattern: '^\d{8}$'}
+              cfop: {type: string, pattern: '^\d{4}$'}
+              unidade_comercial: {type: string, maxLength: 6}
+              quantidade: {type: number, exclusiveMinimum: 0, multipleOf: 0.001}
+              valor_unitario: {type: number, minimum: 0, multipleOf: 0.01}
+              tributos:
+                type: object
+                required: [icms]
+                properties:
+                  icms:
+                    type: object
+                    required: [code, origin]
+                    properties:
+                      code: {type: string, pattern: '^\d{2,3}$'}
+                      origin: {type: integer, minimum: 0, maximum: 8}
+                      aliquot: {type: number, minimum: 0, maximum: 100}
+                  pis: {$ref: '#/components/schemas/ContoraTributo'}
+                  cofins: {$ref: '#/components/schemas/ContoraTributo'}
+                  ipi: {$ref: '#/components/schemas/ContoraTributo'}
+    ContoraTributo:
+      type: object
+      required: [code]
+      properties:
+        code: {type: string, pattern: '^\d{2}$'}
+        aliquot: {type: number, minimum: 0, maximum: 100}
+    SuccessEnvelope:
+      type: object
+      required: [status, statusCode, data]
+      properties:
+        status: {type: string, const: success}
+        statusCode: {type: integer, example: 200}
+        data:
+          description: Dados serializados; null em operações concluídas sem retorno de recurso.
+          oneOf:
+            - {type: object, additionalProperties: true}
+            - {type: array, items: {}}
+            - {type: string}
+            - {type: number}
+            - {type: boolean}
+            - {type: 'null'}
+    ErrorEnvelope:
+      type: object
+      required: [status, statusCode, data]
+      properties:
+        status: {type: string, const: error}
+        statusCode: {type: integer, example: 422}
+        data:
+          type: object
+          required: [message]
+          properties:
+            message: {type: string}
+            errors:
+              type: object
+              additionalProperties:
+                type: array
+                items: {type: string}
+    Credenciais:
+      type: object
+      required: [login, email, password, password_confirmation]
+      properties:
+        login: {type: string, maxLength: 255}
+        email: {type: string, format: email}
+        password: {type: string, minLength: 8, writeOnly: true}
+        password_confirmation: {type: string, writeOnly: true}
+    ClienteCreate:
+      allOf:
+        - {$ref: '#/components/schemas/Credenciais'}
+        - type: object
+          properties:
+            endereco: {$ref: '#/components/schemas/Endereco'}
+    ClienteUpdate:
+      type: object
+      properties:
+        login: {type: string, maxLength: 255}
+        password: {type: string, minLength: 8, writeOnly: true}
+        password_confirmation: {type: string, writeOnly: true}
+    EnderecoCreate:
+      allOf:
+        - {$ref: '#/components/schemas/Endereco'}
+        - type: object
+          properties:
+            usuario_id: {type: integer, description: Administrador pode informar outro usuário.}
+    Endereco:
+      type: object
+      required: [logradouro, numero, cidade, estado, pais, cep]
+      properties:
+        logradouro: {type: string, maxLength: 255}
+        numero: {type: string, maxLength: 30}
+        complemento: {type: [string, 'null'], maxLength: 255}
+        cidade: {type: string}
+        estado: {type: string, minLength: 2, maxLength: 2, example: SP}
+        pais: {type: string, const: BR}
+        cep: {type: string, pattern: '^\\d{5}-?\\d{3}$', example: 01001-000}
+    AdministradorCreate:
+      allOf:
+        - {$ref: '#/components/schemas/Credenciais'}
+        - type: object
+          required: [paginas]
+          properties:
+            paginas:
+              type: array
+              minItems: 1
+              uniqueItems: true
+              items: {type: string, enum: [contabilidade, estoque, manutencao]}
+    AdministradorUpdate:
+      type: object
+      properties:
+        login: {type: string}
+        password: {type: string, minLength: 8, writeOnly: true}
+        password_confirmation: {type: string, writeOnly: true}
+        paginas:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {type: string, enum: [contabilidade, estoque, manutencao]}
+    LogisticaCreate:
+      allOf:
+        - {$ref: '#/components/schemas/Credenciais'}
+        - type: object
+          required: [nome, webhook]
+          properties:
+            nome: {type: string, maxLength: 255}
+            webhook: {type: string, format: uri}
+    LogisticaUpdate:
+      type: object
+      properties:
+        login: {type: string}
+        password: {type: string, minLength: 8, writeOnly: true}
+        password_confirmation: {type: string, writeOnly: true}
+        nome: {type: string, maxLength: 255}
+        webhook: {type: string, format: uri}
+    ProdutoCreate:
+      type: object
+      required: [codigo, nome, categoria, preco]
+      properties:
+        codigo: {type: string, maxLength: 80}
+        nome: {type: string, maxLength: 255}
+        descricao: {type: [string, 'null'], maxLength: 10000, description: Texto descritivo do produto, sem interpretação de HTML.}
+        categoria: {type: string}
+        preco: {type: number, exclusiveMinimum: 0, multipleOf: 0.01}
+        ativo: {type: boolean, default: true}
+        configuracao_fiscal:
+          anyOf:
+            - {$ref: '#/components/schemas/ProdutoFiscal'}
+            - {type: 'null'}
+    ProdutoUpdate:
+      type: object
+      properties:
+        codigo: {type: string, maxLength: 80}
+        nome: {type: string, maxLength: 255}
+        descricao: {type: [string, 'null'], maxLength: 10000}
+        categoria: {type: string}
+        ativo: {type: boolean}
+        configuracao_fiscal:
+          anyOf:
+            - {$ref: '#/components/schemas/ProdutoFiscal'}
+            - {type: 'null'}
+    ProdutoFiscal:
+      type: object
+      required: [ncm, cfop_interno, cfop_interestadual, unidade, tributos]
+      properties:
+        ncm: {type: string, pattern: '^\d{8}$'}
+        cfop_interno: {type: string, pattern: '^5\d{3}$'}
+        cfop_interestadual: {type: string, pattern: '^6\d{3}$'}
+        unidade: {type: string, maxLength: 6}
+        tributos: {$ref: '#/components/schemas/ContoraEmissao/properties/itens/items/properties/tributos'}
+    ImagemUpdate:
+      type: object
+      properties:
+        path: {type: string, format: uri}
+        principal: {type: boolean}
+    MovimentacaoAjusteCreate:
+      type: object
+      required: [produto_id, direcao, quantidade, nota]
+      properties:
+        produto_id: {type: integer}
+        direcao: {type: string, enum: [entrada]}
+        quantidade: {type: number, exclusiveMinimum: 0}
+        nota: {type: string, maxLength: 120}
+        observacao: {type: [string, 'null'], maxLength: 2000}
+    NotaFiscalEstoqueCreate:
+      type: object
+      required: [natureza_operacao, referencia_provedor, numero, data_emissao, itens]
+      properties:
+        natureza_operacao: {type: string, enum: [compra, remessa, devolucao, doacao, venda, perda]}
+        pedido_id: {type: [integer, 'null'], description: Somente para nota de venda; checkout já consumiu o estoque.}
+        provedor: {type: [string, 'null'], maxLength: 255, default: manual}
+        referencia_provedor: {type: string, maxLength: 255}
+        chave_acesso: {type: [string, 'null'], maxLength: 60}
+        numero: {type: string, maxLength: 255}
+        serie: {type: [string, 'null'], maxLength: 255}
+        data_emissao: {type: string, format: date-time}
+        data_autorizacao: {type: [string, 'null'], format: date-time}
+        total_frete: {type: number, minimum: 0, default: 0}
+        total_desconto: {type: number, minimum: 0, default: 0}
+        total_impostos: {type: number, minimum: 0, default: 0}
+        itens:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [produto_id, quantidade, valor_unitario]
+            properties:
+              produto_id: {type: integer}
+              codigo_produto: {type: string, maxLength: 80}
+              descricao: {type: string, maxLength: 255}
+              quantidade: {type: number, exclusiveMinimum: 0}
+              valor_unitario: {type: number, minimum: 0}
+              valor_total: {type: number, minimum: 0}

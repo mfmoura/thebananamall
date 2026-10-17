@@ -1,6 +1,21 @@
 version: '3.8'
 
 services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    profiles: ["webhooks"]
+    command: ["http", "http://nginx:80", "--config=/etc/ngrok.yml"]
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    ports:
+      - "127.0.0.1:4040:4040"
+    volumes:
+      - ./.docker/ngrok/ngrok.yml:/etc/ngrok.yml:ro
+    networks:
+      - dockernet
+    depends_on:
+      - nginx
+
   nginx:
     image: nginx:latest
     ports:
@@ -16,6 +31,7 @@ services:
       - db
 
   php:
+    image: lojavirtuallcb-php
     user: "1000:1000"
     build:
       context: .
@@ -32,6 +48,47 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  horizon:
+    image: lojavirtuallcb-php
+    init: true
+    user: "1000:1000"
+    restart: unless-stopped
+    entrypoint: ["php", "artisan"]
+    command: ["horizon"]
+    stop_signal: SIGTERM
+    stop_grace_period: 240s
+    environment:
+      QUEUE_CONNECTION: redis
+    volumes:
+      - ./:/var/www/html
+      - ./.docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    networks:
+      - dockernet
+    depends_on:
+      php:
+        condition: service_started
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  scheduler:
+    image: lojavirtuallcb-php
+    init: true
+    user: "1000:1000"
+    restart: unless-stopped
+    entrypoint: ["php", "artisan"]
+    command: ["schedule:work"]
+    stop_signal: SIGTERM
+    volumes:
+      - ./:/var/www/html
+      - ./.docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    networks:
+      - dockernet
+    depends_on:
+      horizon:
+        condition: service_started
 
   db:
     image: postgres:16
@@ -69,7 +126,7 @@ services:
     working_dir: /var/www/html
     volumes:
       - ./:/var/www/html
-    command: sh -c "npm install && npm run dev"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     ports:
       - "5173:5173"
     networks:

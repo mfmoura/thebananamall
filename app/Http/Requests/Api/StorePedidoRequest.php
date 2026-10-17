@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Http\Requests\Api\Concerns\RegrasDestinatarioFiscal;
 use Illuminate\Validation\Rule;
 
 class StorePedidoRequest extends ClientePedidoRequest
 {
+    use RegrasDestinatarioFiscal;
+
     protected function prepareForValidation(): void
     {
         $this->merge(['idempotency_key' => $this->header('Idempotency-Key')]);
@@ -14,6 +17,7 @@ class StorePedidoRequest extends ClientePedidoRequest
     public function rules(): array
     {
         return [
+            ...$this->regrasDestinatarioFiscal('dados_fiscais'),
             'forma_pagamento_id' => [
                 'required',
                 'integer',

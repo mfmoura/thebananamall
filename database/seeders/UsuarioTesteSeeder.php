@@ -7,13 +7,14 @@ use App\Models\Administrador;
 use App\Models\Cliente;
 use App\Models\Logistica;
 use App\Models\Usuario;
+use App\Services\EmailVerificationService;
 use Illuminate\Database\Seeder;
 
 class UsuarioTesteSeeder extends Seeder
 {
-    private const SENHA = 'Senha@12345';
+    private const SENHA = 'SenhaDeTeste@2026';
 
-    public function run(): void
+    public function run(EmailVerificationService $emailVerificationService): void
     {
         $cliente = $this->criarUsuario('cliente-teste', 'cliente-teste@example.test');
         Cliente::firstOrCreate(['usuario_id' => $cliente->id]);
@@ -39,16 +40,32 @@ class UsuarioTesteSeeder extends Seeder
             ],
         );
 
-        $administrador = $this->criarUsuario('admin-teste', 'admin-teste@example.test');
+        $emailAdmin = (string) config('services.initial_admin.email');
+        $senhaInicial = (string) (config('services.initial_admin.password') ?: self::SENHA);
+        $administrador = Usuario::query()->firstOrNew(['login' => 'admin-teste']);
+
+        if (! $administrador->exists || $administrador->email !== $emailAdmin) {
+            $administrador->email = $emailAdmin;
+            $administrador->password = $senhaInicial;
+            $administrador->email_validado = false;
+            $administrador->must_change_password = true;
+            $administrador->save();
+        }
+
         Administrador::updateOrCreate(
             ['usuario_id' => $administrador->id],
-            ['nivel_de_acesso' => NivelAcesso::Administrador],
+            ['paginas' => array_map(
+                static fn (NivelAcesso $pagina): string => $pagina->value,
+                NivelAcesso::cases(),
+            )],
         );
+
+        $emailVerificationService->enviarConfirmacaoInicial($administrador);
 
         $superAdministrador = $this->criarUsuario('superadmin-teste', 'superadmin-teste@example.test');
         Administrador::updateOrCreate(
             ['usuario_id' => $superAdministrador->id],
-            ['nivel_de_acesso' => NivelAcesso::SuperAdministrador],
+            ['paginas' => [NivelAcesso::Contabilidade->value]],
         );
 
         $logistica = $this->criarUsuario('logistica-teste', 'logistica-teste@example.test');
@@ -63,12 +80,20 @@ class UsuarioTesteSeeder extends Seeder
 
     private function criarUsuario(string $login, string $email): Usuario
     {
-        return Usuario::updateOrCreate(
+        $usuario = Usuario::updateOrCreate(
             ['login' => $login],
             [
                 'email' => $email,
                 'password' => self::SENHA,
             ],
         );
+
+        $usuario->forceFill([
+            'email_validado' => true,
+            'email_verified_at' => now(),
+            'must_change_password' => false,
+        ])->save();
+
+        return $usuario;
     }
 }

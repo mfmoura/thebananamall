@@ -4,6 +4,7 @@ namespace App\Enums;
 
 enum NivelAcesso: string
 {
-    case Administrador = 'administrador';
-    case SuperAdministrador = 'super_administrador';
+    case Contabilidade = 'contabilidade';
+    case Estoque = 'estoque';
+    case Manutencao = 'manutencao';
 }

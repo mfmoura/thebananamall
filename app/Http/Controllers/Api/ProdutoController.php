@@ -13,9 +13,11 @@ use Illuminate\Http\Response;
 
 class ProdutoController extends Controller
 {
-    public function index(ProdutoService $service): JsonResponse
+    public function index(\App\Http\Requests\Api\ListProdutosRequest $request, ProdutoService $service): JsonResponse
     {
-        return response()->json($service->listar());
+        $dados = $request->validated();
+
+        return response()->json($service->listar(isset($dados['per_page']) ? (int) $dados['per_page'] : null, (int) ($dados['page'] ?? 1)));
     }
 
     public function show(Produto $produto, ProdutoService $service): JsonResponse

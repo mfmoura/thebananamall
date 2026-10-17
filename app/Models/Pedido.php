@@ -6,6 +6,7 @@ use App\Enums\StatusPedido;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Pedido extends Model
 {
@@ -46,7 +47,7 @@ class Pedido extends Model
         return $this->hasMany(PedidoItem::class);
     }
 
-    public function notaEstoque(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function notaEstoque(): HasOne
     {
         return $this->hasOne(NotaEstoque::class);
     }
@@ -54,6 +55,11 @@ class Pedido extends Model
     public function notasFiscais(): HasMany
     {
         return $this->hasMany(NotaFiscal::class);
+    }
+
+    public function processamentoFiscal(): HasOne
+    {
+        return $this->hasOne(PedidoProcessamentoFiscal::class);
     }
 
     public function getTotalAttribute(): string

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\DeleteUsuarioRequest;
 use App\Http\Requests\Api\ShowUsuarioRequest;
-use App\Http\Requests\Api\StoreUsuarioRequest;
+use App\Http\Requests\Api\UpdateEmailRequest;
 use App\Http\Requests\Api\UpdateUsuarioRequest;
 use App\Models\Usuario;
 use App\Services\UsuarioService;
@@ -14,18 +14,6 @@ use Illuminate\Http\Response;
 
 class UsuarioController extends Controller
 {
-    public function store(StoreUsuarioRequest $request, UsuarioService $usuarioService): JsonResponse
-    {
-        return response()->json($usuarioService->criar($request->validated()), 201);
-    }
-
-    public function storeAsAdministrator(
-        StoreUsuarioRequest $request,
-        UsuarioService $usuarioService,
-    ): JsonResponse {
-        return response()->json($usuarioService->criar($request->validated()), 201);
-    }
-
     public function show(
         ShowUsuarioRequest $request,
         Usuario $usuario,
@@ -40,6 +28,19 @@ class UsuarioController extends Controller
         UsuarioService $usuarioService,
     ): JsonResponse {
         return response()->json($usuarioService->atualizar($usuario, $request->validated()));
+    }
+
+    public function updateEmail(
+        UpdateEmailRequest $request,
+        Usuario $usuario,
+        UsuarioService $usuarioService,
+    ): JsonResponse {
+        $usuarioService->solicitarTrocaEmail($usuario, $request->validated('email'));
+
+        return response()->json([
+            'message' => 'Enviamos um link ao novo endereço. Confirme-o e escolha uma nova senha em até '.
+                (int) config('services.email_verification.ttl', 300).' segundos.',
+        ], 202);
     }
 
     public function destroy(

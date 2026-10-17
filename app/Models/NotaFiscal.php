@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\StatusNotaFiscal;
+use App\Enums\NaturezaOperacaoNotaFiscal;
 use App\Enums\TipoOperacaoNotaFiscal;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class NotaFiscal extends Model
 {
     protected $table = 'notas_fiscais';
+
+    protected $hidden = ['emissao_payload', 'emissao_hash', 'emissao_idempotency_key'];
 
     protected $fillable = [
         'pedido_id',
@@ -21,6 +24,7 @@ class NotaFiscal extends Model
         'serie',
         'status',
         'tipo_operacao',
+        'natureza_operacao',
         'data_emissao',
         'data_autorizacao',
         'caminho_xml',
@@ -37,8 +41,11 @@ class NotaFiscal extends Model
     protected function casts(): array
     {
         return [
+            'emissao_payload' => 'encrypted:array',
+            'emissao_enviada' => 'boolean',
             'status' => StatusNotaFiscal::class,
             'tipo_operacao' => TipoOperacaoNotaFiscal::class,
+            'natureza_operacao' => NaturezaOperacaoNotaFiscal::class,
             'data_emissao' => 'datetime',
             'data_autorizacao' => 'datetime',
             'total_produtos' => 'decimal:2',
@@ -57,6 +64,11 @@ class NotaFiscal extends Model
     public function itens(): HasMany
     {
         return $this->hasMany(NotaFiscalItem::class);
+    }
+
+    public function notaEstoque(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(NotaEstoque::class, 'nota_fiscal_id');
     }
 
     public function estaAutorizada(): bool

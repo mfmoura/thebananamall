@@ -1,39 +1,92 @@
 # Testes manuais no Postman
 
-1. Inicie o cluster e aplique as migrations e os usuários de teste: `docker compose up -d` e `docker compose exec php php artisan migrate --seed`.
-2. Importe `LojaVirtualLCB.postman_collection.json` no Postman.
-3. Rode as requisições na ordem numérica da pasta **Autenticação e Cliente**. O cadastro cria valores únicos e salva `clienteId`; o login salva `clienteToken` automaticamente.
-4. A URL padrão é `http://localhost/api`. Se o Laravel estiver em outro host/porta, altere a variável de coleção `baseUrl`.
-5. Para testar o carrinho, faça login como Cliente e use a pasta **Carrinho Redis**. O seeder cria dois produtos de demonstração. Depois, use **Pedidos (checkout PostgreSQL)** para converter o carrinho em pedido. O checkout exige o cabeçalho `Idempotency-Key` (gerado pela coleção), valida produto e forma de pagamento ativos e captura o preço diretamente do banco; nenhum preço é aceito do cliente.
+1. Inicie os containers: `docker compose up -d`.
+2. Aplique migrations e seeders: `docker compose exec php php artisan migrate --seed`.
+3. Importe `LojaVirtualLCB.postman_collection.json` no Postman.
+4. Configure `baseUrl` (padrÃ£o `http://localhost/api`).
 
-O pedido e seus itens são persistidos no PostgreSQL em transação. Após a gravação bem-sucedida, o carrinho Redis é removido. Pedidos aguardando pagamento podem ser cancelados, mas permanecem armazenados com status `cancelado`.
+## OAuth2 e tokens
+
+Produtos aceitam `descricao` no cadastro e na atualização (texto opcional, até 10000 caracteres; `null` remove o texto). O campo é retornado nas consultas e exibido no detalhe React. A pasta **Descricao de produtos** traz atualização e consulta. O seeder `ProdutoDescricaoSeeder` preenche somente descrições vazias dos registros existentes.
+
+**BFF:** a loja React agora usa sessão HttpOnly, e access/refresh tokens permanecem no servidor. Use a pasta **BFF - sessao HttpOnly** e `bffUrl`; preserve os cookies e informe `csrfToken` nas escritas. Não copie tokens OAuth do navegador: o BFF não os devolve. O antigo cliente público da SPA foi revogado; integrações que chamam `/api/*` diretamente precisam de seu próprio cliente OAuth autorizado. Consulte [docs/BFF.md](../docs/BFF.md) para instalação, autorização e renovação. O callback confidencial é `/bff/callback`; `/oauth/callback` é apenas a página React após a conclusão no servidor.
+
+A pasta **Catalogo paginado e galeria** solicita páginas de cinco produtos. A resposta paginada fica em `data.data`, com `data.current_page` e `data.next_page_url`; sem `per_page`, o endpoint preserva a lista completa. Cada produto inclui sua imagem principal e as adicionais. A primeira imagem cadastrada torna-se principal automaticamente; ao excluir a principal, outra é promovida. Para trocar a principal explicitamente, atualize a imagem desejada com `principal: true` nas requisições administrativas de imagens já existentes.
+
+A pasta **Frontend React - sessao e checkout** documenta as rotas REST originais para integrações. Na loja, use o BFF com cookies e CSRF. O callback OAuth confidencial é http://localhost/bff/callback; a porta 5173 serve somente assets.
+
+O cliente público antigo 00000000-0000-4000-8000-000000000001 está revogado após a migração BFF. Para chamadas REST externas, cadastre um cliente OAuth próprio com callback e escopos apropriados; a loja usa o cliente confidencial do servidor.
+
+Para endpoints REST protegidos, configure clienteToken ou adminToken usando um cliente OAuth próprio de integração. O BFF não expõe tokens para copiar. Pedidos exigem orders:write e perfil Cliente; operações administrativas exigem admin:manage e perfil Administrador.
+
+Administradores armazenam `paginas` como array JSON com valores `contabilidade`, `estoque` e `manutencao`. Operacoes de produtos exigem a pagina `estoque`; qualquer administrador pode criar perfis Administrador e Logistica usando o escopo `admin:manage`, mas so pode conceder paginas que possui.
+
+## Visitante e carrinho
+
+Execute **0. Inicializar identidade de visitante**. A resposta retorna uma credencial temporÃ¡ria, salva automaticamente em `visitanteToken`. Use-a no header `X-Visitante-Token` para as operaÃ§Ãµes de carrinho deslogado. O visitante e seu usuÃ¡rio tÃ©cnico sÃ£o persistidos no PostgreSQL; o carrinho permanece no Redis e expira conforme `CARRINHO_TTL`.
+
+ApÃ³s entrar pelo frontend e obter token de Cliente, execute **8. Mesclar carrinho apÃ³s OAuth login**. A operaÃ§Ã£o soma as quantidades do carrinho de visitante ao carrinho ativo do Cliente e invalida a credencial de visitante. O endpoint de compra converte o carrinho em pedido e requer Cliente autenticado.
+
+## Produtos e estoque
+
+A listagem de produtos, consulta de preÃ§os e consulta de estoque sÃ£o pÃºblicas. O campo `estoque` representa a disponibilidade (estoque contado menos reservas ativas); a consulta individual tambÃ©m retorna `estoque_contado` e `estoque_disponivel`. Carrinhos sem estoque suficiente recebem erro de validaÃ§Ã£o. OperaÃ§Ãµes de escrita exigem token de Administrador com escopo `admin:manage`. Os seeders criam produtos de demonstraÃ§Ã£o da LCB. As movimentaÃ§Ãµes exigem quantidade positiva e referÃªncia de nota; saÃ­das manuais sÃ³ usam saldo nÃ£o reservado. A exclusÃ£o de movimentaÃ§Ã£o Ã© um estorno auditÃ¡vel e a exclusÃ£o de produto o desativa para preservar o histÃ³rico.
+
+O campo `codigo` Ã© o SKU textual; o `id` numÃ©rico Ã© usado pelo carrinho e pelas referÃªncias internas. PreÃ§os sÃ£o histÃ³ricos: o checkout captura o preÃ§o vigente no servidor. A collection contÃ©m chamadas para consultar o histÃ³rico, registrar novo preÃ§o e excluir preÃ§o antigo sem referÃªncias.
+
+## ConfirmaÃ§Ã£o de e-mail e primeira senha do Administrador
+
+O cadastro envia um link ao e-mail informado. A collection possui `emailVerificationToken` para testar manualmente `POST /api/email/confirmar`; o endpoint de reenvio Ã© `POST /api/email/reenviar-confirmacao`. No frontend, o link abre `/email/verify?token=...`; para uma troca de e-mail, a tela tambÃ©m solicita uma senha nova e envia `password` e `password_confirmation` ao endpoint de confirmaÃ§Ã£o.
+
+Antes de executar o cadastro na collection, preencha `emailTesteBase` com uma caixa que vocÃª controla. O script acrescenta um alias Ãºnico para cada execuÃ§Ã£o, para que a confirmaÃ§Ã£o chegue nessa caixa sem repetir um endereÃ§o jÃ¡ cadastrado.
+
+Para trocar o endereÃ§o autenticado, envie `POST /api/usuarios/{id}/email` com `email`. O novo endereÃ§o e o token ficam temporariamente no Redis, com duraÃ§Ã£o de `EMAIL_VERIFICATION_TTL` (300 segundos no `.env` local). O endereÃ§o atual sÃ³ muda quando o link Ã© confirmado. Ao confirmar a troca, os tokens OAuth sÃ£o revogados e o usuÃ¡rio precisa entrar novamente.
+
+O Administrador inicial usa `ADMIN_EMAIL` e `ADMIN_INITIAL_PASSWORD` do `.env` local. Confirme o endereÃ§o primeiro; o primeiro pedido de login retorna `password_change_required`. O frontend deve enviar a senha temporÃ¡ria e a nova senha a `POST /oauth/first-login/password`, e entÃ£o iniciar um novo login. Consulte `ADMIN_INITIAL_PASSWORD` localmente; nÃ£o compartilhe esse valor.
 
 ## Contas de teste
 
-O seeder `UsuarioTesteSeeder` cria as contas abaixo; todas usam a senha `Senha@12345`.
+As contas de demonstraÃ§Ã£o usam `Senha@12345`; `admin-teste` Ã© o Administrador inicial e usa `ADMIN_INITIAL_PASSWORD` atÃ© a troca obrigatÃ³ria.
 
 | Perfil | Login | E-mail |
 |---|---|---|
 | Cliente | `cliente-teste` | `cliente-teste@example.test` |
-| Administrador | `admin-teste` | `admin-teste@example.test` |
-| Super Administrador | `superadmin-teste` | `superadmin-teste@example.test` |
-| Logística | `logistica-teste` | `logistica-teste@example.test` |
+| Administrador (Contabilidade e Estoque) | `admin-teste` | valor de `ADMIN_EMAIL` no `.env` |
+| Administrador (Contabilidade) | `superadmin-teste` | `superadmin-teste@example.test` |
+| LogÃ­stica | `logistica-teste` | `logistica-teste@example.test` |
 
-A coleção usa `superadmin-teste` por padrão nas requisições administrativas. Essas contas são exclusivamente para desenvolvimento local; não use as credenciais em ambientes compartilhados ou de produção.
+O CRUD de Logistica agora esta disponivel em `/api/admin/logisticas`; o perfil atende apenas integracoes operacionais futuras.
 
-O carrinho expira após `CARRINHO_TTL` segundos (padrão de 604800, ou 7 dias). Uma operação de escrita renova esse prazo. Cada item retorna `codigo`, `quantidade`, a data da última alteração e `modificado`, que informa se houve mudança na operação atual.
+ApÃ³s `migrate --seed`, a forma de pagamento com ID 1 Ã© PIX e os produtos de demonstraÃ§Ã£o usam IDs 1 e 2 em um banco vazio. Confira os IDs retornados se o banco jÃ¡ tiver cadastros.
+## CRUD de Cliente, Administrador, Logistica e Endereco
 
-Após `migrate --seed`, a forma de pagamento com ID 1 é PIX e os produtos de demonstração usam IDs 1 e 2 em um banco vazio. Confira os IDs retornados pelo banco se já houver cadastros anteriores.
+A collection inclui chamadas separadas de criar, consultar, atualizar e excluir para cada perfil e para enderecos.
 
-As requisições de logout e exclusão invalidam tokens. Para exercitar as duas, faça login novamente antes de enviar a requisição de exclusão.
+- `POST /clientes` e publico e sempre cria um Cliente. A verificacao do email segue o fluxo normal.
+- `GET/PUT/DELETE /clientes/{id}` exigem OAuth2 e permitem o proprietario ou qualquer Administrador.
+- `POST/GET/PUT/DELETE /admin/administradores` e `/admin/logisticas` exigem `admin:manage`. Somente Administradores podem criar esses perfis.
+- `POST/GET/PUT/DELETE /enderecos` exige OAuth2. O proprietario ou qualquer Administrador pode gerenciar o endereco; a API ViaCEP confirma CEP, cidade e UF.
 
-## Produtos e estoque
+Os testes de cada chamada POST salvam automaticamente os IDs retornados: `clienteId` e `clienteProfileId`, `administradorId` e `administradorProfileId`, `logisticaId` e `logisticaProfileId`, alem de `enderecoId`. Use os IDs de perfil nas rotas CRUD; `clienteId` e o ID da conta Usuario usado ao criar endereco para outra pessoa como Administrador. Para trocar email, use o endpoint dedicado `/usuarios/{id}/email`; os endpoints de perfil nao alteram email diretamente.
 
-A pasta **Produtos e Estoque** contém leitura pública do catálogo e operações administrativas. Faça login com uma conta Administrador para obter `adminToken`. Os seeders criam bandeira, botton e camiseta da LCB, cada um com 100 unidades de estoque inicial. As movimentações exigem direção, quantidade positiva e referência de nota. Saídas não podem exceder o saldo. A exclusão de uma movimentação é um estorno auditável; não apaga o registro original. A exclusão de produto o desativa para preservar o histórico.
+Na criacao de Administrador, informe em `paginas` apenas valores que o token Administrador atual possui: `contabilidade`, `estoque` ou `manutencao`.
 
-O campo `codigo` Ã© o SKU textual, enquanto o `id` numÃ©rico continua sendo usado pelo carrinho e nas referÃªncias internas.
+## Envelope das respostas
 
-### Histórico de preços
+Todas as respostas REST em `/api/*` usam `status` (`success` ou `error`), `statusCode` (igual ao status HTTP) e `data`. Os scripts desta collection leem os retornos de recurso em `pm.response.json().data`. Exclusões retornam HTTP 200 com `data: null` para preservar o envelope.
 
-O produto mantém o preço em registros históricos: a criação recebe o preço inicial e cada mudança usa POST /admin/produtos/{produto}/precos. GET nessa rota lista o histórico com o preço vigente primeiro. Atualizar os dados do produto não altera preços. O checkout captura o registro vigente e também grava o valor no item do pedido; preço histórico atual ou já usado em pedido não pode ser excluído. A collection inclui as chamadas para registrar, consultar e excluir um preço antigo sem referências.
+## Recuperação de senha
 
+Defina `passwordRecoveryEmail` e execute `POST /api/senha/recuperar`. Se a conta existir, o link será enviado para esse endereço. No ambiente local com `MAIL_MAILER=log`, consulte o log de e-mail do Laravel e copie o token do link para `passwordRecoveryToken`; defina `passwordRecoveryNewPassword` e execute `POST /api/senha/redefinir`. O token expira conforme `PASSWORD_RECOVERY_TTL` (600 segundos no `.env` local) e só pode ser usado uma vez.
+
+## Notas fiscais e ajustes de estoque
+
+No checkout de Cliente, envie `dados_fiscais` (nome, CPF/CNPJ, indicador de IE e endereço fiscal), conforme o exemplo da collection. A resposta traz `processamento_fiscal` com mensagem de processamento; nenhuma emissão é feita dentro da requisição. A fila Redis `fiscal`, gerenciada pelo Horizon, começa a emissão depois da confirmação do pagamento pelo backend. Consulte o pedido e use **Baixar meu DANFE apos processamento** quando estiver pronto. Não há chamada pública para confirmar pagamento. A pasta **Filas (Horizon)** usa `horizonUrl` e `adminToken` de Manutenção para consultar as estatísticas.
+
+Os exemplos de criação/atualização de produto incluem `configuracao_fiscal`. Configure também UF do emitente, CNPJ, série e token de homologação no backend. O Docker Compose inicia `horizon` e `scheduler`; o scheduler recupera pendências de publicação da fila.
+
+A pasta **Fiscal Contora (homologacao)** inclui emissão, consulta local, sincronização e downloads XML/DANFE. Preencha `FISCAL_CONTORA_TOKEN` e `FISCAL_CONTORA_CNPJ` no `.env` do backend, usando chave de homologação. Na collection configure `adminToken` (Contabilidade, escopo `admin:manage`), `produtoId` e `contoraIdempotencyKey`. Mantenha a mesma chave e payload ao repetir uma emissão. A resposta salva `notaFiscalContoraId`; depois sincronize para consultar a autorização e gerar o PDF. Os downloads retornam arquivo, não envelope JSON. A chamada Logística usa `logisticaToken` com escopo `logistics:manage`. Essas notas de teste não movimentam estoque. Guia completo e cadastro: [../docs/FISCAL-CONTORA.md](../docs/FISCAL-CONTORA.md).
+
+- `POST /api/admin/notas-fiscais` exige Administrador com pagina `contabilidade`. Registra documento fiscal autorizado com natureza `compra`, `remessa`, `devolucao`, `doacao`, `venda` ou `perda`; cada item cria a movimentacao de estoque correspondente.
+- Uma nota de venda vinculada a `pedido_id` valida os itens contra o pedido e nao baixa estoque novamente, pois o checkout ja consumiu a reserva. Venda sem pedido, doacao e perda baixam o estoque disponivel, descontadas as reservas ativas no Redis.
+- `POST /api/admin/estoque/movimentacoes` aceita somente `entrada` e exige Administrador com pagina `estoque` ou `manutencao`. Informe referencia e observacao para manter o ajuste auditavel.
+- A collection inclui exemplos de registro de nota de compra e ajuste de entrada. Configure `adminToken` com escopo `admin:manage` e as permissoes da pagina correspondente.

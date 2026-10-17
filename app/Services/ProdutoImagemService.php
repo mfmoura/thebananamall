@@ -13,13 +13,13 @@ class ProdutoImagemService
     {
         return DB::transaction(function () use ($produto, $dados): ProdutoImagem {
             $produto = Produto::query()->lockForUpdate()->findOrFail($produto->id);
-            $principal = (bool) ($dados['principal'] ?? false);
+            $principal = (bool) ($dados['principal'] ?? false) || ! $produto->imagens()->where('principal', true)->exists();
 
             if ($principal) {
                 $produto->imagens()->update(['principal' => false]);
             }
 
-            return $produto->imagens()->create($dados + ['principal' => false]);
+            return $produto->imagens()->create(array_merge($dados, ['principal' => $principal]));
         });
     }
 
@@ -35,6 +35,10 @@ class ProdutoImagemService
 
             $imagem->update($dados);
 
+            if (! $produto->imagens()->where('principal', true)->exists()) {
+                $produto->imagens()->orderBy('id')->first()?->update(['principal' => true]);
+            }
+
             return $imagem->refresh();
         });
     }
@@ -43,7 +47,15 @@ class ProdutoImagemService
     {
         $this->garantirPertencimento($produto, $imagem);
 
-        return (bool) $imagem->delete();
+        return DB::transaction(function () use ($produto, $imagem): bool {
+            $produto = Produto::query()->lockForUpdate()->findOrFail($produto->id);
+            $excluida = (bool) $imagem->delete();
+            if (! $produto->imagens()->where('principal', true)->exists()) {
+                $produto->imagens()->orderBy('id')->first()?->update(['principal' => true]);
+            }
+
+            return $excluida;
+        });
     }
 
     private function garantirPertencimento(Produto $produto, ProdutoImagem $imagem): void

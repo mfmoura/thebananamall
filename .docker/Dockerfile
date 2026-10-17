@@ -51,6 +51,8 @@ RUN pecl install pcov \
     && echo "pcov.enabled=1" >> /usr/local/etc/php/conf.d/pcov.ini \
     && echo "pcov.directory=/var/www/html" >> /usr/local/etc/php/conf.d/pcov.ini
     
+RUN docker-php-ext-install pcntl
+
 WORKDIR /var/www/html
 
 COPY ./.docker/entrypoint.sh /usr/local/bin/entrypoint.sh

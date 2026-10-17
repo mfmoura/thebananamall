@@ -10,27 +10,28 @@ use JsonSerializable;
  */
 final class CarrinhoItem implements JsonSerializable
 {
-    private bool $modificado;
     public readonly int $codigo;
     private float $quantidade;
     private string $data;
+    private ?string $preco;
+    private ?string $precoAtual = null;
 
     public function __construct(
         int $codigo,
         float $quantidade,
         ?string $data = null,
-        bool $modificado = false,
+        ?string $preco = null,
     ) {
         $this->validarQuantidade($quantidade);
         $this->codigo = $codigo;
         $this->quantidade = $quantidade;
         $this->data = $data ?? now()->toDateString();
-        $this->modificado = $modificado;
+        $this->preco = $preco;
     }
 
-    public static function criar(int $codigo, float $quantidade): self
+    public static function criar(int $codigo, float $quantidade, ?string $preco = null): self
     {
-        return new self($codigo, $quantidade, now()->toDateString(), true);
+        return new self($codigo, $quantidade, now()->toDateString(), $preco);
     }
 
     /** @param array{codigo: int|string, quantidade: int|float|string, data?: string} $dados */
@@ -40,12 +41,23 @@ final class CarrinhoItem implements JsonSerializable
             (int) $dados['codigo'],
             (float) $dados['quantidade'],
             $dados['data'] ?? now()->toDateString(),
+            isset($dados['preco']) ? (string) $dados['preco'] : null,
         );
+    }
+
+    public function definirPrecoAtual(?string $preco): void
+    {
+        $this->precoAtual = $preco;
     }
 
     public function quantidade(): float
     {
         return $this->quantidade;
+    }
+
+    public function preco(): ?string
+    {
+        return $this->preco;
     }
 
     public function alterarQuantidade(float $quantidade): float
@@ -55,7 +67,6 @@ final class CarrinhoItem implements JsonSerializable
         if ($this->quantidade !== $quantidade) {
             $this->quantidade = $quantidade;
             $this->data = now()->toDateString();
-            $this->modificado = true;
         }
 
         return $this->quantidade;
@@ -63,22 +74,28 @@ final class CarrinhoItem implements JsonSerializable
 
     public function alertarModificacao(): bool
     {
-        return $this->modificado;
+        return $this->preco !== null
+            && $this->precoAtual !== null
+            && number_format((float) $this->preco, 2, '.', '') !== number_format((float) $this->precoAtual, 2, '.', '');
     }
 
-    /** @return array{codigo: int, quantidade: float, data: string} */
+    /** @return array{codigo: int, quantidade: float, data: string, preco: ?string} */
     public function toArray(): array
     {
         return [
             'codigo' => $this->codigo,
             'quantidade' => $this->quantidade,
             'data' => $this->data,
+            'preco' => $this->preco,
         ];
     }
 
     public function jsonSerialize(): array
     {
-        return $this->toArray() + ['modificado' => $this->alertarModificacao()];
+        return $this->toArray() + [
+            'preco_atual' => $this->precoAtual,
+            'modificado' => $this->alertarModificacao(),
+        ];
     }
 
     private function validarQuantidade(float $quantidade): void

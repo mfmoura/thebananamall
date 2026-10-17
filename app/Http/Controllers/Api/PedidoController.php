@@ -8,8 +8,10 @@ use App\Http\Requests\Api\ListPedidosRequest;
 use App\Http\Requests\Api\ShowPedidoRequest;
 use App\Http\Requests\Api\StorePedidoRequest;
 use App\Models\Pedido;
+use App\Services\PedidoFiscalService;
 use App\Services\PedidoService;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PedidoController extends Controller
 {
@@ -25,6 +27,7 @@ class PedidoController extends Controller
             $request->cliente(),
             (int) $dados['forma_pagamento_id'],
             $dados['idempotency_key'],
+            $dados['dados_fiscais'],
         );
 
         return response()->json($pedido, 201);
@@ -33,6 +36,11 @@ class PedidoController extends Controller
     public function show(ShowPedidoRequest $request, Pedido $pedido, PedidoService $pedidoService): JsonResponse
     {
         return response()->json($pedidoService->buscar($request->cliente(), $pedido));
+    }
+
+    public function danfe(ShowPedidoRequest $request, Pedido $pedido, PedidoFiscalService $service): StreamedResponse
+    {
+        return $service->baixarDanfe($pedido);
     }
 
     public function cancelar(
@@ -44,6 +52,6 @@ class PedidoController extends Controller
             return response()->json(['message' => 'Este pedido não pode ser cancelado.'], 409);
         }
 
-        return response()->json($pedido->refresh()->load(['formaPagamento', 'itens']));
+        return response()->json($pedido->refresh()->load(['formaPagamento', 'itens', 'processamentoFiscal']));
     }
 }

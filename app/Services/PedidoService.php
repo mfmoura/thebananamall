@@ -16,11 +16,12 @@ class PedidoService
     public function __construct(
         private readonly CarrinhoService $carrinhoService,
         private readonly ProdutoMovimentacaoService $movimentacaoService,
+        private readonly PedidoFiscalService $fiscalService,
     ) {}
 
     public function listar(Cliente $cliente): Collection
     {
-        return Pedido::query()->with(['formaPagamento', 'itens'])
+        return Pedido::query()->with(['formaPagamento', 'itens', 'processamentoFiscal'])
             ->where('cliente_id', $cliente->id)
             ->latest('data')
             ->get();
@@ -28,99 +29,109 @@ class PedidoService
 
     public function buscar(Cliente $cliente, Pedido $pedido): Pedido
     {
-        return $pedido->load(['formaPagamento', 'itens']);
+        return $pedido->load(['formaPagamento', 'itens', 'processamentoFiscal']);
     }
 
-    public function comprar(Cliente $cliente, int $formaPagamentoId, string $idempotencyKey): Pedido
+    public function comprar(Cliente $cliente, int $formaPagamentoId, string $idempotencyKey, array $dadosFiscais = []): Pedido
     {
-        $existente = $this->pedidoIdempotente($cliente, $idempotencyKey);
-
-        if ($existente !== null) {
-            return $existente;
-        }
-
-        $carrinho = $this->carrinhoService->consultar($cliente);
-
-        if ($carrinho === null || $carrinho->itens === []) {
-            throw ValidationException::withMessages(['carrinho' => 'O carrinho está vazio ou expirou.']);
-        }
-
-        [$pedido, $criado] = DB::transaction(function () use ($cliente, $formaPagamentoId, $idempotencyKey, $carrinho): array {
-            $clienteBloqueado = Cliente::query()->lockForUpdate()->findOrFail($cliente->id);
-            $existente = $this->pedidoIdempotente($clienteBloqueado, $idempotencyKey);
+        return $this->carrinhoService->comBloqueioDeEstoque(function () use (
+            $cliente,
+            $formaPagamentoId,
+            $idempotencyKey,
+            $dadosFiscais,
+        ): Pedido {
+            $existente = $this->pedidoIdempotente($cliente, $idempotencyKey);
 
             if ($existente !== null) {
-                return [$existente, false];
+                return $existente;
             }
 
-            $formaPagamento = FormaPagamento::query()
-                ->whereKey($formaPagamentoId)
-                ->where('ativo', true)
-                ->first();
+            $carrinho = $this->carrinhoService->consultar($cliente);
 
-            if ($formaPagamento === null) {
-                throw ValidationException::withMessages([
-                    'forma_pagamento_id' => 'A forma de pagamento não está disponível.',
-                ]);
+            if ($carrinho === null || $carrinho->itens === []) {
+                throw ValidationException::withMessages(['carrinho' => 'O carrinho estÃ¡ vazio ou expirou.']);
             }
 
-            $codigos = array_map(static fn ($item): int => $item->codigo, $carrinho->itens);
-            $produtos = Produto::query()->whereIn('id', $codigos)->where('ativo', true)
-                ->lockForUpdate()->get()->keyBy('id');
+            [$pedido, $criado] = DB::transaction(function () use ($cliente, $formaPagamentoId, $idempotencyKey, $carrinho, $dadosFiscais): array {
+                $clienteBloqueado = Cliente::query()->lockForUpdate()->findOrFail($cliente->id);
+                $existente = $this->pedidoIdempotente($clienteBloqueado, $idempotencyKey);
 
-            if ($produtos->count() !== count(array_unique($codigos))) {
-                throw ValidationException::withMessages([
-                    'carrinho' => 'Um ou mais produtos não existem ou estão indisponíveis.',
-                ]);
-            }
+                if ($existente !== null) {
+                    return [$existente, false];
+                }
 
-            $pedido = Pedido::query()->create([
-                'cliente_id' => $clienteBloqueado->id,
-                'forma_pagamento_id' => $formaPagamento->id,
-                'status' => StatusPedido::AguardandoPagamento,
-                'data' => now(),
-                'idempotency_key' => $idempotencyKey,
-            ]);
+                $formaPagamento = FormaPagamento::query()
+                    ->whereKey($formaPagamentoId)
+                    ->where('ativo', true)
+                    ->first();
 
-            foreach ($carrinho->itens as $item) {
-                /** @var Produto $produto */
-                $produto = $produtos->get($item->codigo);
-                // O produto já está bloqueado; PrecoService usa o mesmo bloqueio ao publicar preços.
-                $precoAtual = $produto->precoAtual()->first();
-
-                if ($precoAtual === null) {
+                if ($formaPagamento === null) {
                     throw ValidationException::withMessages([
-                        'carrinho' => "O produto {$produto->id} estÃ¡ sem preÃ§o vigente.",
+                        'forma_pagamento_id' => 'A forma de pagamento nÃ£o estÃ¡ disponÃ­vel.',
                     ]);
                 }
 
-                $pedido->itens()->create([
-                    'codigo' => $produto->id,
-                    'preco_id' => $precoAtual->id,
-                    'preco' => $precoAtual->preco,
-                    'quantidade' => $item->quantidade(),
-                    'data' => now()->toDateString(),
+                $codigos = array_map(static fn ($item): int => $item->codigo, $carrinho->itens);
+                $produtos = Produto::query()->whereIn('id', $codigos)->where('ativo', true)
+                    ->lockForUpdate()->get()->keyBy('id');
+
+                if ($produtos->count() !== count(array_unique($codigos))) {
+                    throw ValidationException::withMessages([
+                        'carrinho' => 'Um ou mais produtos nÃ£o existem ou estÃ£o indisponÃ­veis.',
+                    ]);
+                }
+
+                $pedido = Pedido::query()->create([
+                    'cliente_id' => $clienteBloqueado->id,
+                    'forma_pagamento_id' => $formaPagamento->id,
+                    'status' => StatusPedido::AguardandoPagamento,
+                    'data' => now(),
+                    'idempotency_key' => $idempotencyKey,
                 ]);
-                $this->movimentacaoService->registrarSaidaDoPedido(
-                    $produto,
-                    $pedido,
-                    $item->quantidade(),
-                );
+
+                foreach ($carrinho->itens as $item) {
+                    /** @var Produto $produto */
+                    $produto = $produtos->get($item->codigo);
+                    // O produto jÃ¡ estÃ¡ bloqueado; PrecoService usa o mesmo bloqueio ao publicar preÃ§os.
+                    $precoAtual = $produto->precoAtual()->first();
+
+                    if ($precoAtual === null) {
+                        throw ValidationException::withMessages([
+                            'carrinho' => "O produto {$produto->id} estÃƒÂ¡ sem preÃƒÂ§o vigente.",
+                        ]);
+                    }
+
+                    $pedido->itens()->create([
+                        'codigo' => $produto->id,
+                        'configuracao_fiscal' => $produto->configuracao_fiscal,
+                        'preco_id' => $precoAtual->id,
+                        'preco' => $precoAtual->preco,
+                        'quantidade' => $item->quantidade(),
+                        'data' => now()->toDateString(),
+                    ]);
+                    $this->movimentacaoService->registrarSaidaDoPedido(
+                        $produto,
+                        $pedido,
+                        $item->quantidade(),
+                    );
+                }
+
+                $this->fiscalService->acompanhar($pedido, $dadosFiscais);
+
+                return [$pedido->load(['formaPagamento', 'itens', 'processamentoFiscal']), true];
+            });
+
+            if ($criado) {
+                $this->carrinhoService->removerSobBloqueio($cliente);
             }
 
-            return [$pedido->load(['formaPagamento', 'itens']), true];
+            return $pedido;
         });
-
-        if ($criado) {
-            $this->carrinhoService->excluir($cliente);
-        }
-
-        return $pedido;
     }
 
     public function cancelar(Cliente $cliente, Pedido $pedido): bool
     {
-        return DB::transaction(function () use ($cliente, $pedido): bool {
+        return $this->carrinhoService->comBloqueioDeEstoque(fn (): bool => DB::transaction(function () use ($cliente, $pedido): bool {
             $pedido = Pedido::query()->lockForUpdate()->findOrFail($pedido->id);
 
             if ($pedido->cliente_id !== $cliente->id || $pedido->status !== StatusPedido::AguardandoPagamento) {
@@ -128,15 +139,32 @@ class PedidoService
             }
 
             $this->movimentacaoService->estornarSaidasDoPedido($pedido);
+            $pedido->processamentoFiscal()->update(['etapa' => 'cancelado']);
             $pedido->status = StatusPedido::Cancelado;
 
             return $pedido->save();
+        }));
+    }
+
+    /** Chamada interna somente depois da confirmação verificada pelo gateway de pagamento. */
+    public function registrarPagamentoConfirmado(Pedido $pedido): bool
+    {
+        return DB::transaction(function () use ($pedido): bool {
+            $pedido = Pedido::query()->lockForUpdate()->findOrFail($pedido->id);
+            if (in_array($pedido->status->value, PedidoFiscalService::PAGOS, true)) {
+                return true;
+            }
+            if ($pedido->status !== StatusPedido::AguardandoPagamento) {
+                return false;
+            }
+
+            return $pedido->update(['status' => StatusPedido::Pago]);
         });
     }
 
     private function pedidoIdempotente(Cliente $cliente, string $key): ?Pedido
     {
-        return Pedido::query()->with(['formaPagamento', 'itens'])
+        return Pedido::query()->with(['formaPagamento', 'itens', 'processamentoFiscal'])
             ->where('cliente_id', $cliente->id)
             ->where('idempotency_key', $key)
             ->first();

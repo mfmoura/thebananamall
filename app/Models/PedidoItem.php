@@ -11,6 +11,7 @@ class PedidoItem extends Model
 
     protected $fillable = [
         'pedido_id',
+        'configuracao_fiscal',
         'codigo',
         'preco_id',
         'preco',
@@ -21,6 +22,7 @@ class PedidoItem extends Model
     protected function casts(): array
     {
         return [
+            'configuracao_fiscal' => 'array',
             'preco' => 'decimal:2',
             'quantidade' => 'decimal:3',
             'data' => 'date:Y-m-d',

@@ -9,9 +9,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
+use Laravel\Passport\Contracts\OAuthenticatable;
+use Laravel\Passport\HasApiTokens;
 
-class Usuario extends Authenticatable
+class Usuario extends Authenticatable implements OAuthenticatable
 {
     /** @use HasFactory<UsuarioFactory> */
     use HasApiTokens, HasFactory, Notifiable;
@@ -38,6 +39,8 @@ class Usuario extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'must_change_password',
+        'must_reauthenticate',
     ];
 
     /**
@@ -49,6 +52,9 @@ class Usuario extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'email_validado' => 'boolean',
+            'must_change_password' => 'boolean',
+            'must_reauthenticate' => 'boolean',
             'password' => 'hashed',
         ];
     }
@@ -68,8 +74,18 @@ class Usuario extends Authenticatable
         return $this->hasOne(Logistica::class);
     }
 
+    public function visitante(): HasOne
+    {
+        return $this->hasOne(Visitante::class);
+    }
+
     public function enderecos(): HasMany
     {
         return $this->hasMany(Endereco::class);
+    }
+
+    public function historicoSenhas(): HasMany
+    {
+        return $this->hasMany(HistoricoSenha::class, 'usuario_id');
     }
 }
