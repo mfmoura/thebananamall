@@ -12,11 +12,6 @@ return [
 
     'password_pepper' => env('PASSWORD_PEPPER', env('APP_KEY')),
 
-    'pwned_passwords' => [
-        'url' => env('PWNED_PASSWORDS_URL', 'https://api.pwnedpasswords.com/range'),
-        'timeout' => (int) env('PWNED_PASSWORDS_TIMEOUT', 4),
-        'cache_minutes' => (int) env('PWNED_PASSWORDS_CACHE_MINUTES', 60),
-    ],
 
     'frontend' => [
         'url' => env('FRONTEND_URL', 'http://localhost'),

@@ -17,7 +17,7 @@ class RecuperacaoSenhaService
 
     public function solicitar(string $email): void
     {
-        $usuario = Usuario::query()->where('email', $email)->first();
+        $usuario = Usuario::query()->where('email', $email)->where('email_validado', true)->first();
 
         if ($usuario === null) {
             return;
@@ -46,6 +46,7 @@ class RecuperacaoSenhaService
         Notification::route('mail', $usuario->email)->notify(new RecuperarSenhaNotification(
             $url,
             (int) ceil($ttl / 60),
+            $usuario->id,
         ));
     }
 

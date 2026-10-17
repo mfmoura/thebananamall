@@ -13,8 +13,6 @@ class PoliticaSenhaService
 {
     private const HISTORICO_MAXIMO = 4;
 
-    public function __construct(private readonly PwnedPasswordService $pwnedPasswordService) {}
-
     public function corresponde(string $senha, string $hash): bool
     {
         // The second check permits existing hashes created before the pepper was introduced.
@@ -26,7 +24,6 @@ class PoliticaSenhaService
     public function hash(string $senha, array $contextos = []): string
     {
         $this->validarContexto($senha, $contextos);
-        $this->validarComprometimento($senha);
 
         return Hash::make($this->pepperizar($senha));
     }
@@ -39,7 +36,6 @@ class PoliticaSenhaService
             $usuario->email,
             ...$contextosAdicionais,
         ]);
-        $this->validarComprometimento($senha);
 
         $this->validarHistorico($usuario, $senha);
     }
@@ -69,7 +65,7 @@ class PoliticaSenhaService
         DB::transaction(function () use ($usuario, $novaSenha, $contextosAdicionais): void {
             $usuarioBloqueado = Usuario::query()->lockForUpdate()->findOrFail($usuario->getKey());
 
-            // Recheck state-dependent rules under the row lock; keep network I/O outside the transaction.
+            // Revalida as regras dependentes da conta sob bloqueio de linha.
             $this->validarContexto($novaSenha, [
                 $usuarioBloqueado->login,
                 $usuarioBloqueado->email,
@@ -106,15 +102,6 @@ class PoliticaSenhaService
         }
 
         return hash_hmac('sha256', $senha, $chave);
-    }
-
-    private function validarComprometimento(string $senha): void
-    {
-        if ($this->pwnedPasswordService->estaComprometida($senha)) {
-            throw ValidationException::withMessages([
-                'password' => 'Esta senha aparece em vazamentos conhecidos. Escolha outra senha.',
-            ]);
-        }
     }
 
     /** @param list<string|null> $contextos */

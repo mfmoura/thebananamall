@@ -183,22 +183,35 @@ class CarrinhoService
         $carrinhoAnterior = is_string($jsonAnterior)
             ? Carrinho::deArray(json_decode($jsonAnterior, true, 512, JSON_THROW_ON_ERROR))
             : null;
+        $assinatura = static function (Carrinho $valor): array {
+            $itens = [];
+            foreach ($valor->itens as $item) {
+                $itens[$item->codigo] = $item->quantidade();
+            }
+            ksort($itens);
+
+            return $itens;
+        };
+        if ($carrinhoAnterior !== null && $assinatura($carrinhoAnterior) === $assinatura($carrinho)) {
+            return $this->atualizarPrecosAtuais($carrinhoAnterior);
+        }
         $this->reservaEstoqueService->validarCarrinho(
             $this->reservaEstoqueService->identificadorDono($dono),
             $carrinho,
             $ignorarReservas,
         );
-        $ttl = (int) config('carrinho.ttl');
+        $ttl = (int) config($dono instanceof Cliente ? 'carrinho.cliente_ttl' : 'carrinho.visitante_ttl');
+        $carrinho->reserva_expira_em = now()->addSeconds(min($ttl, (int) config('carrinho.reserva_ttl')))->timestamp;
         Redis::setex(
             $chave,
             $ttl,
-            json_encode($carrinho->toArray(), JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION),
+            json_encode($carrinho->toArray() + ['politica_versao' => 2], JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION),
         );
         $this->reservaEstoqueService->sincronizar(
             $dono,
             $carrinhoAnterior,
             $carrinho,
-            now()->addSeconds($ttl)->timestamp + 1,
+            $carrinho->reserva_expira_em,
         );
 
         if ($dono instanceof Visitante) {
@@ -206,6 +219,27 @@ class CarrinhoService
         }
 
         return $this->atualizarPrecosAtuais($carrinho);
+    }
+
+    public function sanitizarReservas(): int
+    {
+        $total = 0;
+        foreach ($this->reservaEstoqueService->carrinhosIndexados() as $chave) {
+            $this->comBloqueioDeEstoque(fn () => $this->reservaEstoqueService->adequarCarrinhoLegado($chave));
+        }
+        foreach ($this->reservaEstoqueService->produtosIndexados() as $produtoId) {
+            $total += $this->comBloqueioDeEstoque(fn () => $this->reservaEstoqueService->limparProduto($produtoId));
+        }
+
+        return $total;
+    }
+
+    /** Checkout já mantém o bloqueio global; reservas vencidas não garantem estoque. */
+    public function validarParaCheckout(Cliente $cliente, Carrinho $carrinho): void
+    {
+        $this->reservaEstoqueService->validarCarrinho(
+            $this->reservaEstoqueService->identificadorDono($cliente), $carrinho,
+        );
     }
 
     private function chave(Cliente|Visitante $dono): string

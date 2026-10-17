@@ -18,7 +18,7 @@ class StoreNotaFiscalRequest extends AdministradorRequest
 
         return [
             'natureza_operacao' => ['required', Rule::enum(NaturezaOperacaoNotaFiscal::class)],
-            'pedido_id' => ['sometimes', 'nullable', 'integer', 'exists:pedidos,id'],
+            'pedido_id' => ['sometimes', 'nullable', 'integer', 'exists:pedidos,id,deleted_at,NULL'],
             'provedor' => ['sometimes', 'nullable', 'string', 'max:255'],
             'referencia_provedor' => [
                 'required', 'string', 'max:255',
@@ -36,7 +36,7 @@ class StoreNotaFiscalRequest extends AdministradorRequest
             'total_desconto' => ['sometimes', 'numeric', 'gte:0', 'decimal:0,2'],
             'total_impostos' => ['sometimes', 'numeric', 'gte:0', 'decimal:0,2'],
             'itens' => ['required', 'array', 'min:1'],
-            'itens.*.produto_id' => ['required', 'integer', 'exists:produtos,id'],
+            'itens.*.produto_id' => ['required', 'integer', 'exists:produtos,id,deleted_at,NULL'],
             'itens.*.codigo_produto' => ['sometimes', 'string', 'max:80'],
             'itens.*.descricao' => ['sometimes', 'string', 'max:255'],
             'itens.*.ncm' => ['sometimes', 'nullable', 'string', 'size:8'],

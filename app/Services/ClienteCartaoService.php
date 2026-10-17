@@ -38,7 +38,7 @@ class ClienteCartaoService
         return $cartao->save();
     }
 
-    /** Desativa localmente; a remoção no cofre do gateway depende da integração escolhida. */
+    /** Exclui logicamente; a remoção no cofre do gateway depende da integração escolhida. */
     public function excluir(Cliente $cliente, ClienteCartao $cartao): bool
     {
         if ($cartao->cliente_id !== $cliente->id) {
@@ -46,7 +46,8 @@ class ClienteCartaoService
         }
 
         $cartao->status = StatusClienteCartao::Inativo;
+        $cartao->save();
 
-        return $cartao->save();
+        return (bool) $cartao->delete();
     }
 }

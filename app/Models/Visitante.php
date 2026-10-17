@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Visitante extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $table = 'visitantes';
 
     protected $fillable = ['usuario_id', 'token_hash', 'expira_em'];

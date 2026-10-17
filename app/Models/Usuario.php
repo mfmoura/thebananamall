@@ -14,6 +14,8 @@ use Laravel\Passport\HasApiTokens;
 
 class Usuario extends Authenticatable implements OAuthenticatable
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     /** @use HasFactory<UsuarioFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -51,6 +53,8 @@ class Usuario extends Authenticatable implements OAuthenticatable
     protected function casts(): array
     {
         return [
+            'last_login_at' => 'datetime',
+            'email_confirmation_expires_at' => 'datetime',
             'email_verified_at' => 'datetime',
             'email_validado' => 'boolean',
             'must_change_password' => 'boolean',

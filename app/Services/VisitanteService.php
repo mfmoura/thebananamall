@@ -15,7 +15,7 @@ class VisitanteService
         return DB::transaction(function (): array {
             $idUnico = (string) Str::uuid();
             $token = Str::random(64);
-            $expiraEm = now()->addSeconds((int) config('carrinho.ttl'));
+            $expiraEm = now()->addSeconds((int) config('carrinho.visitante_ttl'));
 
             $usuario = Usuario::query()->create([
                 'login' => "visitante-{$idUnico}",
@@ -46,7 +46,7 @@ class VisitanteService
 
     public function renovar(Visitante $visitante): void
     {
-        $visitante->update(['expira_em' => now()->addSeconds((int) config('carrinho.ttl'))]);
+        $visitante->update(['expira_em' => now()->addSeconds((int) config('carrinho.visitante_ttl'))]);
     }
 
     public function invalidar(Visitante $visitante): void

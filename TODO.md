@@ -32,3 +32,5 @@ Referências oficiais consultadas em 16/10/2026:
 - [Emissor gratuito de notas fiscais do Mercado Livre](https://vendedores.mercadolivre.com.br/nota/como-emitir-as-notas-fiscais-das-minhas-vendas?guideKeyId=GE74&moduleKeyId=MO341)
 - [API de faturamento Mercado Livre](https://developers.mercadolivre.com.br/pt_br/api-fiscal-faturamento-de-venda)
 - [Gerenciamento de envios](https://developers.mercadolivre.com.br/pt_br/registre-o-seu-aplicativo/gerenciamento-de-envios)
+
+- // TODO: Implementar relatórios que consultem também registros excluídos logicamente, preservados permanentemente, com autorização e proteção dos dados sensíveis.

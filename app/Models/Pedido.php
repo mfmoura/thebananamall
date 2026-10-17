@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Pedido extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $table = 'pedidos';
 
     protected $fillable = [
@@ -34,12 +36,12 @@ class Pedido extends Model
 
     public function cliente(): BelongsTo
     {
-        return $this->belongsTo(Cliente::class);
+        return $this->belongsTo(Cliente::class)->withTrashed();
     }
 
     public function formaPagamento(): BelongsTo
     {
-        return $this->belongsTo(FormaPagamento::class);
+        return $this->belongsTo(FormaPagamento::class)->withTrashed();
     }
 
     public function itens(): HasMany

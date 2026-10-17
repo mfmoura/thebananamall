@@ -40,3 +40,28 @@ Este arquivo registra as convenções do projeto para qualquer pessoa ou LLM que
 - Ao alterar um comportamento existente, atualize ou acrescente testes que cubram o caminho esperado e falhas relevantes.
 - Execute os testes pertinentes quando solicitado e reporte claramente o resultado ou qualquer impedimento do ambiente.
 - Não reverta mudanças locais preexistentes nem modifique arquivos fora do escopo necessário.
+
+## Exclusão lógica e expiração de contas
+
+- Todo modelo de domínio persistido no PostgreSQL deve usar `SoftDeletes` e uma coluna `deleted_at`. Exclusões comuns não podem usar `forceDelete`, `truncate` ou exclusão física por SQL. Novos modelos e migrations devem seguir essa convenção.
+- Exclusões de usuários passam por `UsuarioExclusaoService`: remover logicamente perfis, endereços, cartões e históricos de senha; revogar tokens e liberar carrinho/reservas. Pedidos, notas e movimentações permanecem como histórico.
+- Relacionamentos históricos podem usar `withTrashed()` para preservar documentos e auditoria. Nunca use isso para autorizar identidades excluídas. Estoque mantém o histórico contábil; correções são feitas por estorno.
+- Login é único entre usuários ativos; e-mail é único somente entre contas ativas com e-mail confirmado. Validações devem ignorar excluídos; restauração exige verificar conflitos. Códigos históricos de produtos continuam únicos.
+- A cada minuto, `usuarios:limpar-expirados` exclui logicamente contas com e-mail não confirmado, prazo de confirmação vencido e nenhum login registrado. Visitantes não participam dessa limpeza. Reenvio dentro do prazo renova a validade; conta já expirada exige novo cadastro. Confirmação e limpeza usam bloqueio no banco.
+- Carrinhos e tokens temporários do Redis continuam sujeitos a TTL e remoção efetiva. Credenciais OAuth são revogadas; tabelas de infraestrutura, sessões, cache e filas não seguem a exclusão lógica de domínio.
+- Dados de domínio excluídos logicamente devem ser preservados permanentemente para relatórios futuros. Nunca realizar exclusão física, expurgo ou limpeza desses registros, inclusive contas não confirmadas e históricos de senha. Não adicionar rotinas automáticas de descarte. Relatórios devem incluir registros excluídos explicitamente com `withTrashed()` quando necessário, mantendo autorização e proteção dos dados sensíveis. Essa política não altera o TTL do Redis nem a limpeza de dados temporários de infraestrutura e diagnóstico.
+Cadastros pendentes podem compartilhar e-mail. A confirmação verifica a unicidade atomicamente: somente a primeira conta confirmada reserva o endereço. Reenvio por e-mail seleciona o cadastro pendente mais recente ainda válido; recuperação de senha usa somente a conta confirmada.
+
+### Carrinhos abandonados e reservas
+
+- Carrinho visitante: 24 horas sem alterações (`CARRINHO_VISITANTE_TTL=86400`); Cliente: 30 dias (`CARRINHO_CLIENTE_TTL=2592000`).
+- Reserva de estoque: 15 minutos após alteração efetiva dos itens (`CARRINHO_RESERVA_TTL=900`). GET, criação de carrinho já existente e reenvio das mesmas quantidades não renovam prazos.
+- Após expirar a reserva, os itens permanecem no carrinho até seu próprio TTL. A API inclui `reserva_expira_em` (Unix timestamp) e `reserva_ativa`; o frontend avisa sobre a expiração.
+- Checkout revalida preços e saldo descontando reservas de outros carrinhos; reserva vencida não garante estoque. Limpeza e checkout usam o mesmo bloqueio global.
+- O scheduler executa `carrinhos:sanitizar` a cada minuto, usa SCAN e libera reservas vencidas, inválidas ou sem item/carrinho correspondente. A adequação inicial infere a idade dos carrinhos antigos pelo TTL restante e aplica os novos prazos sem registrar nova atividade. `CARRINHO_TTL` é mantido como referência do TTL legado durante essa transição.
+- Manualmente: `docker compose exec php php artisan carrinhos:sanitizar`. Redis temporário continua fora da política de retenção permanente dos registros PostgreSQL.
+### E-mails assíncronos
+
+Confirmação e troca de e-mail, recuperação de senha e alerta de senha antiga usam notificações enfileiradas na conexão Redis, fila `emails`, com supervisor próprio no Horizon. O payload é cifrado; envio ocorre após commit, com três tentativas, backoff de 10/30/60 segundos e timeout SMTP de 20 segundos (`MAIL_TIMEOUT`). Não executar SMTP na requisição HTTP. O Horizon precisa estar ativo.
+
+A validade dos links continua contando desde a solicitação (5 minutos para confirmação e 10 para recuperação no ambiente local); a fila não renova tokens. Antes de enviar, o worker descarta links vencidos/consumidos e notificações de contas excluídas. O texto do e-mail informa que a validade começa na solicitação. Monitorar atrasos da fila, com limiar de 30 segundos; não reenviar jobs com links vencidos como se fossem links novos. Falhas definitivas ficam disponíveis no Horizon para diagnóstico. As respostas HTTP indicam aceitação da solicitação, sem garantir entrega imediata ao destinatário.

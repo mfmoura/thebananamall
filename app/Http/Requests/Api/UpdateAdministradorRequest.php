@@ -15,8 +15,8 @@ class UpdateAdministradorRequest extends AdministradorRequest
         $administrador = $this->route('administrador');
 
         return [
-            'login' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('users', 'login')->ignore($administrador->usuario_id)],
-            'password' => ['sometimes', 'required', 'string', 'min:15', 'max:64', 'confirmed'],
+            'login' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('users', 'login')->withoutTrashed()->ignore($administrador->usuario_id)],
+            'password' => ['sometimes', 'required', 'string', 'min:8', 'max:15', 'confirmed'],
             'email' => ['prohibited'],
             'paginas' => ['sometimes', 'required', 'array', 'min:1'],
             'paginas.*' => ['required', 'distinct', Rule::enum(NivelAcesso::class)],

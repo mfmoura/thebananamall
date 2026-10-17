@@ -18,8 +18,8 @@ class UpdateClienteRequest extends OwnedClienteRequest
         $cliente = $this->route('cliente');
 
         return [
-            'login' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('users', 'login')->ignore($cliente->usuario_id)],
-            'password' => ['sometimes', 'required', 'string', 'min:15', 'max:64', 'confirmed'],
+            'login' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('users', 'login')->withoutTrashed()->ignore($cliente->usuario_id)],
+            'password' => ['sometimes', 'required', 'string', 'min:8', 'max:15', 'confirmed'],
             'email' => ['prohibited'],
         ];
     }

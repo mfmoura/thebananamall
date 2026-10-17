@@ -15,7 +15,7 @@ class UsuarioService
     public function __construct(
         private readonly EmailVerificationService $emailVerificationService,
         private readonly ViaCepService $viaCepService,
-        private readonly CarrinhoService $carrinhoService,
+        private readonly UsuarioExclusaoService $usuarioExclusaoService,
         private readonly PoliticaSenhaService $politicaSenhaService,
     ) {}
 
@@ -163,7 +163,7 @@ class UsuarioService
 
     public function excluirCliente(Cliente $cliente): void
     {
-        $this->carrinhoService->excluir($cliente);
+
         $this->excluir($cliente->usuario);
     }
 
@@ -179,10 +179,7 @@ class UsuarioService
 
     public function excluir(Usuario $usuario): void
     {
-        DB::transaction(function () use ($usuario): void {
-            $usuario->tokens()->delete();
-            $usuario->delete();
-        });
+        $this->usuarioExclusaoService->excluir($usuario);
     }
 
     private function atualizarDadosDaConta(Usuario $usuario, array $dados): void

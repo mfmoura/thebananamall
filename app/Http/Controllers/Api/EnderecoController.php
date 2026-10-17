@@ -14,6 +14,15 @@ use Illuminate\Http\Response;
 
 class EnderecoController extends Controller
 {
+    public function consultarCep(\App\Http\Requests\Api\ConsultarCepRequest $request, \App\Services\ViaCepService $viaCep): JsonResponse
+    {
+        $dados = $viaCep->consultar($request->validated('cep'));
+
+        return response()->json([
+            'cep' => $dados['cep'], 'logradouro' => $dados['logradouro'] ?? '',
+            'cidade' => $dados['localidade'], 'estado' => $dados['uf'], 'pais' => 'BR',
+        ]);
+    }
     public function store(CreateEnderecoRequest $request, EnderecoService $enderecoService): JsonResponse
     {
         return response()->json($enderecoService->criar($request->user(), $request->validated()), 201);

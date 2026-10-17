@@ -27,3 +27,15 @@ O carrinho anônimo é criado sob demanda; a credencial fica na sessão. `POST /
 As respostas proxy preservam o envelope JSON da API e os downloads de DANFE. `/bff/session` retorna somente `{ "autenticado": true|false }`; `/bff/authorize` retorna `{ "authorization_url": "..." }`. Erros BFF usam o envelope da aplicação. Respostas são privadas e não devem ser armazenadas em cache.
 
 Referência de arquitetura: [OAuth 2.0 for Browser-Based Applications, seção BFF](https://www.rfc-editor.org/rfc/rfc10017.html#section-6.1).
+
+## Chaves OAuth e autorização
+
+O PHP precisa ler `storage/oauth-private.key` e `storage/oauth-public.key`. No Compose atual, o proprietário deve ser `1000:1000`; as duas chaves usam permissão `600`. Se as chaves foram criadas como root, corrigir o proprietário sem regenerá-las:
+
+```sh
+docker compose exec -u root php chown 1000:1000 storage/oauth-private.key storage/oauth-public.key
+docker compose exec -u root php chmod 600 storage/oauth-private.key
+docker compose exec -u root php chmod 600 storage/oauth-public.key
+```
+
+Gerar chaves como o usuário padrão do container; não usar `passport:keys --force` para resolver permissões. `AppServiceProvider` registra `Passport::authorizationView` porque o contrato é resolvido antes da dispensa de consentimento. O cliente BFF é autorizado pelo critério existente em `OAuthClient::skipsAuthorization`; clientes que exigem consentimento manual recebem 403 até terem um fluxo próprio.

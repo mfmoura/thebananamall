@@ -48,8 +48,8 @@ RUN install-php-extensions \
 
 RUN pecl install pcov \
     && docker-php-ext-enable pcov \
-    && echo "pcov.enabled=1" >> /usr/local/etc/php/conf.d/pcov.ini \
-    && echo "pcov.directory=/var/www/html" >> /usr/local/etc/php/conf.d/pcov.ini
+    && echo "pcov.enabled=0" >> /usr/local/etc/php/conf.d/pcov.ini \
+    && echo "pcov.directory=/var/www/html/app" >> /usr/local/etc/php/conf.d/pcov.ini
     
 RUN docker-php-ext-install pcntl
 

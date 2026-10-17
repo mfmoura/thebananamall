@@ -21,7 +21,7 @@ class StorePedidoRequest extends ClientePedidoRequest
             'forma_pagamento_id' => [
                 'required',
                 'integer',
-                Rule::exists('formas_pagamento', 'id')->where('ativo', true),
+                Rule::exists('formas_pagamento', 'id')->where('ativo', true)->whereNull('deleted_at'),
             ],
             'idempotency_key' => ['required', 'uuid', 'max:36'],
         ];

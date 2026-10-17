@@ -2,13 +2,19 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class AlertaSenhaAntigaNotification extends Notification
+class AlertaSenhaAntigaNotification extends EmailEnfileiradoNotification
 {
-    use Queueable;
+    public function __construct(private readonly ?int $usuarioId = null)
+    {
+        parent::__construct();
+    }
+
+    public function shouldSend(object $notifiable, string $channel): bool
+    {
+        return $this->usuarioId === null || \App\Models\Usuario::whereKey($this->usuarioId)->exists();
+    }
 
     public function via(object $notifiable): array
     {

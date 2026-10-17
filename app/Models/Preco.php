@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Preco extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $table = 'precos';
 
     protected $fillable = ['produto_id', 'preco', 'data'];
@@ -22,7 +24,7 @@ class Preco extends Model
 
     public function produto(): BelongsTo
     {
-        return $this->belongsTo(Produto::class);
+        return $this->belongsTo(Produto::class)->withTrashed();
     }
 
     public function itensPedido(): HasMany

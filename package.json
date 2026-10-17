@@ -5,7 +5,8 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "perf": "node scripts/performance.mjs"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",

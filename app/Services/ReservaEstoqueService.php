@@ -15,9 +15,9 @@ class ReservaEstoqueService
 {
     public function contarEstoque(Produto $produto): float
     {
-        $entradas = $produto->movimentacoes()
+        $entradas = $produto->movimentacoes()->withTrashed()
             ->where('direcao', DirecaoMovimentacao::Entrada->value)->sum('quantidade');
-        $saidas = $produto->movimentacoes()
+        $saidas = $produto->movimentacoes()->withTrashed()
             ->where('direcao', DirecaoMovimentacao::Saida->value)->sum('quantidade');
 
         return round((float) $entradas - (float) $saidas, 3);
@@ -33,7 +33,8 @@ class ReservaEstoqueService
         foreach ($reservas as $dono => $json) {
             $reserva = is_string($json) ? json_decode($json, true) : null;
 
-            if (! is_array($reserva) || (int) ($reserva['expira_em'] ?? 0) <= $agora) {
+            if (! is_array($reserva) || $this->expiracaoEfetiva($reserva) <= $agora
+                || ! Redis::exists('carrinho:'.$dono)) {
                 Redis::hdel($chave, $dono);
                 continue;
             }
@@ -80,7 +81,7 @@ class ReservaEstoqueService
         foreach (array_unique($donos) as $dono) {
             $json = Redis::hget($chave, $dono);
             $reserva = is_string($json) ? json_decode($json, true) : null;
-            if (is_array($reserva) && (int) ($reserva['expira_em'] ?? 0) > now()->timestamp) {
+            if (is_array($reserva) && $this->expiracaoEfetiva($reserva) > now()->timestamp) {
                 $reservado -= (float) ($reserva['quantidade'] ?? 0);
             }
         }
@@ -105,6 +106,7 @@ class ReservaEstoqueService
             foreach ($novo->itens as $item) {
                 if ($item->codigo === $codigo) {
                     Redis::hset($chave, $identificador, json_encode([
+                        'versao' => 2,
                         'quantidade' => $item->quantidade(),
                         'expira_em' => $expiraEm,
                     ], JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION));
@@ -129,6 +131,101 @@ class ReservaEstoqueService
     public function identificadorDono(Cliente|Visitante $dono): string
     {
         return $dono instanceof Cliente ? "cliente:{$dono->id}" : "visitante:{$dono->id}";
+    }
+
+    /** SCAN paginado; retorna somente chaves do índice desta aplicação. */
+    public function produtosIndexados(): \Generator
+    {
+        foreach ($this->chavesIndexadas('estoque:reservas:produto:*') as $chave) {
+            if (preg_match('/^estoque:reservas:produto:(\d+)$/', $chave, $match)) {
+                yield (int) $match[1];
+            }
+        }
+    }
+
+    public function carrinhosIndexados(): \Generator
+    {
+        foreach ($this->chavesIndexadas('carrinho:*') as $chave) {
+            if (preg_match('/^carrinho:(cliente|visitante):\d+$/', $chave)) {
+                yield $chave;
+            }
+        }
+    }
+
+    /** Adequa o prazo antigo sem tratar uma consulta como nova atividade. */
+    public function adequarCarrinhoLegado(string $chave): void
+    {
+        $json = Redis::get($chave);
+        $dados = is_string($json) ? json_decode($json, true) : null;
+        if (! is_array($dados) || isset($dados['politica_versao'])) {
+            return;
+        }
+        $restanteAntigo = (int) Redis::ttl($chave);
+        if ($restanteAntigo < 0) {
+            // Sem TTL não há evidência de atividade recente: preserva itens, sem reservar.
+            $idade = (int) config('carrinho.reserva_ttl');
+        } else {
+            $idade = max(0, (int) config('carrinho.ttl') - $restanteAntigo);
+        }
+        $ttl = (int) config(str_starts_with($chave, 'carrinho:cliente:') ? 'carrinho.cliente_ttl' : 'carrinho.visitante_ttl');
+        if ($idade >= $ttl) {
+            Redis::del($chave);
+
+            return;
+        }
+        $dados['politica_versao'] = 2;
+        $dados['reserva_expira_em'] = now()->timestamp - $idade + min($ttl, (int) config('carrinho.reserva_ttl'));
+        Redis::setex($chave, $ttl - $idade, json_encode($dados, JSON_THROW_ON_ERROR));
+    }
+
+    private function chavesIndexadas(string $padrao): \Generator
+    {
+        $cursor = null;
+        $prefixo = (string) config('database.redis.options.prefix', '');
+        do {
+            $pagina = Redis::connection()->scan($cursor, ['match' => $prefixo.$padrao, 'count' => 100]);
+            if ($pagina === false) {
+                break;
+            }
+            [$cursor, $chaves] = $pagina;
+            foreach ($chaves as $chave) {
+                $logica = substr($chave, strlen($prefixo));
+                yield $logica;
+            }
+        } while ((int) $cursor !== 0);
+    }
+
+    /** Executar sob o mesmo bloqueio global utilizado pelas mutações e checkout. */
+    public function limparProduto(int $produtoId): int
+    {
+        $chave = $this->chaveProduto($produtoId);
+        $removidas = 0;
+        foreach (Redis::hgetall($chave) as $dono => $json) {
+            $reserva = is_string($json) ? json_decode($json, true) : null;
+            $chaveCarrinho = 'carrinho:'.$dono;
+            $jsonCarrinho = Redis::get($chaveCarrinho);
+            $dados = is_string($jsonCarrinho) ? json_decode($jsonCarrinho, true) : null;
+            $temItem = is_array($dados) && collect($dados['itens'] ?? [])->contains(
+                fn ($item) => (int) ($item['codigo'] ?? 0) === $produtoId,
+            );
+            if (! is_array($reserva) || ! $temItem || $this->expiracaoEfetiva($reserva) <= now()->timestamp) {
+                $removidas += Redis::hdel($chave, $dono);
+            } elseif (! isset($reserva['versao'])) {
+                $reserva['expira_em'] = $this->expiracaoEfetiva($reserva);
+                $reserva['versao'] = 2;
+                Redis::hset($chave, $dono, json_encode($reserva, JSON_THROW_ON_ERROR));
+            }
+        }
+
+        return $removidas;
+    }
+
+    private function expiracaoEfetiva(array $reserva): int
+    {
+        $prazo = (int) ($reserva['expira_em'] ?? 0);
+
+        return isset($reserva['versao']) ? $prazo
+            : min($prazo, $prazo - (int) config('carrinho.ttl') - 1 + (int) config('carrinho.reserva_ttl'));
     }
 
     private function chaveProduto(int $produtoId): string

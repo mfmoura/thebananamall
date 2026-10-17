@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProdutoMovimentacao extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $table = 'produto_movimentacoes';
 
     protected $fillable = [
@@ -30,16 +32,16 @@ class ProdutoMovimentacao extends Model
 
     public function produto(): BelongsTo
     {
-        return $this->belongsTo(Produto::class);
+        return $this->belongsTo(Produto::class)->withTrashed();
     }
 
     public function nota(): BelongsTo
     {
-        return $this->belongsTo(NotaEstoque::class, 'nota_id');
+        return $this->belongsTo(NotaEstoque::class, 'nota_id')->withTrashed();
     }
 
     public function movimentoOriginal(): BelongsTo
     {
-        return $this->belongsTo(self::class, 'estorno_de_id');
+        return $this->belongsTo(self::class, 'estorno_de_id')->withTrashed();
     }
 }

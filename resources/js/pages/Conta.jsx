@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLoja } from '../context/LojaContext';
 import { api } from '../services/api';
+import FormularioEndereco from '../components/FormularioEndereco';
 import Formulario, { MensagemErro, senhaCampos } from '../components/Formulario';
 
-const enderecoCampos = ['logradouro', 'numero', 'complemento', 'cidade', 'estado', 'cep'].map((nome) => ({ nome, label: ({ numero: 'Número', estado: 'UF', cep: 'CEP' })[nome] || nome[0].toUpperCase() + nome.slice(1), obrigatorio: nome !== 'complemento', ...(nome === 'estado' ? { maxLength: 2 } : {}) }));
 
 export default function Conta() {
     const { usuario, atualizarUsuario, logout } = useLoja();
@@ -21,7 +21,7 @@ export default function Conta() {
             try { await api.excluirEndereco(item.id); await atualizarUsuario(); } catch (e) { setErro(e); }
         }}>Excluir</button></article>)}
         <h3>{endereco ? 'Editar endereço' : 'Cadastrar endereço'}</h3>
-        <Formulario key={endereco?.id || 'novo'} campos={enderecoCampos} valores={endereco || {}} enviar={async (dados) => {
+        <FormularioEndereco key={endereco?.id || 'novo'} valores={endereco || {}} enviar={async (dados) => {
             await api.endereco({ ...dados, estado: dados.estado.toUpperCase(), pais: 'BR' }, endereco?.id);
             setEndereco(null); await atualizarUsuario();
         }} />

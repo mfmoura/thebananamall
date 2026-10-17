@@ -20,10 +20,10 @@ class ProdutoService
         return $this->carrinhoService->comBloqueioDeEstoque(function () use ($porPagina, $pagina) {
             $consulta = Produto::query()->where('ativo', true)->with(['imagens', 'precoAtual'])
             ->withSum([
-                'movimentacoes as quantidade_entrada' => fn ($query) => $query->where('direcao', 'entrada'),
+                'movimentacoes as quantidade_entrada' => fn ($query) => $query->withTrashed()->where('direcao', 'entrada'),
             ], 'quantidade')
             ->withSum([
-                'movimentacoes as quantidade_saida' => fn ($query) => $query->where('direcao', 'saida'),
+                'movimentacoes as quantidade_saida' => fn ($query) => $query->withTrashed()->where('direcao', 'saida'),
             ], 'quantidade')
             ->orderBy('nome')->orderBy('id');
             $resultado = $porPagina === null ? $consulta->get() : $consulta->paginate($porPagina, ['*'], 'page', $pagina)->withQueryString();
@@ -91,7 +91,8 @@ class ProdutoService
     {
         $produto->ativo = false;
 
-        return $produto->save();
+        $produto->save();
+        return (bool) $produto->delete();
     }
 
     public function contarEstoque(Produto $produto): float

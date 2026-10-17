@@ -2,12 +2,20 @@
     "info":  {
                  "_postman_id":  "3e3a0dbc-bfd6-49c5-9c88-1965fd473460",
                  "name":  "Loja Virtual LCB API",
-                 "description":  "ColeÃƒÂ§ÃƒÂ£o de API: autenticaÃƒÂ§ÃƒÂ£o, clientes, catÃƒÂ¡logo de produtos, estoque, carrinhos Redis, pedidos PostgreSQL e administraÃƒÂ§ÃƒÂ£o. Cadastre/login um cliente para os fluxos de compra; login administrativo para catÃƒÂ¡logo, imagens e estoque. Rode docker compose exec php php artisan migrate --seed para popular produtos LCB. Consulte postman/README.md. A disponibilidade de estoque desconta reservas ativas dos carrinhos, e itens acima do saldo disponível são rejeitados.",
+                 "description":  "ColeÃƒÂ§ÃƒÂ£o de API: autenticaÃƒÂ§ÃƒÂ£o, clientes, catÃƒÂ¡logo de produtos, estoque, carrinhos Redis, pedidos PostgreSQL e administraÃƒÂ§ÃƒÂ£o. Cadastre/login um cliente para os fluxos de compra; login administrativo para catÃƒÂ¡logo, imagens e estoque. Rode docker compose exec php php artisan migrate --seed para popular produtos LCB. Consulte postman/README.md. A disponibilidade de estoque desconta reservas ativas dos carrinhos, e itens acima do saldo disponível são rejeitados.\n\nExclusões de domínio são lógicas (deleted_at). Contas não confirmadas, expiradas e sem login são removidas pelo scheduler a cada minuto; após expiração, refaça o cadastro. Visitantes são isentos. Cadastros pendentes não reservam e-mail: apenas a primeira conta confirmada pode utilizá-lo como endereço confirmado. Reenvio seleciona o cadastro pendente mais recente ainda válido. Carrinhos: visitante 24h, Cliente 30 dias, reserva 15 minutos sem alterações efetivas. GET não renova TTL. A resposta inclui reserva_expira_em e reserva_ativa. Checkout revalida disponibilidade. Cadastro e troca de senha usam validações locais e histórico, sem consulta a Pwned Passwords. OAuth BFF requer chaves legíveis pelo PHP; clientes sem fluxo de consentimento manual recebem 403. Consulte docs/BFF.md. E-mails são enfileirados no Redis/Horizon (emails); sucesso HTTP aceita a solicitação e não garante entrega imediata. Links vencem a partir da solicitação.",
                  "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
              },
     "variable":  [
-                     {"key": "bffUrl", "value": "http://localhost/bff", "type": "string"},
-                     {"key": "csrfToken", "value": "", "type": "string"},
+                     {
+                         "key":  "bffUrl",
+                         "value":  "http://localhost/bff",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "csrfToken",
+                         "value":  "",
+                         "type":  "string"
+                     },
                      {
                          "key":  "baseUrl",
                          "value":  "http://localhost/api",
@@ -165,108 +173,324 @@
                      }
                  ],
     "item":  [
+{"name":"Consultar CEP para autocomplete","request":{"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Accept","value":"application/json"}],"url":"{{baseUrl}}/enderecos/cep/01001000","description":"Exige conta autenticada com e-mail confirmado. CEP com oito dígitos. Retorna o envelope padrão com cep, logradouro, cidade, estado e pais. Limite de 30 consultas/minuto. Pelo BFF: GET {{bffUrl}}/api/enderecos/cep/01001000 com cookie de sessão, sem bearer no navegador. Não salva o endereço. CEP inválido/inexistente: 422; ViaCEP indisponível: 503."}},
                  {
-                     "name": "Descricao de produtos",
-                     "item": [
-                         {
-                             "name": "Atualizar descricao do produto",
-                             "request": {
-                                 "method": "PUT",
-                                 "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{adminToken}}", "type": "string"}]},
-                                 "url": "{{baseUrl}}/admin/produtos/{{produtoId}}",
-                                 "header": [{"key": "Content-Type", "value": "application/json"}],
-                                 "body": {"mode": "raw", "raw": "{\n  \"descricao\": \"Artigo da Liga Comunista Brasileira para acompanhar a militância e expressar nossa identidade coletiva.\"\n}"},
-                                 "description": "Exige Administrador com pagina Estoque e escopo admin:manage. Aceita texto de ate 10000 caracteres ou null para remover a descricao."
-                             }
-                         },
-                         {
-                             "name": "Consultar produto com descricao",
-                             "request": {"method": "GET", "auth": {"type": "noauth"}, "url": "{{baseUrl}}/produtos/{{produtoId}}"}
-                         }
-                     ]
+                     "name":  "Cadastro - senha de 8 a 15 caracteres",
+                     "request":  {
+                                     "method":  "POST",
+                                     "auth":  {
+                                                  "type":  "noauth"
+                                              },
+                                     "url":  "{{baseUrl}}/clientes",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "body":  {
+                                                  "mode":  "raw",
+                                                  "raw":  "{\n  \"login\": \"{{clienteLogin}}\",\n  \"email\": \"{{clienteEmail}}\",\n  \"password\": \"{{clientePassword}}\",\n  \"password_confirmation\": \"{{clientePassword}}\"\n}"
+                                              },
+                                     "description":  "Senha nova de 8 a 15 caracteres, confirmada e sujeita a verificacao de comprometimento. A loja redireciona para /email/pendente somente apos o cadastro retornar sucesso. A API retorna JSON com HTTP 201."
+                                 }
                  },
                  {
-                     "name": "BFF - sessao HttpOnly",
-                     "description": "Preserve os cookies no Postman. Obtenha o CSRF em /oauth/csrf e copie csrf_token para csrfToken. Login usa /oauth/login; a autorizacao e callback acontecem pelo navegador. Tokens OAuth nunca sao retornados pelo BFF.",
-                     "item": [
-                         {"name": "Consultar sessao BFF", "request": {"method": "GET", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/session"}},
-                         {"name": "Catalogo pelo BFF", "request": {"method": "GET", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/produtos?per_page=5&page=1"}},
-                         {"name": "Minha conta pelo BFF", "request": {"method": "GET", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/me"}},
-                         {"name": "Carrinho pelo BFF", "request": {"method": "GET", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/carrinho"}},
-                         {"name": "Iniciar autorizacao BFF apos login", "request": {"method": "POST", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/authorize", "header": [{"key": "Accept", "value": "application/json"}, {"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}]}},
-                         {"name": "Criar carrinho sem expor token visitante", "request": {"method": "POST", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/carrinho", "header": [{"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}]}},
-                         {"name": "Adicionar produto pelo BFF", "request": {"method": "POST", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/carrinho/itens", "header": [{"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}, {"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"codigo\": {{produtoId}}, \"quantidade\": 1}"}}},
-                         {"name": "Mesclar carrinho pelo BFF", "request": {"method": "POST", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/api/carrinho/mesclar", "header": [{"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}]}},
-                         {"name": "Encerrar sessao e revogar tokens BFF", "request": {"method": "POST", "auth": {"type": "noauth"}, "url": "{{bffUrl}}/logout", "header": [{"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}]}}
-                     ]
+                     "name":  "Descricao de produtos",
+                     "item":  [
+                                  {
+                                      "name":  "Atualizar descricao do produto",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"descricao\": \"Artigo da Liga Comunista Brasileira para acompanhar a militância e expressar nossa identidade coletiva.\"\n}"
+                                                               },
+                                                      "description":  "Exige Administrador com pagina Estoque e escopo admin:manage. Aceita texto de ate 10000 caracteres ou null para remover a descricao."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Consultar produto com descricao",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "url":  "{{baseUrl}}/produtos/{{produtoId}}"
+                                                  }
+                                  }
+                              ]
                  },
                  {
-                     "name": "Catalogo paginado e galeria",
-                     "item": [
-                         {
-                             "name": "Primeiros cinco produtos",
-                             "request": {
-                                 "method": "GET",
-                                 "auth": {"type": "noauth"},
-                                 "header": [{"key": "Accept", "value": "application/json"}],
-                                 "url": "{{baseUrl}}/produtos?per_page=5&page=1",
-                                 "description": "data.data contem cinco itens; data.next_page_url informa a proxima pagina. Cada produto inclui imagens e principal."
-                             }
-                         },
-                         {
-                             "name": "Proximos cinco produtos",
-                             "request": {
-                                 "method": "GET",
-                                 "auth": {"type": "noauth"},
-                                 "header": [{"key": "Accept", "value": "application/json"}],
-                                 "url": "{{baseUrl}}/produtos?per_page=5&page=2"
-                             }
-                         }
-                     ]
+                     "name":  "BFF - sessao HttpOnly",
+                     "description":  "Preserve os cookies no Postman. Obtenha o CSRF em /oauth/csrf e copie csrf_token para csrfToken. Login usa /oauth/login; a autorizacao e callback acontecem pelo navegador. Tokens OAuth nunca sao retornados pelo BFF.",
+                     "item":  [
+                                  {
+                                      "name":  "Consultar sessao BFF",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "url":  "{{bffUrl}}/session"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Catalogo pelo BFF",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "url":  "{{bffUrl}}/api/produtos?per_page=5\u0026page=1"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Minha conta pelo BFF",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "url":  "{{bffUrl}}/api/me"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Carrinho pelo BFF",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "url":  "{{bffUrl}}/api/carrinho"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Iniciar autorizacao BFF apos login",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "url":  "{{bffUrl}}/authorize",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Criar carrinho sem expor token visitante",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "url":  "{{bffUrl}}/api/carrinho",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Adicionar produto pelo BFF",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "url":  "{{bffUrl}}/api/carrinho/itens",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\"codigo\": {{produtoId}}, \"quantidade\": 1}"
+                                                               }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Mesclar carrinho pelo BFF",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "url":  "{{bffUrl}}/api/carrinho/mesclar",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Encerrar sessao e revogar tokens BFF",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "url":  "{{bffUrl}}/logout",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  }
+                              ]
                  },
                  {
-                     "name": "Frontend React - sessao e checkout",
-                     "item": [
-                         {
-                             "name": "Consultar minha conta autenticada",
-                             "request": {
-                                 "method": "GET",
-                                 "header": [{"key": "Accept", "value": "application/json"}],
-                                 "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{clienteToken}}", "type": "string"}]},
-                                 "url": "{{baseUrl}}/me",
-                                 "description": "Retorna somente a conta do token atual, incluindo perfis e enderecos; requer OAuth2."
-                             }
-                         },
-                         {
-                             "name": "Listar formas de pagamento ativas",
-                             "request": {
-                                 "method": "GET",
-                                 "auth": {"type": "noauth"},
-                                 "header": [{"key": "Accept", "value": "application/json"}],
-                                 "url": "{{baseUrl}}/formas-pagamento",
-                                 "description": "Consulta publica para o seletor do checkout. Nao efetua cobranca."
-                             }
-                         },
-                         {
-                             "name": "Obter CSRF da sessao web",
-                             "request": {
-                                 "method": "GET",
-                                 "auth": {"type": "noauth"},
-                                 "url": "http://localhost/oauth/csrf",
-                                 "description": "Copie csrf_token da resposta para a variavel csrfToken e preserve os cookies desta sessao."
-                             }
-                         },
-                         {
-                             "name": "Encerrar sessao web OAuth",
-                             "request": {
-                                 "method": "POST",
-                                 "auth": {"type": "noauth"},
-                                 "header": [{"key": "Accept", "value": "application/json"}, {"key": "X-CSRF-TOKEN", "value": "{{csrfToken}}"}],
-                                 "url": "http://localhost/oauth/logout",
-                                 "description": "Invalida sessao e cookies web. Use tambem POST /api/logout para revogar o token OAuth atual."
-                             }
-                         }
-                     ]
+                     "name":  "Catalogo paginado e galeria",
+                     "item":  [
+                                  {
+                                      "name":  "Primeiros cinco produtos",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/produtos?per_page=5\u0026page=1",
+                                                      "description":  "data.data contem cinco itens; data.next_page_url informa a proxima pagina. Cada produto inclui imagens e principal."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Proximos cinco produtos",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/produtos?per_page=5\u0026page=2"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Frontend React - sessao e checkout",
+                     "item":  [
+                                  {
+                                      "name":  "Consultar minha conta autenticada",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "url":  "{{baseUrl}}/me",
+                                                      "description":  "Retorna somente a conta do token atual, incluindo perfis e enderecos; requer OAuth2."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Listar formas de pagamento ativas",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/formas-pagamento",
+                                                      "description":  "Consulta publica para o seletor do checkout. Nao efetua cobranca."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Obter CSRF da sessao web",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "url":  "http://localhost/oauth/csrf",
+                                                      "description":  "Copie csrf_token da resposta para a variavel csrfToken e preserve os cookies desta sessao."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Encerrar sessao web OAuth",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "http://localhost/oauth/logout",
+                                                      "description":  "Invalida sessao e cookies web. Use tambem POST /api/logout para revogar o token OAuth atual."
+                                                  }
+                                  }
+                              ]
                  },
                  {
                      "name":  "AutenticaÃƒÂ§ÃƒÂ£o e Cliente",

@@ -7,6 +7,8 @@
 
 ## OAuth2 e tokens
 
+O cadastro e as trocas de senha aceitam de **8 a 15 caracteres**, com confirmação. Senhas antigas continuam sendo aceitas no login. Na loja React, o formulário de cadastro fica centralizado e, após sucesso na API, redireciona para `/email/pendente`, onde é possível reenviar a confirmação de e-mail.
+
 Produtos aceitam `descricao` no cadastro e na atualização (texto opcional, até 10000 caracteres; `null` remove o texto). O campo é retornado nas consultas e exibido no detalhe React. A pasta **Descricao de produtos** traz atualização e consulta. O seeder `ProdutoDescricaoSeeder` preenche somente descrições vazias dos registros existentes.
 
 **BFF:** a loja React agora usa sessão HttpOnly, e access/refresh tokens permanecem no servidor. Use a pasta **BFF - sessao HttpOnly** e `bffUrl`; preserve os cookies e informe `csrfToken` nas escritas. Não copie tokens OAuth do navegador: o BFF não os devolve. O antigo cliente público da SPA foi revogado; integrações que chamam `/api/*` diretamente precisam de seu próprio cliente OAuth autorizado. Consulte [docs/BFF.md](../docs/BFF.md) para instalação, autorização e renovação. O callback confidencial é `/bff/callback`; `/oauth/callback` é apenas a página React após a conclusão no servidor.
@@ -90,3 +92,29 @@ A pasta **Fiscal Contora (homologacao)** inclui emissão, consulta local, sincro
 - Uma nota de venda vinculada a `pedido_id` valida os itens contra o pedido e nao baixa estoque novamente, pois o checkout ja consumiu a reserva. Venda sem pedido, doacao e perda baixam o estoque disponivel, descontadas as reservas ativas no Redis.
 - `POST /api/admin/estoque/movimentacoes` aceita somente `entrada` e exige Administrador com pagina `estoque` ou `manutencao`. Informe referencia e observacao para manter o ajuste auditavel.
 - A collection inclui exemplos de registro de nota de compra e ajuste de entrada. Configure `adminToken` com escopo `admin:manage` e as permissoes da pagina correspondente.
+
+### Exclusão lógica e confirmação de cadastro
+
+Os dados de domínio no PostgreSQL usam `deleted_at`. Endpoints de exclusão mantêm o formato de resposta e deixam de retornar registros excluídos. Login pode ser reutilizado após exclusão da conta. E-mails não são reservados por cadastros pendentes; somente contas ativas confirmadas exigem unicidade. Pedidos e documentos históricos são preservados.
+
+Contas não confirmadas, sem login e com prazo de confirmação vencido são excluídas logicamente pelo scheduler a cada minuto (`php artisan usuarios:limpar-expirados`). Visitantes são isentos. Reenvio antes do vencimento renova o prazo; após o vencimento é necessário refazer o cadastro. Carrinhos Redis continuam com TTL e são liberados ao excluir a conta.
+Cadastros pendentes podem compartilhar e-mail. A confirmação verifica a unicidade atomicamente: somente a primeira conta confirmada reserva o endereço. Reenvio por e-mail seleciona o cadastro pendente mais recente ainda válido; recuperação de senha usa somente a conta confirmada.
+
+### Carrinhos abandonados e reservas
+
+- Carrinho visitante: 24 horas sem alterações (`CARRINHO_VISITANTE_TTL=86400`); Cliente: 30 dias (`CARRINHO_CLIENTE_TTL=2592000`).
+- Reserva de estoque: 15 minutos após alteração efetiva dos itens (`CARRINHO_RESERVA_TTL=900`). GET, criação de carrinho já existente e reenvio das mesmas quantidades não renovam prazos.
+- Após expirar a reserva, os itens permanecem no carrinho até seu próprio TTL. A API inclui `reserva_expira_em` (Unix timestamp) e `reserva_ativa`; o frontend avisa sobre a expiração.
+- Checkout revalida preços e saldo descontando reservas de outros carrinhos; reserva vencida não garante estoque. Limpeza e checkout usam o mesmo bloqueio global.
+- O scheduler executa `carrinhos:sanitizar` a cada minuto, usa SCAN e libera reservas vencidas, inválidas ou sem item/carrinho correspondente. A adequação inicial infere a idade dos carrinhos antigos pelo TTL restante e aplica os novos prazos sem registrar nova atividade. `CARRINHO_TTL` é mantido como referência do TTL legado durante essa transição.
+- Manualmente: `docker compose exec php php artisan carrinhos:sanitizar`. Redis temporário continua fora da política de retenção permanente dos registros PostgreSQL.
+A política de senhas usa validação local e histórico de hashes; cadastro e troca de senha não consultam mais a API Pwned Passwords.
+
+Se o login responder 200 e a autorização OAuth falhar, confira as permissões das chaves e o registro da resposta de consentimento Passport em [docs/BFF.md](../docs/BFF.md). Não regenere chaves para corrigir acesso a arquivos.
+
+### E-mails assíncronos
+
+Confirmação e troca de e-mail, recuperação de senha e alerta de senha antiga usam notificações enfileiradas na conexão Redis, fila `emails`, com supervisor próprio no Horizon. O payload é cifrado; envio ocorre após commit, com três tentativas, backoff de 10/30/60 segundos e timeout SMTP de 20 segundos (`MAIL_TIMEOUT`). Não executar SMTP na requisição HTTP. O Horizon precisa estar ativo.
+
+A validade dos links continua contando desde a solicitação (5 minutos para confirmação e 10 para recuperação no ambiente local); a fila não renova tokens. Antes de enviar, o worker descarta links vencidos/consumidos e notificações de contas excluídas. O texto do e-mail informa que a validade começa na solicitação. Monitorar atrasos da fila, com limiar de 30 segundos; não reenviar jobs com links vencidos como se fossem links novos. Falhas definitivas ficam disponíveis no Horizon para diagnóstico. As respostas HTTP indicam aceitação da solicitação, sem garantir entrega imediata ao destinatário.
+Em `/conta`, o formulário de endereço consulta o ViaCEP ao completar o CEP (oito dígitos, com ou sem hífen). Preenche logradouro, cidade e UF; número e complemento permanecem manuais. O React usa `GET /bff/api/enderecos/cep/{cep}`; integrações usam `GET /api/enderecos/cep/{cep}` com OAuth. Requer conta liberada, limita a 30 consultas por minuto e cancela respostas de CEPs anteriores. A consulta não salva o endereço nem substitui a validação no servidor.

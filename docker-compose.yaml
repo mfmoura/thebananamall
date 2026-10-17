@@ -1,7 +1,6 @@
-version: '3.8'
-
 services:
   ngrok:
+    mem_limit: ${DOCKER_NGROK_MEMORY:-128m}
     image: ngrok/ngrok:latest
     profiles: ["webhooks"]
     command: ["http", "http://nginx:80", "--config=/etc/ngrok.yml"]
@@ -17,6 +16,7 @@ services:
       - nginx
 
   nginx:
+    mem_limit: ${DOCKER_NGINX_MEMORY:-128m}
     image: nginx:latest
     ports:
       - "80:80"
@@ -31,6 +31,7 @@ services:
       - db
 
   php:
+    mem_limit: ${DOCKER_PHP_MEMORY:-1536m}
     image: lojavirtuallcb-php
     user: "1000:1000"
     build:
@@ -38,7 +39,8 @@ services:
       dockerfile: ./.docker/Dockerfile
     volumes:
       - ./:/var/www/html
-      - ./.docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+      - ./.docker/php/php.ini:/usr/local/etc/php/conf.d/zz-custom.ini
+      - ./.docker/php/www-memory.conf:/usr/local/etc/php-fpm.d/zz-memory.conf:ro
     expose:
       - "9000"
     networks:
@@ -50,6 +52,7 @@ services:
         condition: service_healthy
 
   horizon:
+    mem_limit: ${DOCKER_HORIZON_MEMORY:-1536m}
     image: lojavirtuallcb-php
     init: true
     user: "1000:1000"
@@ -62,7 +65,7 @@ services:
       QUEUE_CONNECTION: redis
     volumes:
       - ./:/var/www/html
-      - ./.docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+      - ./.docker/php/php.ini:/usr/local/etc/php/conf.d/zz-custom.ini
     networks:
       - dockernet
     depends_on:
@@ -74,6 +77,7 @@ services:
         condition: service_healthy
 
   scheduler:
+    mem_limit: ${DOCKER_SCHEDULER_MEMORY:-512m}
     image: lojavirtuallcb-php
     init: true
     user: "1000:1000"
@@ -83,7 +87,7 @@ services:
     stop_signal: SIGTERM
     volumes:
       - ./:/var/www/html
-      - ./.docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+      - ./.docker/php/php.ini:/usr/local/etc/php/conf.d/zz-custom.ini
     networks:
       - dockernet
     depends_on:
@@ -91,6 +95,7 @@ services:
         condition: service_started
 
   db:
+    mem_limit: ${DOCKER_DB_MEMORY:-1024m}
     image: postgres:16
     restart: always
     environment:
@@ -110,7 +115,9 @@ services:
       retries: 10
 
   redis:
+    mem_limit: ${DOCKER_REDIS_MEMORY:-768m}
     image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "${REDIS_MAXMEMORY:-256mb}", "--maxmemory-policy", "noeviction"]
     restart: always
     networks:
       - dockernet
@@ -121,9 +128,12 @@ services:
       retries: 10
 
   node:
+    mem_limit: ${DOCKER_NODE_MEMORY:-1536m}
     image: node:20-bullseye
     user: "1000:1000"
     working_dir: /var/www/html
+    environment:
+      NODE_OPTIONS: --max-old-space-size=${NODE_HEAP_MB:-1024}
     volumes:
       - ./:/var/www/html
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"

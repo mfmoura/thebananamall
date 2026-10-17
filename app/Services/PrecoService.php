@@ -36,7 +36,7 @@ class PrecoService
 
             if (
                 (int) $precoAtualId === $preco->id
-                || PedidoItem::query()->where('preco_id', $preco->id)->exists()
+                || PedidoItem::withTrashed()->where('preco_id', $preco->id)->exists()
             ) {
                 return false;
             }

@@ -59,7 +59,14 @@ final class ApiResponse
             401 => 'Autenticação necessária.',
             403 => 'Acesso negado.',
             404 => 'Recurso não encontrado.',
+            405 => 'Esta operação não está disponível.',
+            408 => 'A solicitação demorou demais. Tente novamente.',
+            413 => 'Os dados enviados ultrapassam o tamanho permitido.',
+            419 => 'Sua sessão expirou. Atualize a página e tente novamente.',
             422 => 'Há erros nos dados enviados.',
+            429 => 'Muitas tentativas. Aguarde um momento e tente novamente.',
+            502, 503 => 'O serviço está temporariamente indisponível. Tente novamente em instantes.',
+            504 => 'O serviço demorou para responder. Tente novamente.',
             default => $statusCode >= 500
                 ? ($statusCode === 500 ? 'Ocorreu um erro interno.' : $exception->getMessage())
                 : ($exception->getMessage() ?: 'Não foi possível processar a solicitação.'),

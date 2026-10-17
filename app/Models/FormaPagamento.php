@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FormaPagamento extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $table = 'formas_pagamento';
 
     protected $fillable = ['codigo', 'nome', 'ativo'];

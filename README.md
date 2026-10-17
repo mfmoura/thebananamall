@@ -35,6 +35,10 @@ Para envio via Gmail, use uma senha de app quando a autenticação SMTP recusar 
 
 ## Desenvolvimento local
 
+O cadastro usa senhas de 8 a 15 caracteres, com a mesma validação no React e na API. Após criar a conta, o usuário é redirecionado para a página de confirmação de e-mail, com opção de reenvio do link. O intervalo também se aplica às novas senhas nos fluxos de troca e recuperação; o login mantém compatibilidade com senhas existentes.
+
+O idioma da aplicação é `pt_BR`, com traduções Laravel em `lang/pt_BR` e mensagens de validação nativa e conexão em português no React. Configure `APP_LOCALE=pt_BR` e `APP_FALLBACK_LOCALE=pt_BR`; após alterar esses valores, execute `docker compose exec php php artisan config:clear`.
+
 O template React `resources/js/components/Rodape.jsx` compartilha o rodapé institucional da Liga em todas as páginas da loja, com logo local, links institucionais e redes sociais oficiais. O catálogo e o detalhe usam `ProdutoSkeleton` durante o carregamento; ao terminar a paginação, os placeholders e o controle de carregar mais são removidos.
 
 A loja usa a família **Breda Two**, identificada no CSS do site oficial da LCB. O arquivo WOFF2 fica em `resources/fonts/breda-two.woff2` e é servido localmente pelo Vite, sem depender do site externo durante a navegação.
@@ -125,3 +129,37 @@ Exclusões também retornam JSON com `statusCode: 200` e `data: null`; a API nã
 Abra http://localhost/produtos. Cadastre a conta em /cadastro, confirme o e-mail e entre em /login. O carrinho de visitante é mesclado após o OAuth. Conta e endereços ficam em /conta; compras em /checkout; pedidos e DANFE em /pedidos. O checkout cria um pedido aguardando pagamento e reutiliza uma chave de idempotência nas retentativas. Não recebe PAN/CVV nem simula cobrança.
 
 Configure APP_URL=http://localhost e FRONTEND_URL=http://localhost no ambiente local. Execute docker compose exec php php artisan bff:install para configurar o cliente confidencial; seu callback é /bff/callback. O Vite continua na porta 5173 somente para assets. O React usa /bff/api/* com cookie HttpOnly e CSRF. Access/refresh tokens, verifier PKCE e credenciais de visitante permanecem no servidor. Logout revoga os tokens e invalida a sessão. Veja [docs/BFF.md](docs/BFF.md). A instalação revoga o antigo cliente público da SPA e exige um novo login.
+
+### Exclusão lógica e confirmação de cadastro
+
+Os dados de domínio no PostgreSQL usam `deleted_at`. Endpoints de exclusão mantêm o formato de resposta e deixam de retornar registros excluídos. Login pode ser reutilizado após exclusão da conta. E-mails não são reservados por cadastros pendentes; somente contas ativas confirmadas exigem unicidade. Pedidos e documentos históricos são preservados.
+
+Contas não confirmadas, sem login e com prazo de confirmação vencido são excluídas logicamente pelo scheduler a cada minuto (`php artisan usuarios:limpar-expirados`). Visitantes são isentos. Reenvio antes do vencimento renova o prazo; após o vencimento é necessário refazer o cadastro. Carrinhos Redis continuam com TTL e são liberados ao excluir a conta.
+Cadastros pendentes podem compartilhar e-mail. A confirmação verifica a unicidade atomicamente: somente a primeira conta confirmada reserva o endereço. Reenvio por e-mail seleciona o cadastro pendente mais recente ainda válido; recuperação de senha usa somente a conta confirmada.
+
+### Diagnóstico local de desempenho
+
+Telescope: http://localhost/telescope. Medições repetíveis: `docker compose exec node npm run perf`. Resultados, limitações e configuração em [docs/DESEMPENHO.md](docs/DESEMPENHO.md).
+
+Os dados de domínio excluídos logicamente são preservados permanentemente para relatórios futuros. Não há expurgo desses registros; relatórios poderão incluí-los explicitamente, respeitando as permissões de acesso. Dados temporários de Redis e diagnóstico seguem suas regras próprias de expiração.
+
+### Carrinhos abandonados e reservas
+
+- Carrinho visitante: 24 horas sem alterações (`CARRINHO_VISITANTE_TTL=86400`); Cliente: 30 dias (`CARRINHO_CLIENTE_TTL=2592000`).
+- Reserva de estoque: 15 minutos após alteração efetiva dos itens (`CARRINHO_RESERVA_TTL=900`). GET, criação de carrinho já existente e reenvio das mesmas quantidades não renovam prazos.
+- Após expirar a reserva, os itens permanecem no carrinho até seu próprio TTL. A API inclui `reserva_expira_em` (Unix timestamp) e `reserva_ativa`; o frontend avisa sobre a expiração.
+- Checkout revalida preços e saldo descontando reservas de outros carrinhos; reserva vencida não garante estoque. Limpeza e checkout usam o mesmo bloqueio global.
+- O scheduler executa `carrinhos:sanitizar` a cada minuto, usa SCAN e libera reservas vencidas, inválidas ou sem item/carrinho correspondente. A adequação inicial infere a idade dos carrinhos antigos pelo TTL restante e aplica os novos prazos sem registrar nova atividade. `CARRINHO_TTL` é mantido como referência do TTL legado durante essa transição.
+- Manualmente: `docker compose exec php php artisan carrinhos:sanitizar`. Redis temporário continua fora da política de retenção permanente dos registros PostgreSQL.
+A política de senhas usa validação local e histórico de hashes; cadastro e troca de senha não consultam mais a API Pwned Passwords.
+
+### E-mails assíncronos
+
+Confirmação e troca de e-mail, recuperação de senha e alerta de senha antiga usam notificações enfileiradas na conexão Redis, fila `emails`, com supervisor próprio no Horizon. O payload é cifrado; envio ocorre após commit, com três tentativas, backoff de 10/30/60 segundos e timeout SMTP de 20 segundos (`MAIL_TIMEOUT`). Não executar SMTP na requisição HTTP. O Horizon precisa estar ativo.
+
+A validade dos links continua contando desde a solicitação (5 minutos para confirmação e 10 para recuperação no ambiente local); a fila não renova tokens. Antes de enviar, o worker descarta links vencidos/consumidos e notificações de contas excluídas. O texto do e-mail informa que a validade começa na solicitação. Monitorar atrasos da fila, com limiar de 30 segundos; não reenviar jobs com links vencidos como se fossem links novos. Falhas definitivas ficam disponíveis no Horizon para diagnóstico. As respostas HTTP indicam aceitação da solicitação, sem garantir entrega imediata ao destinatário.
+O Compose define limites de memória por serviço, heap Node, teto Redis sem eviction e PCOV desativado fora de cobertura. Ajustes por `DOCKER_*_MEMORY`, `NODE_HEAP_MB` e `REDIS_MAXMEMORY` no `.env.example`; detalhes em [docs/DESEMPENHO.md](docs/DESEMPENHO.md).
+
+Em `/conta`, o formulário de endereço consulta o ViaCEP ao completar o CEP (oito dígitos, com ou sem hífen). Preenche logradouro, cidade e UF; número e complemento permanecem manuais. O React usa `GET /bff/api/enderecos/cep/{cep}`; integrações usam `GET /api/enderecos/cep/{cep}` com OAuth. Requer conta liberada, limita a 30 consultas por minuto e cancela respostas de CEPs anteriores. A consulta não salva o endereço nem substitui a validação no servidor.
+
+Comparação do volume Windows com filesystem Linux: [relatório e resultados](docs/COMPARACAO-FILESYSTEM.md).

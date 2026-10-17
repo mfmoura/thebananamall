@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 class BffProxyService
 {
     private const ROTAS = [
-        'GET' => ['produtos', 'produtos/\d+', 'produtos/\d+/precos', 'produtos/\d+/estoque', 'formas-pagamento', 'me', 'carrinho', 'pedidos', 'pedidos/\d+', 'pedidos/\d+/danfe'],
+        'GET' => ['enderecos/cep/\\d{8}', 'produtos', 'produtos/\d+', 'produtos/\d+/precos', 'produtos/\d+/estoque', 'formas-pagamento', 'me', 'carrinho', 'pedidos', 'pedidos/\d+', 'pedidos/\d+/danfe'],
         'POST' => ['clientes', 'email/confirmar', 'email/reenviar-confirmacao', 'senha/recuperar', 'senha/redefinir', 'usuarios/\d+/email', 'enderecos', 'carrinho', 'carrinho/itens', 'carrinho/mesclar', 'pedidos', 'pedidos/\d+/cancelar'],
         'PUT' => ['usuarios/\d+', 'clientes/\d+', 'enderecos/\d+', 'carrinho'],
         'PATCH' => ['carrinho/itens/\d+'],

@@ -19,7 +19,7 @@ class CreateEnderecoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'usuario_id' => ['sometimes', 'required', 'integer', 'exists:users,id'],
+            'usuario_id' => ['sometimes', 'required', 'integer', 'exists:users,id,deleted_at,NULL'],
             'logradouro' => ['required', 'string', 'max:255'],
             'numero' => ['required', 'string', 'max:30'],
             'complemento' => ['sometimes', 'nullable', 'string', 'max:255'],

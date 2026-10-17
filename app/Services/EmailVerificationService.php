@@ -23,7 +23,8 @@ class EmailVerificationService
 
     public function reenviarConfirmacao(string $email): void
     {
-        $usuario = Usuario::query()->where('email', $email)->first();
+        $usuario = Usuario::query()->where('email', $email)->where('email_validado', false)
+            ->where('email_confirmation_expires_at', '>', now())->latest('id')->first();
 
         if ($usuario !== null && ! $usuario->email_validado) {
             $this->enviarToken($usuario, $usuario->email, 'confirmar');
@@ -40,6 +41,7 @@ class EmailVerificationService
 
         $emUso = Usuario::query()
             ->where('email', $novoEmail)
+            ->where('email_validado', true)
             ->where('id', '<>', $usuario->getKey())
             ->exists();
 
@@ -100,6 +102,7 @@ class EmailVerificationService
 
             $emUso = Usuario::query()
                 ->where('email', $dados['email'])
+                ->where('email_validado', true)
                 ->where('id', '<>', $usuario->getKey())
                 ->exists();
 
@@ -114,7 +117,19 @@ class EmailVerificationService
             ]);
         }
 
-        DB::transaction(function () use ($usuario, $dados, $novaSenha): void {
+        DB::transaction(function () use (&$usuario, $dados, $novaSenha, $chaveToken): void {
+            // Serializa confirmações do mesmo e-mail, inclusive de contas distintas.
+            if (DB::getDriverName() === 'pgsql') {
+                DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', [$dados['email']]);
+            }
+            $usuario = Usuario::query()->lockForUpdate()->find($usuario->id);
+            if ($usuario === null || ! Redis::exists($chaveToken)) {
+                throw ValidationException::withMessages(['token' => 'O link de confirmação é inválido ou expirou.']);
+            }
+            if (Usuario::query()->where('email', $dados['email'])->where('email_validado', true)
+                ->where('id', '<>', $usuario->id)->exists()) {
+                throw ValidationException::withMessages(['email' => 'Este e-mail já está em uso por uma conta confirmada.']);
+            }
             if (($dados['acao'] ?? null) === 'trocar') {
                 $usuario->email = $dados['email'];
                 $this->politicaSenhaService->alterar($usuario, $novaSenha, [$dados['email'] ?? null]);
@@ -124,6 +139,7 @@ class EmailVerificationService
 
             $usuario->email_validado = true;
             $usuario->email_verified_at = now();
+            $usuario->email_confirmation_expires_at = null;
             $usuario->save();
             $usuario->tokens()->delete();
         });
@@ -143,6 +159,21 @@ class EmailVerificationService
         $token = Str::random(64);
         $tokenHash = hash('sha256', $token);
         $expiresAt = now()->addSeconds($ttl)->toIso8601String();
+        if ($acao === 'confirmar') {
+            $permitido = DB::transaction(function () use ($usuario, $expiresAt): bool {
+                $conta = Usuario::query()->lockForUpdate()->find($usuario->id);
+                if ($conta === null || $conta->email_validado
+                    || ($conta->email_confirmation_expires_at !== null && $conta->email_confirmation_expires_at->isPast())) {
+                    return false;
+                }
+                $conta->forceFill(['email_confirmation_expires_at' => $expiresAt])->save();
+
+                return true;
+            });
+            if (! $permitido) {
+                return;
+            }
+        }
         $dados = [
             'usuario_id' => $usuario->id,
             'email' => $email,
@@ -170,6 +201,7 @@ class EmailVerificationService
             $url,
             $acao === 'trocar',
             (int) ceil($ttl / 60),
+            $usuario->id,
         ));
     }
 

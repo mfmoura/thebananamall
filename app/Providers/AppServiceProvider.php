@@ -13,7 +13,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        if ($this->app->environment('local') && class_exists(\Laravel\Telescope\TelescopeServiceProvider::class)) {
+            $this->app->register(\Laravel\Telescope\TelescopeServiceProvider::class);
+            $this->app->register(TelescopeServiceProvider::class);
+        }
     }
 
     /**
@@ -23,6 +26,9 @@ class AppServiceProvider extends ServiceProvider
     {
         \App\Models\Pedido::observe(\App\Observers\PedidoObserver::class);
         Passport::useClientModel(OAuthClient::class);
+        // Passport resolve este contrato mesmo quando o BFF dispensa consentimento.
+        // Clientes que exigem consentimento manual continuam sem aprovação automática.
+        Passport::authorizationView(fn () => abort(403, 'Este cliente não possui um fluxo de consentimento disponível.'));
         Passport::tokensCan([
             'catalog:read' => 'Consultar catálogo, preços e estoque',
             'cart:read' => 'Consultar o carrinho do usuário autenticado',

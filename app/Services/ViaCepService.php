@@ -13,7 +13,22 @@ class ViaCepService
     /** @param array<string, mixed> $endereco */
     public function confirmarEndereco(array $endereco, string $prefixoCampo = ''): void
     {
-        $cep = preg_replace('/\\D/', '', (string) $endereco['cep']);
+        $dados = $this->consultar((string) $endereco['cep'], $prefixoCampo);
+
+        if (strtoupper((string) $dados['uf']) !== strtoupper((string) $endereco['estado'])) {
+            throw ValidationException::withMessages([$this->campo($prefixoCampo, 'estado') => 'O estado não corresponde ao CEP informado.']);
+        }
+        if ($this->normalizar((string) $dados['localidade']) !== $this->normalizar((string) $endereco['cidade'])) {
+            throw ValidationException::withMessages([$this->campo($prefixoCampo, 'cidade') => 'A cidade não corresponde ao CEP informado.']);
+        }
+    }
+
+    public function consultar(string $cep, string $prefixoCampo = ''): array
+    {
+        $cep = preg_replace('/\\D/', '', $cep);
+        if (! preg_match('/^\\d{8}$/', $cep)) {
+            throw ValidationException::withMessages([$this->campo($prefixoCampo, 'cep') => 'Informe um CEP com oito dígitos.']);
+        }
         $url = rtrim((string) config('services.viacep.base_url'), '/');
 
         try {
@@ -43,13 +58,7 @@ class ViaCepService
             throw new ServiceUnavailableHttpException(null, 'O ViaCEP retornou uma resposta de CEP inválida.');
         }
 
-        if (strtoupper((string) $dados['uf']) !== strtoupper((string) $endereco['estado'])) {
-            throw ValidationException::withMessages([$this->campo($prefixoCampo, 'estado') => 'O estado não corresponde ao CEP informado.']);
-        }
-
-        if ($this->normalizar((string) $dados['localidade']) !== $this->normalizar((string) $endereco['cidade'])) {
-            throw ValidationException::withMessages([$this->campo($prefixoCampo, 'cidade') => 'A cidade não corresponde ao CEP informado.']);
-        }
+        return $dados;
     }
 
     private function campo(string $prefixo, string $nome): string

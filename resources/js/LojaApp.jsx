@@ -1,39 +1,52 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { LojaProvider, useLoja } from './context/LojaContext';
 import BarraSuperior from './components/BarraSuperior';
 import Rodape from './components/Rodape';
-import Catalogo from './pages/Catalogo';
-import Carrinho from './pages/Carrinho';
-import Checkout from './pages/Checkout';
-import Conta from './pages/Conta';
-import Pedidos from './pages/Pedidos';
 import { Callback, Cadastro, FluxoEmailSenha, Login } from './pages/Autenticacao';
 import { MensagemErro } from './components/Formulario';
+import BloqueioAutenticacao from './components/BloqueioAutenticacao';
+import { destinoSeguro } from './services/navegacao';
+
+const Catalogo = lazy(() => import('./pages/Catalogo'));
+const Carrinho = lazy(() => import('./pages/Carrinho'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const Conta = lazy(() => import('./pages/Conta'));
+const Pedidos = lazy(() => import('./pages/Pedidos'));
+
+function PaginaSkeleton() {
+    return <section className="tela" role="status" aria-label="Carregando página" aria-busy="true">
+        <div className="skeleton-bloco skeleton-titulo" aria-hidden="true" />
+        <div className="skeleton-bloco skeleton-linha" aria-hidden="true" />
+        <div className="skeleton-bloco skeleton-linha" aria-hidden="true" />
+    </section>;
+}
 
 function Protegida() {
     const { usuario, carregando } = useLoja();
     const location = useLocation();
     useEffect(() => {
-        if (!usuario && !carregando) sessionStorage.setItem('lcb.destino', location.pathname);
-    }, [usuario, carregando, location.pathname]);
-    if (carregando) return <p role="status">Carregando conta…</p>;
+        if (!usuario && !carregando) sessionStorage.setItem('lcb.destino', `${location.pathname}${location.search}${location.hash}`);
+    }, [usuario, carregando, location.pathname, location.search, location.hash]);
+    if (carregando) return <PaginaSkeleton />;
     return usuario ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
 function Conteudo() {
-    const { erro, setErro } = useLoja();
+    const { erro, setErro, processandoAutenticacao } = useLoja();
     const location = useLocation();
     useEffect(() => {
         window.scrollTo(0, 0);
         document.querySelectorAll('details[open]').forEach((menu) => { menu.open = false; });
-    }, [location.pathname]);
+        const atual = destinoSeguro(`${location.pathname}${location.search}${location.hash}`);
+        if (atual) sessionStorage.setItem('lcb.ultimaPagina', atual);
+    }, [location.pathname, location.search, location.hash]);
     return <>
         <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
         <BarraSuperior />
         <main id="conteudo" className="pagina" tabIndex={-1}>
             {erro && <><MensagemErro erro={erro} /><button onClick={() => setErro('')}>Fechar aviso</button></>}
-            <Routes>
+            <Suspense fallback={<PaginaSkeleton />}><Routes>
                 <Route path="/" element={<Catalogo />} />
                 <Route path="/produtos" element={<Catalogo />} />
                 <Route path="/produtos/:id" element={<Catalogo />} />
@@ -49,9 +62,10 @@ function Conteudo() {
                     <Route path="/pedidos/:id" element={<Pedidos />} />
                 </Route>
                 <Route path="*" element={<section className="tela"><h1>Página não encontrada</h1><Link to="/produtos">Ir para a loja</Link></section>} />
-            </Routes>
+            </Routes></Suspense>
         </main>
         <Rodape />
+        {processandoAutenticacao && <BloqueioAutenticacao />}
     </>;
 }
 

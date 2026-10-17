@@ -15,7 +15,7 @@ class VerifyEmailRequest extends FormRequest
     {
         return [
             'token' => ['required', 'string', 'size:64'],
-            'password' => ['sometimes', 'required', 'string', 'min:15', 'max:64', 'confirmed'],
+            'password' => ['sometimes', 'required', 'string', 'min:8', 'max:15', 'confirmed'],
         ];
     }
 }

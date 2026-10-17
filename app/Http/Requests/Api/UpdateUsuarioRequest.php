@@ -24,9 +24,9 @@ class UpdateUsuarioRequest extends FormRequest
             'email' => ['prohibited'],
             'login' => [
                 'sometimes', 'required', 'string', 'max:255',
-                Rule::unique('users', 'login')->ignore($usuario->id),
+                Rule::unique('users', 'login')->withoutTrashed()->ignore($usuario->id),
             ],
-            'password' => ['sometimes', 'required', 'string', 'min:15', 'max:64', 'confirmed'],
+            'password' => ['sometimes', 'required', 'string', 'min:8', 'max:15', 'confirmed'],
         ];
     }
 }

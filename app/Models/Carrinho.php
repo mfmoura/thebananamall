@@ -10,6 +10,7 @@ use JsonSerializable;
  */
 final class Carrinho implements JsonSerializable
 {
+    public ?int $reserva_expira_em = null;
     /**
      * @param array<int, CarrinhoItem> $itens
      */
@@ -23,7 +24,7 @@ final class Carrinho implements JsonSerializable
     /** @param array<string, mixed> $dados */
     public static function deArray(array $dados): self
     {
-        return new self(
+        $carrinho = new self(
             (int) $dados['id'],
             isset($dados['id_cliente']) ? (int) $dados['id_cliente'] : null,
             array_map(
@@ -32,6 +33,9 @@ final class Carrinho implements JsonSerializable
             ),
             isset($dados['id_visitante']) ? (int) $dados['id_visitante'] : null,
         );
+        $carrinho->reserva_expira_em = isset($dados['reserva_expira_em']) ? (int) $dados['reserva_expira_em'] : null;
+
+        return $carrinho;
     }
 
     public static function paraCliente(int $clienteId): self
@@ -120,6 +124,7 @@ final class Carrinho implements JsonSerializable
     public function toArray(): array
     {
         return [
+            'reserva_expira_em' => $this->reserva_expira_em,
             'id' => $this->id,
             'id_cliente' => $this->id_cliente,
             'id_visitante' => $this->id_visitante,
@@ -133,6 +138,8 @@ final class Carrinho implements JsonSerializable
     public function jsonSerialize(): array
     {
         return [
+            'reserva_expira_em' => $this->reserva_expira_em,
+            'reserva_ativa' => $this->itens !== [] && ($this->reserva_expira_em ?? 0) > now()->timestamp,
             'id' => $this->id,
             'id_cliente' => $this->id_cliente,
             'id_visitante' => $this->id_visitante,

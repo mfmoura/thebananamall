@@ -16,7 +16,7 @@ class FirstLoginPasswordRequest extends FormRequest
         return [
             'login' => ['required', 'string'],
             'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:15', 'max:64', 'confirmed', 'different:current_password'],
+            'password' => ['required', 'string', 'min:8', 'max:15', 'confirmed', 'different:current_password'],
         ];
     }
 }

@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Produto extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $table = 'produtos';
 
     protected $fillable = ['codigo', 'nome', 'descricao', 'categoria', 'ativo', 'configuracao_fiscal'];

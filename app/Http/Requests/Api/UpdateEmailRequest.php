@@ -23,7 +23,7 @@ class UpdateEmailRequest extends FormRequest
         return [
             'email' => [
                 'required', 'email', 'max:255',
-                Rule::unique('users', 'email')->ignore($usuario->id),
+                Rule::unique('users', 'email')->withoutTrashed()->where('email_validado', true)->ignore($usuario->id),
             ],
         ];
     }

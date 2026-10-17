@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class NotaFiscal extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $table = 'notas_fiscais';
 
     protected $hidden = ['emissao_payload', 'emissao_hash', 'emissao_idempotency_key'];
@@ -58,7 +60,7 @@ class NotaFiscal extends Model
 
     public function pedido(): BelongsTo
     {
-        return $this->belongsTo(Pedido::class);
+        return $this->belongsTo(Pedido::class)->withTrashed();
     }
 
     public function itens(): HasMany

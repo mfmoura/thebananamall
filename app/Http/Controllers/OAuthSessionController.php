@@ -30,6 +30,7 @@ class OAuthSessionController extends Controller
         $usuario = Usuario::query()
             ->where('login', $credentials['login'])
             ->orWhere('email', $credentials['login'])
+            ->orderByDesc('email_validado')->orderByDesc('id')
             ->first();
 
         if ($usuario === null) {
@@ -53,7 +54,7 @@ class OAuthSessionController extends Controller
             )) {
                 try {
                     Notification::route('mail', $usuario->email)
-                        ->notify(new AlertaSenhaAntigaNotification());
+                        ->notify(new AlertaSenhaAntigaNotification($usuario->id));
                 } catch (Throwable $exception) {
                     Log::warning('Não foi possível enviar alerta de tentativa com senha antiga.', [
                         'usuario_id' => $usuario->id,
@@ -84,6 +85,7 @@ class OAuthSessionController extends Controller
             $usuario->save();
         }
 
+        $usuario->forceFill(['last_login_at' => now()])->save();
         Auth::guard('web')->login($usuario);
         $request->session()->regenerate();
 

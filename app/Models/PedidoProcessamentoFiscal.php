@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PedidoProcessamentoFiscal extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $table = 'pedido_processamentos_fiscais';
 
     protected $guarded = ['id'];
@@ -22,12 +24,12 @@ class PedidoProcessamentoFiscal extends Model
 
     public function pedido(): BelongsTo
     {
-        return $this->belongsTo(Pedido::class);
+        return $this->belongsTo(Pedido::class)->withTrashed();
     }
 
     public function notaFiscal(): BelongsTo
     {
-        return $this->belongsTo(NotaFiscal::class);
+        return $this->belongsTo(NotaFiscal::class)->withTrashed();
     }
 
     public function getStatusAttribute(): string

@@ -52,6 +52,7 @@ Route::middleware(['auth:api', 'conta-pronta'])->group(function (): void {
     Route::put('/clientes/{cliente}', [ClienteController::class, 'update'])->whereNumber('cliente');
     Route::delete('/clientes/{cliente}', [ClienteController::class, 'destroy'])->whereNumber('cliente');
 
+    Route::get('/enderecos/cep/{cep}', [EnderecoController::class, 'consultarCep'])->middleware('throttle:30,1');
     Route::post('/enderecos', [EnderecoController::class, 'store']);
     Route::get('/enderecos/{endereco}', [EnderecoController::class, 'show'])->whereNumber('endereco');
     Route::put('/enderecos/{endereco}', [EnderecoController::class, 'update'])->whereNumber('endereco');

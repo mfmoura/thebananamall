@@ -13,7 +13,17 @@ export class ApiError extends Error {
     }
 }
 
-export async function requisitar(path, { method = 'GET', body, headers = {}, blob = false, signal, invalidarSessao = true } = {}) {
+export async function requisitar(path, opcoes = {}) {
+    try { return await executarRequisicao(path, opcoes); }
+    catch (erro) {
+        if (erro.name === 'AbortError') throw erro;
+        if (erro instanceof TypeError) throw new ApiError(0, { message: 'Não foi possível conectar ao servidor. Confira sua conexão e tente novamente.' });
+        if (erro instanceof SyntaxError) throw new ApiError(502, { message: 'O servidor enviou uma resposta inválida. Tente novamente em instantes.' });
+        throw erro;
+    }
+}
+
+async function executarRequisicao(path, { method = 'GET', body, headers = {}, blob = false, signal, invalidarSessao = true } = {}) {
     const destino = path.startsWith('/api/') ? `/bff${path}` : path;
     const escrita = !['GET', 'HEAD'].includes(method);
     let csrf = {};
@@ -55,6 +65,7 @@ export const api = {
     trocarEmail: (id, email) => requisitar(`/api/usuarios/${id}/email`, { method: 'POST', body: { email } }),
     excluirUsuario: (id) => requisitar(`/api/usuarios/${id}`, { method: 'DELETE' }),
     excluirCliente: (id) => requisitar(`/api/clientes/${id}`, { method: 'DELETE' }),
+    consultarCep: (cep, signal) => requisitar(`/api/enderecos/cep/${encodeURIComponent(cep)}`, { signal }),
     endereco: (body, id) => requisitar(`/api/enderecos${id ? `/${id}` : ''}`, { method: id ? 'PUT' : 'POST', body }),
     excluirEndereco: (id) => requisitar(`/api/enderecos/${id}`, { method: 'DELETE' }),
     confirmarEmail: (body) => requisitar('/api/email/confirmar', { method: 'POST', body }),

@@ -1,0 +1,8 @@
+{
+    "The given data was invalid.": "Os dados informados são inválidos.",
+    "(and :count more error)": "(e mais :count erro)",
+    "(and :count more errors)": "(e mais :count erros)",
+    "Unauthenticated.": "Entre na sua conta para continuar.",
+    "Forbidden": "Acesso negado.",
+    "Too Many Attempts.": "Muitas tentativas. Aguarde um momento e tente novamente."
+}

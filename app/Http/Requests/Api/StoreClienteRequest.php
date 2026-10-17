@@ -15,9 +15,9 @@ class StoreClienteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'login' => ['required', 'string', 'max:255', 'unique:users,login'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:15', 'max:64', 'confirmed'],
+            'login' => ['required', 'string', 'max:255', \Illuminate\Validation\Rule::unique('users', 'login')->withoutTrashed()],
+            'email' => ['required', 'email', 'max:255', \Illuminate\Validation\Rule::unique('users', 'email')->withoutTrashed()->where('email_validado', true)],
+            'password' => ['required', 'string', 'min:8', 'max:15', 'confirmed'],
             'tipo' => ['prohibited'],
             'perfil' => ['prohibited'],
             'endereco' => ['sometimes', 'nullable', 'array'],

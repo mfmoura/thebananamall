@@ -15,7 +15,7 @@ class RedefinirSenhaRequest extends FormRequest
     {
         return [
             'token' => ['required', 'string', 'size:64'],
-            'password' => ['required', 'string', 'min:15', 'max:64', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'max:15', 'confirmed'],
         ];
     }
 }

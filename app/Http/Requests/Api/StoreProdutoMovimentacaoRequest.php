@@ -18,7 +18,7 @@ class StoreProdutoMovimentacaoRequest extends AdministradorRequest
     public function rules(): array
     {
         return [
-            'produto_id' => ['required', 'integer', 'exists:produtos,id'],
+            'produto_id' => ['required', 'integer', 'exists:produtos,id,deleted_at,NULL'],
             'direcao' => ['required', Rule::in([DirecaoMovimentacao::Entrada->value])],
             'quantidade' => ['required', 'numeric', 'gt:0', 'decimal:0,3'],
             'nota' => ['required', 'string', 'max:120'],

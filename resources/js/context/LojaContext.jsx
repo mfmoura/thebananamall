@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { api, definirSessao, requisitar, sessao } from '../services/api';
 import { carrinhoApi } from '../services/carrinho';
-import { sair } from '../services/oauth';
+import { entrar, concluirOAuth, sair } from '../services/oauth';
 
 const Context = createContext(null);
 export const useLoja = () => useContext(Context);
@@ -13,6 +13,10 @@ export function LojaProvider({ children }) {
     const [erro, setErro] = useState('');
     const [carrinhoOcupado, setCarrinhoOcupado] = useState(false);
     const mutacaoCarrinho = useRef(false);
+    const inicializacaoIniciada = useRef(false);
+    const inicializacao = useRef(Promise.resolve());
+    const autenticacaoEmCurso = useRef(false);
+    const [processandoAutenticacao, setProcessandoAutenticacao] = useState(false);
     const atualizarCarrinho = useCallback(async () => {
         const dados = await carrinhoApi.consultar();
         setCarrinho(dados || { itens: [] });
@@ -40,7 +44,10 @@ export function LojaProvider({ children }) {
         return () => window.removeEventListener('lcb:sessao-expirada', expirar);
     }, []);
     useEffect(() => {
-        (async () => {
+        // A negociação da sessão ocorre uma vez por provider, inclusive no StrictMode.
+        if (inicializacaoIniciada.current) return;
+        inicializacaoIniciada.current = true;
+        inicializacao.current = (async () => {
             try {
                 const legado = localStorage.getItem('lcb.visitante');
                 if (legado) {
@@ -62,10 +69,42 @@ export function LojaProvider({ children }) {
             } finally { setCarregando(false); }
         })();
     }, [atualizarCarrinho, atualizarUsuario]);
-    const logout = async () => {
-        try { await sair(); } finally {
-            setUsuario(null); setCarrinho({ itens: [] }); setErro('');
+    const finalizarLogin = useCallback(async () => {
+        await inicializacao.current;
+        await concluirOAuth();
+        const conta = await atualizarUsuario();
+        if (conta.cliente) {
+            try { await carrinhoApi.mesclar(); }
+            catch { setErro('Não foi possível recuperar os itens do carrinho anterior.'); }
+        }
+        await atualizarCarrinho();
+    }, [atualizarUsuario, atualizarCarrinho]);
+    const login = async (credenciais) => {
+        if (autenticacaoEmCurso.current) return;
+        autenticacaoEmCurso.current = true;
+        setProcessandoAutenticacao(true);
+        setErro('');
+        try {
+            await inicializacao.current;
+            await entrar(credenciais);
+            await finalizarLogin();
+        } finally {
+            autenticacaoEmCurso.current = false;
+            setProcessandoAutenticacao(false);
         }
     };
-    return <Context.Provider value={{ usuario, carregando, carrinho, carrinhoOcupado, executarCarrinho, atualizarCarrinho, atualizarUsuario, logout, erro, setErro }}>{children}</Context.Provider>;
+    const logout = async () => {
+        if (autenticacaoEmCurso.current) return;
+        autenticacaoEmCurso.current = true;
+        setProcessandoAutenticacao(true);
+        try {
+            await inicializacao.current;
+            await sair();
+            setUsuario(null); setCarrinho({ itens: [] }); setErro('');
+        } finally {
+            autenticacaoEmCurso.current = false;
+            setProcessandoAutenticacao(false);
+        }
+    };
+    return <Context.Provider value={{ usuario, carregando, carrinho, carrinhoOcupado, executarCarrinho, atualizarCarrinho, atualizarUsuario, login, finalizarLogin, logout, processandoAutenticacao, erro, setErro }}>{children}</Context.Provider>;
 }

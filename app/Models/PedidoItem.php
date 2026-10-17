@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PedidoItem extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $table = 'pedido_itens';
 
     protected $fillable = [
@@ -31,17 +33,17 @@ class PedidoItem extends Model
 
     public function pedido(): BelongsTo
     {
-        return $this->belongsTo(Pedido::class);
+        return $this->belongsTo(Pedido::class)->withTrashed();
     }
 
     public function produto(): BelongsTo
     {
-        return $this->belongsTo(Produto::class, 'codigo');
+        return $this->belongsTo(Produto::class, 'codigo')->withTrashed();
     }
 
     public function precoOriginal(): BelongsTo
     {
-        return $this->belongsTo(Preco::class, 'preco_id');
+        return $this->belongsTo(Preco::class, 'preco_id')->withTrashed();
     }
 
     public function alterarQuantidade(float $quantidade): bool

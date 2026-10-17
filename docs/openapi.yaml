@@ -187,7 +187,7 @@ paths:
               required: [token]
               properties:
                 token: {type: string, minLength: 64, maxLength: 64}
-                password: {type: string, minLength: 8, description: Obrigatória ao confirmar uma troca de e-mail.}
+                password: {type: string, minLength: 8, maxLength: 15, description: Obrigatória ao confirmar uma troca de e-mail.}
                 password_confirmation: {type: string}
       responses:
         '200': {$ref: '#/components/responses/Success'}
@@ -241,7 +241,7 @@ paths:
               required: [token, password, password_confirmation]
               properties:
                 token: {type: string, minLength: 64, maxLength: 64}
-                password: {type: string, minLength: 8, format: password}
+                password: {type: string, minLength: 8, maxLength: 15, format: password}
                 password_confirmation: {type: string, format: password}
       responses:
         '200': {$ref: '#/components/responses/Success'}
@@ -296,7 +296,7 @@ paths:
               type: object
               properties:
                 login: {type: string, maxLength: 255}
-                password: {type: string, minLength: 8}
+                password: {type: string, minLength: 8, maxLength: 15}
                 password_confirmation: {type: string}
       responses:
         '200': {$ref: '#/components/responses/Success'}
@@ -311,6 +311,24 @@ paths:
         '200': {$ref: '#/components/responses/Success'}
         '401': {$ref: '#/components/responses/Error'}
         '403': {$ref: '#/components/responses/Error'}
+  /enderecos/cep/{cep}:
+    get:
+      tags: [Enderecos]
+      summary: Consultar CEP para preencher endereço
+      description: Consulta ViaCEP por meio da API autenticada. Limite de 30 consultas por minuto. Não salva endereço; número e complemento são preenchidos pelo usuário.
+      security: [{OAuth2: []}]
+      parameters:
+        - name: cep
+          in: path
+          required: true
+          schema: {type: string, pattern: '^\d{8}$', example: '01001000'}
+      responses:
+        '200':
+          description: Envelope padrão com data contendo cep, logradouro, cidade, estado e pais.
+        '401': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /enderecos:
     post:
       tags: [Endereços]
@@ -791,6 +809,7 @@ paths:
     get:
       tags: [Carrinho]
       summary: Consultar carrinho do visitante ou Cliente
+      description: Não renova TTL. Inclui reserva_expira_em (Unix timestamp) e reserva_ativa. Reserva vence em 15 minutos sem alterações; itens duram 24 horas para visitante ou 30 dias para Cliente. Checkout revalida disponibilidade.
       security: [{OAuth2: []}, {}]
       parameters: [{$ref: '#/components/parameters/VisitanteToken'}]
       responses:
@@ -1249,7 +1268,7 @@ components:
       properties:
         login: {type: string, maxLength: 255}
         email: {type: string, format: email}
-        password: {type: string, minLength: 8, writeOnly: true}
+        password: {type: string, minLength: 8, maxLength: 15, writeOnly: true}
         password_confirmation: {type: string, writeOnly: true}
     ClienteCreate:
       allOf:
@@ -1261,7 +1280,7 @@ components:
       type: object
       properties:
         login: {type: string, maxLength: 255}
-        password: {type: string, minLength: 8, writeOnly: true}
+        password: {type: string, minLength: 8, maxLength: 15, writeOnly: true}
         password_confirmation: {type: string, writeOnly: true}
     EnderecoCreate:
       allOf:
@@ -1295,7 +1314,7 @@ components:
       type: object
       properties:
         login: {type: string}
-        password: {type: string, minLength: 8, writeOnly: true}
+        password: {type: string, minLength: 8, maxLength: 15, writeOnly: true}
         password_confirmation: {type: string, writeOnly: true}
         paginas:
           type: array
@@ -1314,7 +1333,7 @@ components:
       type: object
       properties:
         login: {type: string}
-        password: {type: string, minLength: 8, writeOnly: true}
+        password: {type: string, minLength: 8, maxLength: 15, writeOnly: true}
         password_confirmation: {type: string, writeOnly: true}
         nome: {type: string, maxLength: 255}
         webhook: {type: string, format: uri}
@@ -1396,3 +1415,12 @@ components:
               quantidade: {type: number, exclusiveMinimum: 0}
               valor_unitario: {type: number, minimum: 0}
               valor_total: {type: number, minimum: 0}
+
+# Exclusões de domínio são lógicas (deleted_at); recursos excluídos não aparecem em consultas.
+# Contas não confirmadas, expiradas e sem login são excluídas pelo scheduler a cada minuto.
+
+# E-mail é único somente entre contas ativas confirmadas; confirmação concorrente é serializada.
+# Reenvio usa o cadastro pendente mais recente válido; recuperação de senha exige conta confirmada.
+
+# Confirmação/troca de e-mail, recuperação e alertas são enfileirados no Redis/Horizon (emails).
+# Sucesso HTTP aceita a solicitação sem garantir entrega imediata; TTL dos links conta desde a solicitação.

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProdutoImagem extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $table = 'produto_imagens';
 
     protected $fillable = ['produto_id', 'path', 'principal'];

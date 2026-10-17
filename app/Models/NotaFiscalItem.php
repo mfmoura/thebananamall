@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NotaFiscalItem extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $table = 'nota_fiscal_itens';
 
     protected $fillable = [
@@ -39,11 +41,11 @@ class NotaFiscalItem extends Model
 
     public function notaFiscal(): BelongsTo
     {
-        return $this->belongsTo(NotaFiscal::class);
+        return $this->belongsTo(NotaFiscal::class)->withTrashed();
     }
 
     public function produto(): BelongsTo
     {
-        return $this->belongsTo(Produto::class);
+        return $this->belongsTo(Produto::class)->withTrashed();
     }
 }

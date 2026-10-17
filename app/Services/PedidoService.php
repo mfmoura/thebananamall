@@ -52,6 +52,8 @@ class PedidoService
                 throw ValidationException::withMessages(['carrinho' => 'O carrinho estÃ¡ vazio ou expirou.']);
             }
 
+            $this->carrinhoService->validarParaCheckout($cliente, $carrinho);
+
             [$pedido, $criado] = DB::transaction(function () use ($cliente, $formaPagamentoId, $idempotencyKey, $carrinho, $dadosFiscais): array {
                 $clienteBloqueado = Cliente::query()->lockForUpdate()->findOrFail($cliente->id);
                 $existente = $this->pedidoIdempotente($clienteBloqueado, $idempotencyKey);

@@ -14,7 +14,7 @@ class EmitirNotaFiscalRequest extends StoreNotaFiscalRequest
     {
         return [
             'idempotency_key' => ['required', 'uuid'],
-            'pedido_id' => ['nullable', 'integer', 'exists:pedidos,id'],
+            'pedido_id' => ['nullable', 'integer', 'exists:pedidos,id,deleted_at,NULL'],
             'natureza_operacao' => ['required', Rule::enum(NaturezaOperacaoNotaFiscal::class)],
             'numero' => ['required', 'integer', 'min:1', 'max:999999999'],
             'serie' => ['required', 'integer', 'min:1', 'max:889'],
@@ -29,7 +29,7 @@ class EmitirNotaFiscalRequest extends StoreNotaFiscalRequest
             'pagamentos.*.valor' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'itens' => ['required', 'array', 'min:1', 'max:990'],
             'itens.*' => ['array:produto_id,ncm,cfop,unidade_comercial,quantidade,valor_unitario,tributos'],
-            'itens.*.produto_id' => ['required', 'integer', 'exists:produtos,id'],
+            'itens.*.produto_id' => ['required', 'integer', 'exists:produtos,id,deleted_at,NULL'],
             'itens.*.ncm' => ['required', 'string', 'regex:/^\d{8}$/'],
             'itens.*.cfop' => ['required', 'string', 'regex:/^\d{4}$/'],
             'itens.*.unidade_comercial' => ['required', 'string', 'max:6'],
