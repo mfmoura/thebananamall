@@ -20,7 +20,8 @@ class EnderecoController extends Controller
 
         return response()->json([
             'cep' => $dados['cep'], 'logradouro' => $dados['logradouro'] ?? '',
-            'cidade' => $dados['localidade'], 'estado' => $dados['uf'], 'pais' => 'BR',
+            'bairro' => $dados['bairro'] ?? '', 'cidade' => $dados['localidade'],
+            'estado' => $dados['uf'], 'codigo_municipio' => $dados['ibge'], 'pais' => 'BR',
         ]);
     }
     public function store(CreateEnderecoRequest $request, EnderecoService $enderecoService): JsonResponse

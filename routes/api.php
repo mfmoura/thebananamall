@@ -18,6 +18,9 @@ use App\Http\Controllers\Api\UsuarioController;
 use App\Http\Controllers\Api\VisitanteController;
 use Illuminate\Support\Facades\Route;
 
+Route::post('/webhooks/mercado-pago', [\App\Http\Controllers\Api\PagamentoController::class, 'webhook'])
+    ->middleware('throttle:120,1');
+
 Route::post('/visitantes', [VisitanteController::class, 'store'])->middleware('throttle:20,1');
 Route::post('/email/confirmar', [EmailVerificationController::class, 'verify'])->middleware('throttle:10,1');
 Route::post('/email/reenviar-confirmacao', [EmailVerificationController::class, 'resend'])
@@ -116,6 +119,10 @@ Route::middleware(['auth:api', 'conta-pronta'])->group(function (): void {
     Route::middleware(['perfil:cliente', 'scope:orders:write'])->group(function (): void {
         Route::get('/pedidos', [PedidoController::class, 'index']);
         Route::post('/pedidos', [PedidoController::class, 'store']);
+        Route::post('/pedidos/{pedido}/pagamento', [\App\Http\Controllers\Api\PagamentoController::class, 'store'])
+            ->whereNumber('pedido')->middleware('throttle:10,1');
+        Route::get('/pedidos/{pedido}/pagamento', [\App\Http\Controllers\Api\PagamentoController::class, 'show'])
+            ->whereNumber('pedido')->middleware('throttle:30,1');
         Route::get('/pedidos/{pedido}', [PedidoController::class, 'show'])->whereNumber('pedido');
         Route::get('/pedidos/{pedido}/danfe', [PedidoController::class, 'danfe'])->whereNumber('pedido');
         Route::post('/pedidos/{pedido}/cancelar', [PedidoController::class, 'cancelar'])->whereNumber('pedido');

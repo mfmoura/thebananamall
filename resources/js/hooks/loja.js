@@ -30,7 +30,7 @@ export function useMenus(nav) {
 
 export function useCarrinhoResumo() {
     const { carrinho } = useLoja();
-    const itens = (carrinho.itens || []).map((item) => ({ ...item, nome: `Produto #${item.codigo}`, precoCentavos: Math.round(Number(item.preco_atual ?? item.preco ?? 0) * 100) }));
+    const itens = (carrinho.itens || []).map((item) => ({ ...item, precoCentavos: Math.round(Number(item.preco_atual ?? item.preco ?? 0) * 100) }));
     return {
         itens,
         quantidade: itens.reduce((soma, item) => soma + item.quantidade, 0),

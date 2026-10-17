@@ -21,6 +21,6 @@ export async function concluirOAuth() {
 }
 
 export async function sair() {
-    try { await sessao('/bff/logout', {}); }
-    finally { definirSessao(false); }
+    await sessao('/bff/logout', {});
+    definirSessao(false);
 }

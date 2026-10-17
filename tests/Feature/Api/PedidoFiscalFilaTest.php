@@ -55,6 +55,7 @@ class PedidoFiscalFilaTest extends TestCase
         $this->mock(CarrinhoService::class, function ($mock) use ($carrinho): void {
             $mock->shouldReceive('comBloqueioDeEstoque')->andReturnUsing(fn ($callback) => $callback());
             $mock->shouldReceive('consultar')->andReturn($carrinho);
+            $mock->shouldReceive('validarParaCheckout')->andReturnNull();
             $mock->shouldReceive('removerSobBloqueio')->andReturn(true);
         });
         $this->mock(ProdutoMovimentacaoService::class, function ($mock): void {

@@ -5,12 +5,13 @@ const campos = ['cep', 'logradouro', 'numero', 'complemento', 'cidade', 'estado'
     nome, label: ({ numero: 'Número', estado: 'UF', cep: 'CEP' })[nome] || nome[0].toUpperCase() + nome.slice(1),
     obrigatorio: nome !== 'complemento',
     ...(nome === 'estado' ? { maxLength: 2 } : {}),
-    ...(nome === 'cep' ? { inputMode: 'numeric', autoComplete: 'postal-code', maxLength: 9, pattern: '[0-9]{5}-?[0-9]{3}' } : {}),
+    ...(nome === 'cep' ? { inputMode: 'numeric', autoComplete: 'postal-code', maxLength: 9, pattern: '[0-9]{5}-?[0-9]{3}', mascara: 'cep' } : {}),
 }));
 
 export default function FormularioEndereco({ valores, enviar }) {
     const { aoAlterarCampo, mensagem } = useAutocompleteCep();
     return <Formulario campos={campos} valores={valores} enviar={enviar} aoAlterarCampo={aoAlterarCampo}>
+        <input type="hidden" name="codigo_municipio" defaultValue="" />
         {mensagem && <p role="status">{mensagem}</p>}
     </Formulario>;
 }

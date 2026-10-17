@@ -12,7 +12,12 @@ class Cliente extends Model
 
     protected $table = 'clientes';
 
-    protected $fillable = ['usuario_id'];
+    protected $fillable = ['usuario_id', 'dados_fiscais'];
+
+    protected function casts(): array
+    {
+        return ['dados_fiscais' => 'encrypted:array'];
+    }
 
     public function usuario(): BelongsTo
     {

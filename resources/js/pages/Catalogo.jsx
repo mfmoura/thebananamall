@@ -5,7 +5,7 @@ import { carrinhoApi } from '../services/carrinho';
 import { useLoja } from '../context/LojaContext';
 import useDados from '../hooks/useDados';
 import { MensagemErro } from '../components/Formulario';
-import usePaginacao from '../hooks/usePaginacao';
+import useFiltroProdutos from '../hooks/useFiltroProdutos';
 import GaleriaProduto from '../components/GaleriaProduto';
 import ControleQuantidade from '../components/ControleQuantidade';
 import ProdutoSkeleton from '../components/ProdutoSkeleton';
@@ -26,19 +26,21 @@ function Produto({ produto, detalhe = false }) {
         <h2><Link to={`/produtos/${produto.id}`}>{produto.nome}</Link></h2>
         {detalhe && produto.descricao && <div className="produto-descricao"><h3>Descrição</h3><p>{produto.descricao}</p></div>}
         <p>{produto.categoria}</p><strong>{preco(produto) == null ? 'Preço indisponível' : dinheiro(preco(produto))}</strong>
-        <p>Disponível: {Number(produto.estoque).toLocaleString('pt-BR')}</p>
+        {detalhe && <p>Disponível: {Number(produto.estoque).toLocaleString('pt-BR')}</p>}
         <MensagemErro erro={erro} />{mensagem && <p role="status">{mensagem}</p>}
+        {detalhe && <>
         <ControleQuantidade valor={quantidade} alterar={setQuantidade} validadeAlterada={setQuantidadeValida} produto={produto.nome} desabilitado={ocupado || carrinhoOcupado || !(produto.estoque > 0)} />
         <button className="botao-principal" disabled={!quantidadeValida || ocupado || carrinhoOcupado || !(produto.estoque > 0) || preco(produto) == null} onClick={async () => {
             setOcupado(true); setErro(null); setMensagem('');
             try { await executarCarrinho(() => carrinhoApi.adicionar(produto.id, quantidade)); setMensagem('Quantidade adicionada ao carrinho.'); }
             catch (e) { setErro(e); } finally { setOcupado(false); }
         }}>{ocupado ? 'Adicionando…' : 'Adicionar ao carrinho'}</button>
+        </>}
     </article>;
 }
 
 function ListaProdutos() {
-    const { itens, erro, carregando, temMais, carregarMais } = usePaginacao(api.produtos);
+    const { itens, erro, carregando, temMais, carregarMais, categoria, setCategoria, busca, setBusca } = useFiltroProdutos();
     const sentinela = useRef(null);
     useEffect(() => {
         if (!temMais || carregando || erro || !window.IntersectionObserver) return;
@@ -49,11 +51,24 @@ function ListaProdutos() {
         return () => observer.disconnect();
     }, [temMais, carregando, erro, carregarMais]);
     return <section className="tela"><h1>Nossa loja</h1><MensagemErro erro={erro} />
+        <details className="painel-filtros-produtos">
+        <summary><i className="fa-solid fa-filter" aria-hidden="true" /> Filtrar produtos</summary>
+        <form className="formulario filtros-produtos" role="search" onSubmit={(evento) => evento.preventDefault()}>
+            <label>Categoria<select value={categoria} onChange={(evento) => setCategoria(evento.target.value)}>
+                <option value="">Todas as categorias</option>
+                <option value="bandeira">Bandeira</option>
+                <option value="botton">Botton</option>
+                <option value="camiseta">Camiseta</option>
+                <option value="outro">Outro</option>
+            </select></label>
+            <label>Buscar produtos<input type="search" value={busca} maxLength={255} placeholder="Nome, código ou descrição" onChange={(evento) => setBusca(evento.target.value)} /></label>
+        </form>
+        </details>
         <div className="produtos-grid" aria-busy={carregando}>{itens.map((produto) => <Produto key={produto.id} produto={produto} />)}{carregando && temMais && <ProdutoSkeleton />}</div>
         {temMais && <div className="paginacao-catalogo" ref={sentinela}>
             {temMais && !carregando && <button onClick={carregarMais}>{erro ? 'Tentar novamente' : 'Carregar mais produtos'}</button>}
         </div>}
-        {!carregando && !erro && !itens.length && <p>Nenhum produto disponível no momento.</p>}
+        {!carregando && !erro && !itens.length && <p>Nenhum produto encontrado.</p>}
     </section>;
 }
 

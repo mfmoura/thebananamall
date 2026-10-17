@@ -17,7 +17,11 @@ class ProdutoController extends Controller
     {
         $dados = $request->validated();
 
-        return response()->json($service->listar(isset($dados['per_page']) ? (int) $dados['per_page'] : null, (int) ($dados['page'] ?? 1)));
+        return response()->json($service->listar(
+            isset($dados['per_page']) ? (int) $dados['per_page'] : null,
+            (int) ($dados['page'] ?? 1),
+            $dados,
+        ));
     }
 
     public function show(Produto $produto, ProdutoService $service): JsonResponse

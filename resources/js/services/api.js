@@ -39,7 +39,7 @@ async function executarRequisicao(path, { method = 'GET', body, headers = {}, bl
     });
     if (blob && response.ok) return response.blob();
     const json = await response.json().catch(() => null);
-    const data = json && 'statusCode' in json ? json.data : json;
+        const data = json && 'statusCode' in json ? json.data : json;
     if (!response.ok) {
         if (response.status === 401 && invalidarSessao && autenticado && path.startsWith('/api/')) {
             definirSessao(false);
@@ -55,7 +55,13 @@ export async function sessao(path, body) {
 }
 
 export const api = {
-    produtos: (pagina = 1, signal) => requisitar(`/api/produtos?per_page=5&page=${pagina}`, { signal }),
+    produtos: (pagina = 1, signal, filtros = {}) => {
+        const parametros = new URLSearchParams({ per_page: 6, page: pagina });
+        for (const campo of ['categoria', 'busca']) {
+            if (filtros[campo]?.trim()) parametros.set(campo, filtros[campo].trim());
+        }
+        return requisitar(`/api/produtos?${parametros}`, { signal });
+    },
     produto: (id) => requisitar(`/api/produtos/${encodeURIComponent(id)}`),
     precos: (id) => requisitar(`/api/produtos/${encodeURIComponent(id)}/precos`),
     estoque: (id) => requisitar(`/api/produtos/${encodeURIComponent(id)}/estoque`),

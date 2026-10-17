@@ -18,7 +18,7 @@ export default function useAutocompleteCep() {
         if (!/^\d{8}$/.test(cep)) return;
         const controller = new AbortController();
         pendente.current.controller = controller;
-        const campos = ['logradouro', 'cidade', 'estado'];
+        const campos = ['logradouro', 'cidade', 'estado', 'codigo_municipio'];
         const anteriores = Object.fromEntries(campos.map((campo) => [campo, form.elements.namedItem(campo)?.value]));
         setMensagem('Consultando CEP…');
         pendente.current.timer = setTimeout(async () => {

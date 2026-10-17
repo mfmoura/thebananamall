@@ -7,6 +7,7 @@ use App\Models\ProdutoMovimentacao;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class ProdutoService
 {
@@ -15,9 +16,9 @@ class ProdutoService
         private readonly CarrinhoService $carrinhoService,
     ) {}
 
-    public function listar(?int $porPagina = null, int $pagina = 1): Collection|\Illuminate\Pagination\LengthAwarePaginator
+    public function listar(?int $porPagina = null, int $pagina = 1, array $filtros = []): Collection|\Illuminate\Pagination\LengthAwarePaginator
     {
-        return $this->carrinhoService->comBloqueioDeEstoque(function () use ($porPagina, $pagina) {
+        return $this->carrinhoService->comBloqueioDeEstoque(function () use ($porPagina, $pagina, $filtros) {
             $consulta = Produto::query()->where('ativo', true)->with(['imagens', 'precoAtual'])
             ->withSum([
                 'movimentacoes as quantidade_entrada' => fn ($query) => $query->withTrashed()->where('direcao', 'entrada'),
@@ -26,8 +27,19 @@ class ProdutoService
                 'movimentacoes as quantidade_saida' => fn ($query) => $query->withTrashed()->where('direcao', 'saida'),
             ], 'quantidade')
             ->orderBy('nome')->orderBy('id');
-            $resultado = $porPagina === null ? $consulta->get() : $consulta->paginate($porPagina, ['*'], 'page', $pagina)->withQueryString();
-            $produtos = $resultado instanceof Collection ? $resultado : $resultado->getCollection();
+            if (! empty($filtros['categoria'])) {
+                $consulta->where('categoria', $filtros['categoria']);
+            }
+            $termo = trim($filtros['busca'] ?? '');
+            if ($termo !== '') {
+                $padrao = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $termo).'%';
+                $consulta->where(function ($query) use ($padrao) {
+                    foreach (['nome', 'codigo', 'descricao'] as $campo) {
+                        $query->orWhereRaw("lower(".$campo.") like lower(?) escape '!'", [$padrao]);
+                    }
+                });
+            }
+            $produtos = $consulta->get();
             $produtos->each(function (Produto $produto): void {
                 $estoqueContado = (float) $produto->quantidade_entrada - (float) $produto->quantidade_saida;
                 $produto->setAttribute('estoque_contado', round($estoqueContado, 3));
@@ -37,6 +49,22 @@ class ProdutoService
                 );
                 $produto->makeHidden(['quantidade_entrada', 'quantidade_saida']);
             });
+
+            $produtos = $produtos->filter(static fn (Produto $produto): bool => (float) $produto->estoque > 0)->values();
+            if ($porPagina === null) {
+                return $produtos;
+            }
+
+            $porPagina = max(1, min(100, $porPagina));
+            $pagina = max(1, $pagina);
+            $resultado = new LengthAwarePaginator(
+                $produtos->forPage($pagina, $porPagina)->values(),
+                $produtos->count(),
+                $porPagina,
+                $pagina,
+                ['path' => request()->url(), 'query' => request()->query()],
+            );
+            $resultado->withQueryString();
 
             return $resultado;
         });

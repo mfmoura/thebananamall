@@ -173,7 +173,18 @@
                      }
                  ],
     "item":  [
-{"name":"Consultar CEP para autocomplete","request":{"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Accept","value":"application/json"}],"url":"{{baseUrl}}/enderecos/cep/01001000","description":"Exige conta autenticada com e-mail confirmado. CEP com oito dígitos. Retorna o envelope padrão com cep, logradouro, cidade, estado e pais. Limite de 30 consultas/minuto. Pelo BFF: GET {{bffUrl}}/api/enderecos/cep/01001000 com cookie de sessão, sem bearer no navegador. Não salva o endereço. CEP inválido/inexistente: 422; ViaCEP indisponível: 503."}},
+{
+ "name": "Mercado Pago (Orders)",
+ "description": "Configure somente no .env o Access Token e o segredo do webhook. Ver docs/MERCADO-PAGO.md. Cliente com orders:write e pedido da forma correspondente. Nunca enviar PAN/CVV.",
+ "item": [
+  {"name":"Criar Pix", "request":{"method":"POST","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"meio\":\"pix\"}"},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
+  {"name":"Criar pagamento com cartão tokenizado", "request":{"method":"POST","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Content-Type","value":"application/json"}],"description":"Substitua TOKEN_GERADO_NO_MERCADOPAGO_JS por token efêmero. O pedido deve usar cartao_credito; débito usa debit_card e uma parcela. Não salvar token na coleção.","body":{"mode":"raw","raw":"{\"meio\":\"credit_card\",\"payment_method_id\":\"master\",\"token\":\"TOKEN_GERADO_NO_MERCADOPAGO_JS\",\"parcelas\":1}"},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
+  {"name":"Consultar e reconciliar cobrança", "request":{"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
+  {"name":"Webhook assinado (simular pelo painel)", "request":{"method":"POST","auth":{"type":"noauth"},"description":"Sem assinatura válida retorna 403. Use o simulador do painel Mercado Pago com ID real de Order. Segredo fica somente no .env; assinatura HMAC deve corresponder ao ID, request-id e ts. Substitua os placeholders pelos cabeçalhos de uma notificação assinada.","header":[{"key":"Content-Type","value":"application/json"},{"key":"x-request-id","value":"SUBSTITUIR_REQUEST_ID"},{"key":"x-signature","value":"ts=SUBSTITUIR_TIMESTAMP,v1=SUBSTITUIR_ASSINATURA"}],"body":{"mode":"raw","raw":"{\"type\":\"order\"}"},"url":"{{baseUrl}}/webhooks/mercado-pago?data.id=SUBSTITUIR_ORDER_ID"}}
+ ]
+},
+
+{"name":"Consultar CEP para autocomplete","request":{"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Accept","value":"application/json"}],"url":"{{baseUrl}}/enderecos/cep/01001000","description":"Exige conta autenticada com e-mail confirmado. CEP com oito dígitos. Retorna cep, logradouro, bairro, cidade, estado, codigo_municipio (IBGE) e pais. Limite de 30 consultas/minuto. Pelo BFF: GET {{bffUrl}}/api/enderecos/cep/01001000 com cookie de sessão, sem bearer no navegador. Não salva o endereço. CEP inválido/inexistente: 422; ViaCEP indisponível: 503."}},
                  {
                      "name":  "Cadastro - senha de 8 a 15 caracteres",
                      "request":  {
@@ -380,7 +391,7 @@
                      "name":  "Catalogo paginado e galeria",
                      "item":  [
                                   {
-                                      "name":  "Primeiros cinco produtos",
+                                      "name":  "Primeiros cinco produtos com filtros opcionais",
                                       "request":  {
                                                       "method":  "GET",
                                                       "auth":  {
@@ -392,8 +403,8 @@
                                                                          "value":  "application/json"
                                                                      }
                                                                  ],
-                                                      "url":  "{{baseUrl}}/produtos?per_page=5\u0026page=1",
-                                                      "description":  "data.data contem cinco itens; data.next_page_url informa a proxima pagina. Cada produto inclui imagens e principal."
+                                                      "url":  "{{baseUrl}}/produtos?per_page=5\u0026page=1\u0026categoria=camiseta\u0026busca=LCB",
+                                                      "description":  "Filtros opcionais: categoria (bandeira, botton, camiseta, outro) e busca (trecho de nome, codigo ou descricao, sem diferenciar maiusculas). Remova os filtros para listar tudo. data.data contem os itens; data.next_page_url preserva os filtros. Requisicao publica sem autenticacao."
                                                   }
                                   },
                                   {
@@ -438,7 +449,7 @@
                                                                               ]
                                                                },
                                                       "url":  "{{baseUrl}}/me",
-                                                      "description":  "Retorna somente a conta do token atual, incluindo perfis e enderecos; requer OAuth2."
+                                                      "description":  "Retorna somente a conta do token atual, incluindo perfis, endereços e o perfil fiscal do Cliente (quando houver). O perfil fiscal é descriptografado apenas na conta autenticada; requer OAuth2."
                                                   }
                                   },
                                   {

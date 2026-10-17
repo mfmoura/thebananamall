@@ -21,7 +21,7 @@ export default function Pedidos() {
             <h2><Link to={`/pedidos/${pedido.id}`}>Pedido #{pedido.id}</Link></h2>
             <p>Status: {pedido.status}</p><p>Total: {dinheiro(pedido.total)}</p>
             <p>{pedido.processamento_fiscal?.mensagem || 'Seus dados estão sendo processados. A emissão fiscal depende da confirmação do pagamento.'}</p>
-            {id && <><ul>{pedido.itens?.map((item) => <li key={item.id}>Produto #{item.codigo} · {Number(item.quantidade)} × {dinheiro(item.preco)}</li>)}</ul>
+            {id && <><ul>{pedido.itens?.map((item) => <li key={item.id}><Link to={`/produtos/${item.codigo}`}>{item.produto?.nome || 'Produto indisponível'}</Link> · {Number(item.quantidade)} × {dinheiro(item.preco)}</li>)}</ul>
                 <button disabled={ocupado} onClick={() => executar(async () => {
                     const blob = await api.danfe(id);
                     const url = URL.createObjectURL(blob);

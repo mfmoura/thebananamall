@@ -25,7 +25,7 @@ const resultados = [];
 for (const [nome, url] of [
     ['HTML Laravel', `${loja}/`],
     ['Sessão BFF', `${loja}/bff/session`],
-    ['Catálogo BFF (5 produtos)', `${loja}/bff/api/produtos?per_page=5&page=1`],
+    ['Catálogo BFF (5 produtos)', `${loja}/bff/api/produtos?per_page=6&page=1`],
     ['Entrada React Vite', `${vite}/resources/js/main.jsx`],
     ['CSS Vite', `${vite}/resources/css/app.css`],
 ]) {

@@ -1,5 +1,7 @@
 # Testes manuais no Postman
 
+O catálogo aceita `categoria` (`bandeira`, `botton`, `camiseta` ou `outro`) e `busca` (trecho do nome, código ou descrição, sem distinguir maiúsculas). Os filtros podem ser combinados e são aplicados antes da paginação. Na loja React, a categoria é aplicada imediatamente e a busca após 1 segundo sem digitação.
+
 1. Inicie os containers: `docker compose up -d`.
 2. Aplique migrations e seeders: `docker compose exec php php artisan migrate --seed`.
 3. Importe `LojaVirtualLCB.postman_collection.json` no Postman.
@@ -117,4 +119,14 @@ Se o login responder 200 e a autorização OAuth falhar, confira as permissões 
 Confirmação e troca de e-mail, recuperação de senha e alerta de senha antiga usam notificações enfileiradas na conexão Redis, fila `emails`, com supervisor próprio no Horizon. O payload é cifrado; envio ocorre após commit, com três tentativas, backoff de 10/30/60 segundos e timeout SMTP de 20 segundos (`MAIL_TIMEOUT`). Não executar SMTP na requisição HTTP. O Horizon precisa estar ativo.
 
 A validade dos links continua contando desde a solicitação (5 minutos para confirmação e 10 para recuperação no ambiente local); a fila não renova tokens. Antes de enviar, o worker descarta links vencidos/consumidos e notificações de contas excluídas. O texto do e-mail informa que a validade começa na solicitação. Monitorar atrasos da fila, com limiar de 30 segundos; não reenviar jobs com links vencidos como se fossem links novos. Falhas definitivas ficam disponíveis no Horizon para diagnóstico. As respostas HTTP indicam aceitação da solicitação, sem garantir entrega imediata ao destinatário.
-Em `/conta`, o formulário de endereço consulta o ViaCEP ao completar o CEP (oito dígitos, com ou sem hífen). Preenche logradouro, cidade e UF; número e complemento permanecem manuais. O React usa `GET /bff/api/enderecos/cep/{cep}`; integrações usam `GET /api/enderecos/cep/{cep}` com OAuth. Requer conta liberada, limita a 30 consultas por minuto e cancela respostas de CEPs anteriores. A consulta não salva o endereço nem substitui a validação no servidor.
+Em `/conta`, o formulário de endereço consulta o ViaCEP ao completar o CEP (oito dígitos, com ou sem hífen). Preenche logradouro, cidade, UF e código IBGE; número e complemento permanecem manuais. O React usa `GET /bff/api/enderecos/cep/{cep}`; integrações usam `GET /api/enderecos/cep/{cep}` com OAuth. A resposta inclui `bairro` e `codigo_municipio`, usados pelo checkout para montar os dados fiscais sem pedir o código IBGE ao Cliente. Requer conta liberada, limita a 30 consultas por minuto e cancela respostas de CEPs anteriores. A consulta não salva o endereço nem substitui a validação no servidor.
+
+Na listagem pública do catálogo, produtos sem estoque disponível (estoque contado menos reservas ativas) são omitidos antes da paginação. A consulta de detalhe continua disponível para produtos sem estoque e para referências históricas de pedidos. A loja carrega cinco produtos por página.
+
+No React, a compra e o seletor de quantidade aparecem apenas no detalhe do produto. O carrinho apresenta nome e miniatura principal; na tela do pedido, cada item abre o detalhe do produto mesmo quando seu estoque está zerado. O checkout usa ViaCEP para obter o código IBGE, aplica máscaras visuais de CPF/CNPJ e CEP e, quando há endereço salvo, pede confirmação do cartão do endereço antes de criar o pedido.
+
+Após o primeiro pedido, o Cliente mantém um perfil fiscal cifrado com a chave da aplicação no campo `clientes.dados_fiscais`. O checkout seguinte mostra os dados mascarados em um cartão e pede confirmação; nomes, documentos e endereços não são devolvidos em rotas públicas.
+
+## Mercado Pago
+
+A pasta Mercado Pago (Orders) cria Pix/cartão tokenizado e consulta/reconcilia a cobrança de pedido próprio com escopo orders:write. Use pedidoId e clienteToken do fluxo OAuth existente. Credenciais do provedor ficam somente no .env. Configure o webhook pelo painel, com assinatura válida; veja [docs/MERCADO-PAGO.md](../docs/MERCADO-PAGO.md). O cancelamento local retorna 409 depois de iniciar uma tentativa de cobrança. O formulário React e estornos remotos ainda não fazem parte deste fluxo.

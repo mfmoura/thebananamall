@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-export default function BloqueioAutenticacao() {
+export default function BloqueioAutenticacao({ rotulo = 'Processando autenticação' }) {
     const ref = useRef(null);
     useEffect(() => {
         const anterior = document.activeElement;
@@ -17,7 +17,7 @@ export default function BloqueioAutenticacao() {
         };
     }, []);
     return <div className="bloqueio-autenticacao" ref={ref} role="dialog" aria-modal="true"
-        aria-label="Processando autenticação" tabIndex={-1}
+        aria-label={rotulo} tabIndex={-1}
         onKeyDown={(event) => { if (event.key === 'Tab') event.preventDefault(); }}>
         <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />
     </div>;

@@ -1,4 +1,4 @@
-export default function ProdutoSkeleton({ quantidade = 5 }) {
+export default function ProdutoSkeleton({ quantidade = 6 }) {
     return <>
         <span className="sr-only" role="status">Carregando produtos…</span>
         {Array.from({ length: quantidade }, (_, indice) => <div className="produto-card produto-skeleton" key={indice} aria-hidden="true">

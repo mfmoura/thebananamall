@@ -15,6 +15,8 @@ final class CarrinhoItem implements JsonSerializable
     private string $data;
     private ?string $preco;
     private ?string $precoAtual = null;
+    private ?string $nomeProduto = null;
+    private ?string $imagemPrincipal = null;
 
     public function __construct(
         int $codigo,
@@ -48,6 +50,12 @@ final class CarrinhoItem implements JsonSerializable
     public function definirPrecoAtual(?string $preco): void
     {
         $this->precoAtual = $preco;
+    }
+
+    public function definirDadosProduto(?string $nome, ?string $imagemPrincipal): void
+    {
+        $this->nomeProduto = $nome;
+        $this->imagemPrincipal = $imagemPrincipal;
     }
 
     public function quantidade(): float
@@ -95,6 +103,8 @@ final class CarrinhoItem implements JsonSerializable
         return $this->toArray() + [
             'preco_atual' => $this->precoAtual,
             'modificado' => $this->alertarModificacao(),
+            'nome' => $this->nomeProduto,
+            'imagem_principal' => $this->imagemPrincipal,
         ];
     }
 

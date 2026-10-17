@@ -259,13 +259,14 @@ class CarrinhoService
     private function atualizarPrecosAtuais(Carrinho $carrinho): Carrinho
     {
         $codigos = array_map(static fn ($item): int => $item->codigo, $carrinho->itens);
-        $precos = Produto::query()->whereIn('id', $codigos)->with('precoAtual')->get()
-            ->mapWithKeys(static fn (Produto $produto): array => [
-                $produto->id => $produto->precoAtual?->preco,
-            ]);
+        $produtos = Produto::withTrashed()->whereIn('id', $codigos)
+            ->with(['precoAtual', 'imagens' => fn ($query) => $query->where('principal', true)])
+            ->get()->keyBy('id');
 
         foreach ($carrinho->itens as $item) {
-            $item->definirPrecoAtual($precos->get($item->codigo));
+            $produto = $produtos->get($item->codigo);
+            $item->definirPrecoAtual($produto?->precoAtual?->preco);
+            $item->definirDadosProduto($produto?->nome, $produto?->imagens->first()?->path);
         }
 
         return $carrinho;
