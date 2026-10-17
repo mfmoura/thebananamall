@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { LojaProvider, useLoja } from './context/LojaContext';
 import BarraSuperior from './components/BarraSuperior';
+import Rodape from './components/Rodape';
 import Catalogo from './pages/Catalogo';
 import Carrinho from './pages/Carrinho';
 import Checkout from './pages/Checkout';
@@ -50,6 +51,7 @@ function Conteudo() {
                 <Route path="*" element={<section className="tela"><h1>Página não encontrada</h1><Link to="/produtos">Ir para a loja</Link></section>} />
             </Routes>
         </main>
+        <Rodape />
     </>;
 }
 

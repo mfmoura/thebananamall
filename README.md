@@ -35,6 +35,8 @@ Para envio via Gmail, use uma senha de app quando a autenticação SMTP recusar 
 
 ## Desenvolvimento local
 
+O template React `resources/js/components/Rodape.jsx` compartilha o rodapé institucional da Liga em todas as páginas da loja, com logo local, links institucionais e redes sociais oficiais. O catálogo e o detalhe usam `ProdutoSkeleton` durante o carregamento; ao terminar a paginação, os placeholders e o controle de carregar mais são removidos.
+
 A loja usa a família **Breda Two**, identificada no CSS do site oficial da LCB. O arquivo WOFF2 fica em `resources/fonts/breda-two.woff2` e é servido localmente pelo Vite, sem depender do site externo durante a navegação.
 
 O componente `ControleQuantidade` oferece botões de aumentar/diminuir e entrada numérica no catálogo e no detalhe. No menu flutuante, no carrinho e no checkout, `ItemCarrinho` permite alterar a quantidade ou remover o produto. Alterações do carrinho atualizam o estado e o total compartilhados após confirmação da API; operações concorrentes da interface ficam bloqueadas durante a gravação. O servidor continua validando o estoque.

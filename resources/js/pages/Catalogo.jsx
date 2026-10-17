@@ -8,6 +8,7 @@ import { MensagemErro } from '../components/Formulario';
 import usePaginacao from '../hooks/usePaginacao';
 import GaleriaProduto from '../components/GaleriaProduto';
 import ControleQuantidade from '../components/ControleQuantidade';
+import ProdutoSkeleton from '../components/ProdutoSkeleton';
 
 export const dinheiro = (valor) => Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const preco = (produto) => produto.preco;
@@ -48,20 +49,18 @@ function ListaProdutos() {
         return () => observer.disconnect();
     }, [temMais, carregando, erro, carregarMais]);
     return <section className="tela"><h1>Nossa loja</h1><MensagemErro erro={erro} />
-        <div className="produtos-grid">{itens.map((produto) => <Produto key={produto.id} produto={produto} />)}</div>
-        <div className="paginacao-catalogo" ref={sentinela}>
-            {carregando && <p role="status">Carregando produtos…</p>}
+        <div className="produtos-grid" aria-busy={carregando}>{itens.map((produto) => <Produto key={produto.id} produto={produto} />)}{carregando && temMais && <ProdutoSkeleton />}</div>
+        {temMais && <div className="paginacao-catalogo" ref={sentinela}>
             {temMais && !carregando && <button onClick={carregarMais}>{erro ? 'Tentar novamente' : 'Carregar mais produtos'}</button>}
-            {!temMais && itens.length > 0 && <p>Você viu todos os produtos.</p>}
-            {!carregando && !erro && !itens.length && <p>Nenhum produto disponível no momento.</p>}
-        </div>
+        </div>}
+        {!carregando && !erro && !itens.length && <p>Nenhum produto disponível no momento.</p>}
     </section>;
 }
 
 function DetalheProduto({ id }) {
     const { dados, erro, carregando } = useDados(() => api.produto(id), id);
     return <section className="tela detalhe-produto"><Link to="/">Voltar para a loja</Link><h1>{dados?.nome || 'Produto'}</h1>
-        <MensagemErro erro={erro} />{carregando ? <p role="status">Carregando produto…</p> : dados && <Produto produto={dados} detalhe />}
+        <MensagemErro erro={erro} />{carregando ? <ProdutoSkeleton quantidade={1} /> : dados && <Produto produto={dados} detalhe />}
     </section>;
 }
 

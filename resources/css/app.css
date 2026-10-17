@@ -10,6 +10,28 @@
 
 :root { --lcb-vinho: #6b0d0d; --lcb-papel: #faf9f6; --lcb-texto: #252322; }
 .loja { margin: 0; background: var(--lcb-papel); color: var(--lcb-texto); font-family: 'Breda Two', Arial, Helvetica, sans-serif; }
+#app { display: flex; flex-direction: column; min-height: 100dvh; }
+#app > .pagina { flex: 1; width: 100%; }
+.rodape-loja { background: var(--lcb-vinho); color: white; margin-top: 32px; }
+.rodape-conteudo { width: 70%; max-width: 1200px; margin: auto; padding: 40px 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; align-items: start; }
+.rodape-marca { grid-column: 1; grid-row: 1 / 3; display: block; }
+.rodape-marca img { width: 150px; max-width: 100%; height: auto; }
+.rodape-links { grid-column: 4; display: grid; gap: 16px; font-size: 14px; }
+.rodape-redes { grid-column: 4; display: flex; flex-wrap: wrap; gap: 20px; font-size: 24px; }
+.rodape-links a:hover, .rodape-redes a:hover { opacity: .7; }
+.skeleton-bloco { background: #e6ded7; border-radius: 3px; animation: skeleton-pulso 1.4s ease-in-out infinite; }
+.skeleton-imagem { height: 220px; width: 100%; margin-bottom: 24px; }
+.skeleton-titulo { height: 26px; width: 85%; margin-bottom: 18px; }
+.skeleton-linha { height: 15px; width: 65%; margin: 14px 0; }
+.skeleton-preco { height: 22px; width: 40%; }
+.skeleton-botao { height: 44px; width: 100%; margin-top: 28px; }
+@keyframes skeleton-pulso { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .skeleton-bloco { animation: none; } }
+@media (max-width: 600px) {
+    .rodape-conteudo { width: 85%; grid-template-columns: 1fr; gap: 28px; }
+    .rodape-marca, .rodape-links, .rodape-redes { grid-column: 1; grid-row: auto; }
+    .rodape-marca img { width: 220px; }
+}
 .tela { padding: 56px 0; }
 .tela h1 { font-size: clamp(28px, 5vw, 42px); font-weight: 800; margin-bottom: 28px; }
 .tela h2 { font-size: 22px; font-weight: 700; margin: 24px 0 16px; }
