@@ -1,9 +1,8 @@
 # Etapas deixadas para depois
 
-- [ ] Integrar o pedido ao Mercado Pago com Checkout Transparente, decisão definida para a loja própria. Usar MercadoPago.js no frontend NPM para tokenização dos cartões e a API de Orders no backend; validar meios disponíveis para a conta, tarifas, ambiente de testes, idempotência e conciliação de pagamentos/estornos. Confirmar o pagamento consultando o provedor, sem confiar apenas no retorno do navegador.
-- [ ] Definir o contrato de integrção dos webhooks de pagamento e entrega: autenticção, assinatura, idempotência, tentativas e registro de eventos.
-- [ ] Implementar os painéis React administrativos (Contabilidade, Estoque e Manutenção) e de Logística. O fluxo do Cliente já possui catálogo, cadastro, OAuth2/PKCE, carrinho, conta, endereços, recuperação/confirmacão de e-mail e pedidos.
-- [ ] Executar testes de fluxo e validar migrations no ambiente Docker antes da publicção.
+- [ ] Completar a homologação do Mercado Pago: testar Pix e demais bandeiras/modalidades, confirmar disponibilidade e tarifas na conta, validar entrega automática dos webhooks e concluir a revisão antes de produção. Implementar cancelamentos/estornos remotos, sua conciliação e novas tentativas após rejeição. Checkout, tokenização, pagamento assíncrono e aprovação de Mastercard de teste já validados; guia em `docs/MERCADO-PAGO.md`.
+- [ ] Completar o contrato operacional dos webhooks de pagamento (entrega automática, retentativas e registro de eventos) e definir o contrato dos webhooks de entrega, incluindo autenticação, assinatura e idempotência.
+- [ ] Completar as telas administrativas de Contabilidade, operações de Estoque e Manutenção além dos CRUDs de produtos e usuários já implementados; implementar o painel de Logística. O dashboard já possui login administrativo separado e upload de fotos.
 - [ ] Implementar a API CRUD de `ClienteCartao` integrada por adaptador genérico de gateway: tokenizar e vincular o cartáo no provedor, guardar somente referéncias cifradas e metadados mascarados, remover a referéncia no provedor e validar webhooks; nunca receber nem persistir PAN/CVV.
 - [ ] Completar o ciclo Fiscal Contora além da homologação já implementada: correção/reenvio de notas rejeitadas, cancelamento, CC-e e reconciliação por webhooks autenticados. Preparar emissão em produção e movimentação de estoque somente após autorização real, sem duplicar a baixa feita pelo checkout.
 - [ ] Ampliar o payload fiscal de emissão conforme os cenários da loja: frete, descontos, ST, DIFAL e demais grupos necessários. Persistir os totais fiscais finais do XML autorizado e validar a parametrização com a Contabilidade antes de produção.
@@ -17,7 +16,7 @@
 - [ ] Usar o emissor gratuito do Mercado Livre para vendas elegíveis do marketplace, conforme preferência definida. A API documentada exige IDs de vendas do Mercado Livre (`POST /users/{user_id}/invoices/orders`, corpo `orders`); IDs dos pedidos locais ou das Orders do Mercado Pago não substituem esses IDs. Para emitir notas das vendas da loja própria, falta um fluxo oficialmente suportado para pedidos externos ou a escolha de outro emissor. Não criar vendas fictícias no marketplace para contornar a restrição. Verificar conta PJ, inscrição estadual, certificado A1, cadastro fiscal dos anúncios e cobertura das naturezas necessárias antes de implementar o adaptador.
 - [ ] Avaliar Mercado Envios para cotação, etiquetas, rastreamento e devoluções: confirmar disponibilidade contratual para pedidos da loja própria, cobertura por CEP, modalidades e custos. A API documentada trabalha com envios associados às operações do marketplace; manter opção de outro provedor caso pedidos externos não sejam elegíveis.
 - [ ] Se houver vendas também no marketplace, mapear IDs externos de pedidos, pagamentos, notas e envios; sincronizar estoque sem duplicar as movimentações já registradas no checkout e reconciliar notificações repetidas ou fora de ordem.
-- [ ] Na integração Mercado Pago, validar assinatura dos webhooks, consultar o recurso notificado e conferir pedido, valor e moeda antes de atualizar o status. Usar tokenização do provedor para cartões e confirmar quais modalidades de débito são efetivamente suportadas pela conta.
+- [ ] Confirmar quais modalidades de débito são efetivamente suportadas pela conta Mercado Pago e homologar o fluxo com cartão de débito.
 
 Referências oficiais consultadas em 16/10/2026:
 
@@ -33,10 +32,6 @@ Referências oficiais consultadas em 16/10/2026:
 - [API de faturamento Mercado Livre](https://developers.mercadolivre.com.br/pt_br/api-fiscal-faturamento-de-venda)
 - [Gerenciamento de envios](https://developers.mercadolivre.com.br/pt_br/registre-o-seu-aplicativo/gerenciamento-de-envios)
 
-- // TODO: Implementar relatórios que consultem também registros excluídos logicamente, preservados permanentemente, com autorização e proteção dos dados sensíveis.
-
-- [x] Integrar backend Mercado Pago via Orders: criação/consulta de Pix e cartões tokenizados, idempotência persistida, assinatura de webhook e confirmação validada antes da fila fiscal. Guia: docs/MERCADO-PAGO.md. Checkout React com tokenização MercadoPago.js, Pix e acompanhamento integrado. Restam credenciais locais, homologação da conta e do navegador, revisão de produção, cancelamento/estornos e novas tentativas após rejeição.
+- [ ] Implementar relatórios que consultem também registros excluídos logicamente, preservados permanentemente, com autorização e proteção dos dados sensíveis.
 
 - [ ] Implementar cadastro e manutenção de categorias no dashboard admin, com nome_codigo para identificação e nome para exibição nos fronts, respeitando exclusão lógica e vínculos dos produtos.
-
-- [x] Processar pagamento em fila Redis dedicada, com aceitação HTTP 202, snapshot cifrado, retentativas idempotentes, conciliação independente do navegador e acompanhamento sem bloquear a navegação.
