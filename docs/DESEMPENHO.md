@@ -7,7 +7,7 @@ docker compose exec node npm run perf
 docker compose exec node npm run build
 ```
 
-`perf` faz três consultas sequenciais por recurso, conserva cookies de visitante em memória e mede status, TTFB, duração e bytes. Fora do Docker, configure `PERF_URL=http://localhost` e `PERF_VITE_URL=http://localhost:5173`. O catálogo pode criar a identidade de visitante usada pelo fluxo normal da loja. Não executa compras nem usa contas autenticadas.
+`perf` faz três consultas sequenciais por recurso, conserva cookies de visitante em memória e mede status, TTFB, duração e bytes. Assets são consultados pelo Nginx em `/vite/`. Fora do Docker, configure `PERF_URL=http://localhost` e `PERF_VITE_URL=http://localhost/vite`. O catálogo pode criar a identidade de visitante usada pelo fluxo normal da loja. Não executa compras nem usa contas autenticadas.
 
 O middleware `MedirDesempenhoLocal` acrescenta `Server-Timing` somente em `APP_ENV=local`: `bootstrap` (entrada PHP até o middleware global), `application` (processamento posterior) e `sql` (tempo acumulado das consultas posteriores, já incluído em application). Terminação da requisição e gravação do Telescope não entram nessas parcelas.
 

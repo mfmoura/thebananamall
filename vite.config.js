@@ -3,7 +3,8 @@ import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+    base: command === 'serve' ? '/vite/' : undefined,
     plugins: [
         {
             name: 'lcb-desempenho-local',
@@ -36,13 +37,14 @@ export default defineConfig({
         host: '0.0.0.0',
         port: 5173,
         strictPort: true,
-        origin: 'http://localhost:5173',
+        allowedHosts: ['nginx'],
+        origin: 'http://localhost',
         cors: {
-            origin: ['http://localhost', 'http://127.0.0.1', 'http://localhost:5173'],
+            origin: ['http://localhost', 'http://127.0.0.1'],
         },
         hmr: {
             host: 'localhost',
-            clientPort: 5173,
+            clientPort: 80,
         },
         watch: {
             usePolling: true,
@@ -50,4 +52,4 @@ export default defineConfig({
             ignored: ['**/storage/**', '**/vendor/**', '**/public/build/**'],
         },
     },
-});
+}));

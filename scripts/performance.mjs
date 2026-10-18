@@ -18,7 +18,7 @@ try {
 }
 
 const loja = process.env.PERF_URL || 'http://nginx';
-const vite = process.env.PERF_VITE_URL || 'http://localhost:5173';
+const vite = process.env.PERF_VITE_URL || `${loja}/vite`;
 const amostras = Math.max(1, Math.min(10, Number(process.env.PERF_SAMPLES) || 3));
 const cookies = new Map();
 const resultados = [];
