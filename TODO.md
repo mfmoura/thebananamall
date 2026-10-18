@@ -5,6 +5,7 @@
 Checkout, tokenização e processamento assíncrono estão implementados para Pix, boleto, crédito e débito. Há aprovação de Mastercard de teste registrada; testes PHPUnit com respostas simuladas não substituem a homologação dos demais meios.
 
 - [ ] Homologar Pix, boleto e demais bandeiras de crédito/débito na conta. Confirmar modalidades habilitadas e tarifas.
+  - Consulta remota de teste: Visa, Amex e Mastercard aprovados diretamente em Orders; Pix em processamento sem QR Code; boleto falhou com `processing_error`; débito Elo recusado para o recebedor. Tarifas e fluxo completo da loja pendentes. Evidências em [docs/MERCADO-PAGO-HOMOLOGACAO.md](docs/MERCADO-PAGO-HOMOLOGACAO.md).
 - [ ] Validar entrega automática dos webhooks de pagamento, retentativas e registro dos eventos, incluindo conciliação sem o navegador aberto.
 - [ ] Implementar cancelamentos e estornos remotos, conciliando pagamento, pedido e estoque.
 - [ ] Permitir novas tentativas após rejeição definitiva, sem duplicar cobranças quando o resultado anterior for incerto.
