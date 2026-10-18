@@ -47,7 +47,7 @@ export default function Checkout() {
         <h2>Total dos produtos: {dinheiro(carrinho.itens.reduce((soma, item) => soma + Math.round(Number(item.preco_atual ?? item.preco ?? 0) * 100 * item.quantidade), 0) / 100)}</h2>
         {carrinho.itens.some((item) => item.modificado) && <p className="mensagem" role="alert">Há produtos cujo preço mudou. Confira os valores atualizados no <Link to="/carrinho">carrinho</Link> antes de confirmar.</p>}
         <p>Seus dados serão processados. A nota será emitida após a confirmação do pagamento.</p>
-        <p>Depois de confirmar os dados, você seguirá para o pagamento por Pix ou cartão com Mercado Pago.</p>
+        <p>Depois de confirmar os dados, você seguirá para o pagamento por Pix, boleto ou cartão com Mercado Pago.</p>
         <MensagemErro erro={erro} />{carregando ? <p>Carregando opções…</p> : formas?.length > 0 && <Formulario desabilitado={carrinhoOcupado} campos={[
             ...(dadosSalvos ? [] : identificacao),
             ...(enderecoSalvo ? [{ nome: 'endereco_confirmado', label: dadosSalvos ? 'Confirmo os dados de identificação e o endereço salvos abaixo.' : 'Confirmo o endereço salvo abaixo.', tipo: 'checkbox' }] : enderecoCompleto),

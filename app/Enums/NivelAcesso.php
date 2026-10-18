@@ -8,4 +8,5 @@ enum NivelAcesso: string
     case Estoque = 'estoque';
     case Manutencao = 'manutencao';
     case Usuarios = 'usuarios';
+    case Pedidos = 'pedidos';
 }

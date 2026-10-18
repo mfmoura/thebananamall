@@ -180,6 +180,20 @@
                      }
                  ],
     "item":  [
+        {"name":"Boleto - criar cobranca assincrona","request":{"method":"POST","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Content-Type","value":"application/json"},{"key":"Accept","value":"application/json"}],"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento","body":{"mode":"raw","raw":"{\"meio\":\"boleto\"}","options":{"raw":{"language":"json"}}},"description":"Pedido da forma boleto com snapshot fiscal completo. Retorna 202. Consultar GET no mesmo caminho para linha digitavel, codigo de barras e ticket_url. Requer orders:write. Nao confirma pagamento na geracao."}},
+{
+  "name": "Dashboard - Pedidos (consulta e acoes)",
+  "description": "Bearer administrativo com admin:manage e permissao pedidos. Sem criacao, edicao ou exclusao. Cancelamento somente sem cobranca criada. Etiqueta de destinatario nao equivale a postagem.",
+  "auth": {"type":"bearer","bearer":[{"key":"token","value":"{{adminToken}}","type":"string"}]},
+  "item":  [
+    {"name":"Listar e filtrar pedidos","request":{"method":"GET","url":"{{baseUrl}}/admin/pedidos?page=1&per_page=10&status=aguardando_pagamento","header":[]}},
+    {"name":"Consultar pedido","request":{"method":"GET","url":"{{baseUrl}}/admin/pedidos/{{pedidoId}}","header":[]}},
+    {"name":"Cancelar pedido","request":{"method":"POST","url":"{{baseUrl}}/admin/pedidos/{{pedidoId}}/cancelar","header":[],"description":"Sem payload; retorna 409 se houver cobranca ou status incompativel."}},
+    {"name":"Baixar DANFE","request":{"method":"GET","url":"{{baseUrl}}/admin/pedidos/{{pedidoId}}/danfe","header":[],"description":"PDF somente quando processamento fiscal concluido."}},
+    {"name":"Dados para etiqueta de destinatario","request":{"method":"GET","url":"{{baseUrl}}/admin/pedidos/{{pedidoId}}/etiqueta","header":[],"description":"Snapshot do endereco fiscal do pedido pago; sem documento do destinatario."}}
+  ]
+},
+
         {
             "name": "Dashboard - usuários",
             "description": "CRUD administrativo exige admin:manage e página usuarios. Pelo navegador, use /dashboard/api/admin/usuarios com cookie, CSRF e autorização PKCE. Não altere o e-mail por PATCH; use solicitação de troca com confirmação. As contas novas precisam confirmar e-mail. Perfis de visitante e dados financeiros não são expostos.",
@@ -277,7 +291,7 @@
                  },
                  {
                      "name":  "Descricao de produtos",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "Atualizar descricao do produto",
                                       "request":  {
@@ -321,7 +335,7 @@
                  {
                      "name":  "BFF - sessao HttpOnly",
                      "description":  "Preserve os cookies no Postman. Obtenha o CSRF em /oauth/csrf e copie csrf_token para csrfToken. Login usa /oauth/login; a autorizacao e callback acontecem pelo navegador. Tokens OAuth nunca sao retornados pelo BFF.",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "Consultar sessao BFF",
                                       "request":  {
@@ -458,7 +472,7 @@
                  },
                  {
                      "name":  "Catalogo paginado e galeria",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "Primeiros cinco produtos com filtros opcionais",
                                       "request":  {
@@ -496,7 +510,7 @@
                  },
                  {
                      "name":  "Frontend React - sessao e checkout",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "Consultar minha conta autenticada",
                                       "request":  {
@@ -574,7 +588,7 @@
                  },
                  {
                      "name":  "AutenticaÃƒÂ§ÃƒÂ£o e Cliente",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "1. Cadastrar Cliente com endereÃƒÂ§o",
                                       "event":  [
@@ -820,7 +834,7 @@
                  {
                      "name":  "Carrinho Redis (somente Cliente autenticado)",
                      "description":  "Carrinho temporÃƒÂ¡rio no Redis. O campo codigo neste fluxo ÃƒÂ© o ID numÃƒÂ©rico do produto; o catÃƒÂ¡logo tambÃƒÂ©m expÃƒÂµe seu cÃƒÂ³digo SKU textual. O TTL padrÃƒÂ£o ÃƒÂ© sete dias, configurÃƒÂ¡vel por CARRINHO_TTL.",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "1. Criar ou obter carrinho",
                                       "event":  [
@@ -1031,7 +1045,7 @@
                  {
                      "name":  "Produtos e Estoque",
                      "description":  "Leitura do catÃƒÂ¡logo ÃƒÂ© pÃƒÂºblica. AlteraÃƒÂ§ÃƒÂµes, imagens e movimentaÃƒÂ§ÃƒÂµes exigem adminToken. O estoque ÃƒÂ© a soma das entradas menos as saÃƒÂ­das; exclusÃƒÂ£o de movimentaÃƒÂ§ÃƒÂ£o cria um estorno auditÃƒÂ¡vel.",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "1. Listar catÃƒÂ¡logo pÃƒÂºblico",
                                       "request":  {
@@ -1500,7 +1514,7 @@
                  {
                      "name":  "Pedidos (checkout PostgreSQL)",
                      "description":  "O checkout copia os itens e o preÃƒÂ§o vigente do catÃƒÂ¡logo para o pedido em uma transaÃƒÂ§ÃƒÂ£o. Idempotency-Key evita pedidos duplicados. O pedido permanece no PostgreSQL mesmo apÃƒÂ³s cancelado.",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "1. Comprar (converter carrinho em pedido)",
                                       "event":  [
@@ -1647,7 +1661,7 @@
                  {
                      "name":  "OperaÃƒÂ§ÃƒÂµes administrativas (requer adminToken)",
                      "description":  "Use a requisiÃƒÂ§ÃƒÂ£o de login com superadmin-teste / Senha@12345. Veja postman/README.md.",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "Login de Administrador",
                                       "event":  [
@@ -1842,7 +1856,7 @@
                  },
                  {
                      "name":  "RecuperaÃ§Ã£o de senha",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "1. Solicitar link de recuperaÃ§Ã£o",
                                       "request":  {
@@ -1916,7 +1930,7 @@
                  {
                      "name":  "Fiscal Contora (homologacao)",
                      "description":  "Configure token e CNPJ no .env do backend. Admin Contabilidade com admin:manage; Logistica com logistics:manage. Reutilize a chave em retentativas. Somente homologacao, sem movimentar estoque real. Downloads retornam arquivos.",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "1. Emitir NF-e de homologacao",
                                       "request":  {
@@ -2080,7 +2094,7 @@
                  },
                  {
                      "name":  "Filas (Horizon)",
-                     "item":  [
+                     "item": [
                                   {
                                       "name":  "Consultar estatisticas (Manutencao)",
                                       "request":  {

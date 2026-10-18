@@ -28,7 +28,7 @@ O diagnóstico verifica preenchimento, não validade das credenciais ou entrega 
 
 Com conta pronta, perfil Cliente e escopo `orders:write`:
 
-- `POST /api/pedidos/{pedido}/pagamento`: aceita uma única solicitação por pedido com HTTP 202, sem aguardar o provedor. A criação ocorre na fila Redis `pagamentos`. Pix: `{"meio":"pix"}`. Cartão: `{"meio":"credit_card","payment_method_id":"master","token":"TOKEN_GERADO_PELO_PROVEDOR","parcelas":1}`. Débito usa `debit_card` e uma parcela. O meio deve corresponder à forma cadastrada no pedido (`pix`, `cartao_credito`, `cartao_debito`).
+- `POST /api/pedidos/{pedido}/pagamento`: aceita uma única solicitação por pedido com HTTP 202, sem aguardar o provedor. A criação ocorre na fila Redis `pagamentos`. Pix: `{"meio":"pix"}`. Boleto: `{"meio":"boleto"}` (sem token ou bandeira; usa identificação e endereço do snapshot fiscal do pedido). Cartão: `{"meio":"credit_card","payment_method_id":"master","token":"TOKEN_GERADO_PELO_PROVEDOR","parcelas":1}`. Débito usa `debit_card` e uma parcela. O meio deve corresponder à forma cadastrada no pedido (`pix`, `boleto`, `cartao_credito`, `cartao_debito`).
 - `GET /api/pedidos/{pedido}/pagamento`: consulta somente o estado local da cobrança; worker e scheduler conciliam o pedido em segundo plano. Ambos os endpoints verificam propriedade. Estão também na lista explícita do BFF, em `/bff/api/pedidos/{pedido}/pagamento`, preservando cookie/CSRF e os middlewares da API.
 - `POST /api/webhooks/mercado-pago?data.id=ORD...`: exige `x-signature` e `x-request-id`, valida HMAC SHA-256 e consulta o ID assinado. O corpo não confirma pagamentos. A assinatura preserva a caixa do ID, conforme o código atual do SDK oficial.
 
@@ -39,6 +39,20 @@ Somente Orders com status `processed/accredited`, país/moeda compatíveis com B
 A chave de idempotência é persistida antes da chamada externa e reutilizada após timeout. O worker repete o mesmo snapshot com a mesma chave; se houver falha ao receber a aceitação HTTP, repita o POST com os mesmos dados; a API rejeita trocar os dados de uma tentativa existente. Há uma cobrança por pedido nesta etapa. Não gere uma segunda tentativa com outro token após resultado incerto. Enquanto existir tentativa, o cancelamento local retorna 409 para não liberar estoque de cobrança pagável. Cancelamento/estorno remoto e novas tentativas após rejeição precisam de fluxo operacional próprio; não há liberação automática de estoque por eventos financeiros.
 
 ## Validação e limites
+
+Boleto usa Orders com `payment_method.id=boleto` e `type=ticket`. O servidor obtém nome/sobrenome ou razão social, CPF/CNPJ e endereço do snapshot fiscal confirmado no checkout, além do e-mail da conta. Snapshot incompleto retorna 422 antes de persistir ou enfileirar cobrança. Não são necessários token de cartão nem SDK adicional. Criação continua assíncrona (202), com a mesma chave em retentativas.
+
+O checkout oferece **Gerar boleto**, linha digitável copiável e link HTTPS para abrir/imprimir o documento retornado pelo provedor. Consulte o vencimento nesse documento; o fluxo usa o prazo padrão do provedor, sem configurar expiração de order manual. `instrucoes` inclui `digitable_line`, `barcode_content` e `ticket_url`, cifrados no banco. Pedido permanece aguardando pagamento até consulta autenticada confirmar o valor compensado. Webhooks e conciliação usam o fluxo existente. Não há cancelamento local enquanto existir cobrança, inclusive boleto vencido: cancelamento remoto continua pendente.
+
+Contrato oficial: [Boleto na Orders API](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/payment-integration/websites/boleto). Na homologação remota, confirme disponibilidade na conta e emissão com comprador de teste; os testes locais simulam os retornos, sem gerar boleto real.
+
+### Testes de modalidades pelo terminal
+
+Execute `docker compose exec -T php php artisan test --filter='PixBoletoTest|MercadoPagoModalidadesTest|ProcessarPedidoPagamentoTest|MercadoPagoTest|MercadoPagoConfiguracaoTest'`.
+
+`MercadoPagoModalidadesTest` cobre fixtures de crédito Visa/Mastercard/Elo/Amex e débito Visa/Mastercard, aceitação HTTP 202 sem chamada externa, execução do worker, total dos itens, idempotência, proteção do token, recusa, pendência, cancelamento/expiração/estorno informados pelo provedor, timeout e payloads inválidos. `ProcessarPedidoPagamentoTest` isola a decisão de reagendar a conciliação e a propagação de falhas para retentativa. São testes PHPUnit com HTTP simulado e bloqueio de chamadas inesperadas, sem navegador e sem cobranças reais.
+
+Os identificadores de bandeiras nesses testes são fixtures, não uma confirmação dos meios habilitados na conta. `PixBoletoTest` cobre QR Code, linha digitável, link do boleto, snapshot cifrado, confirmação por webhook e rejeição de boleto com cadastro incompleto. A cobertura não equivale à homologação remota dos meios de pagamento.
 
 Os testes usam `Http::fake`, sem cobranças reais. A homologação precisa verificar credenciais, recursos e meios habilitados na conta, parcelas, tarifas, Pix e cartões de teste. Crédito/débito dependem da disponibilidade da conta.
 

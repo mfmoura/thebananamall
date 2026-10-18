@@ -21,6 +21,8 @@ Route::prefix('dashboard')->withoutMiddleware(\App\Http\Middleware\EnsureUsuario
         Route::view('/produtos', 'dashboard')->middleware('pagina-admin:estoque');
         Route::view('/produtos/novo', 'dashboard')->middleware('pagina-admin:estoque');
         Route::view('/produtos/{produto}/editar', 'dashboard')->whereNumber('produto')->middleware('pagina-admin:estoque');
+        Route::view('/pedidos', 'dashboard')->middleware('pagina-admin:pedidos');
+        Route::view('/pedidos/{pedido}', 'dashboard')->whereNumber('pedido')->middleware('pagina-admin:pedidos');
         Route::view('/usuarios', 'dashboard')->middleware('pagina-admin:usuarios');
         Route::view('/usuarios/novo', 'dashboard')->middleware('pagina-admin:usuarios');
         Route::view('/usuarios/{usuario}/editar', 'dashboard')->whereNumber('usuario')->middleware('pagina-admin:usuarios');

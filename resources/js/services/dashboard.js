@@ -22,6 +22,11 @@ async function consultar(path, opcoes) {
 }
 
 export const dashboardApi = {
+    pedidos: (parametros) => consultar(`admin/pedidos?${parametros}`),
+    pedido: (id) => consultar(`admin/pedidos/${id}`),
+    cancelarPedido: (id) => consultar(`admin/pedidos/${id}/cancelar`, { method: 'POST' }),
+    danfePedido: (id) => consultar(`admin/pedidos/${id}/danfe`, { blob: true }),
+    etiquetaPedido: (id) => consultar(`admin/pedidos/${id}/etiqueta`),
     usuarios: (parametros) => consultar(`admin/usuarios?${parametros}`),
     usuario: (id) => consultar(`admin/usuarios/${id}`),
     criarUsuario: (body) => consultar('admin/usuarios', { method: 'POST', body }),

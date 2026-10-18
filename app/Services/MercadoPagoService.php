@@ -32,7 +32,7 @@ class MercadoPagoService
             $pedido = Pedido::query()->lockForUpdate()->findOrFail($pedido->id);
             $codigo = $pedido->formaPagamento->codigo;
             $esperado = match ($dados['meio']) {
-                'pix' => 'pix', 'credit_card' => 'cartao_credito', 'debit_card' => 'cartao_debito',
+                'pix' => 'pix', 'boleto' => 'boleto', 'credit_card' => 'cartao_credito', 'debit_card' => 'cartao_debito',
             };
             abort_unless($codigo === $esperado, 422, 'Meio diferente da forma de pagamento do pedido.');
             abort_if((int) ($dados['parcelas'] ?? 1) !== 1, 422, 'Este checkout permite pagamento em uma parcela.');
@@ -46,16 +46,18 @@ class MercadoPagoService
 
             abort_unless($pedido->status === StatusPedido::AguardandoPagamento, 409, 'Pedido indisponível para pagamento.');
 
-            $method = $dados['meio'] === 'pix'
-                ? ['id' => 'pix', 'type' => 'bank_transfer']
-                : ['id' => $dados['payment_method_id'], 'type' => $dados['meio'], 'token' => $dados['token'], 'installments' => (int) $dados['parcelas']];
+            $method = match ($dados['meio']) {
+                'pix' => ['id' => 'pix', 'type' => 'bank_transfer'],
+                'boleto' => ['id' => 'boleto', 'type' => 'ticket'],
+                default => ['id' => $dados['payment_method_id'], 'type' => $dados['meio'], 'token' => $dados['token'], 'installments' => (int) $dados['parcelas']],
+            };
 
             return PedidoPagamento::create([
                 'pedido_id' => $pedido->id, 'idempotency_key' => (string) Str::uuid(), 'requisicao_hash' => $hash,
                 'dados_envio' => [
                     'type' => 'online', 'processing_mode' => 'automatic',
                     'external_reference' => (string) $pedido->id, 'total_amount' => $pedido->total,
-                    'payer' => $this->pagador($pedido),
+                    'payer' => $dados['meio'] === 'boleto' ? $this->pagadorBoleto($pedido) : $this->pagador($pedido),
                     'transactions' => ['payments' => [['amount' => $pedido->total, 'payment_method' => $method]]],
                 ],
             ]);
@@ -142,7 +144,7 @@ class MercadoPagoService
                 'order_id' => $orderId, 'status' => $order['status'] ?? 'desconhecido',
                 'dados_envio' => null,
                 'processamento' => in_array($order['status'] ?? '', ['processed', 'failed', 'canceled', 'cancelled', 'expired', 'refunded', 'charged_back'], true) ? 'concluido' : 'aguardando',
-                'instrucoes' => array_intersect_key($instrucoes, array_flip(['qr_code', 'qr_code_base64', 'ticket_url'])),
+                'instrucoes' => array_intersect_key($instrucoes, array_flip(['qr_code', 'qr_code_base64', 'ticket_url', 'digitable_line', 'barcode_content'])),
             ]);
             if (($order['status'] ?? '') === 'processed' && ($order['status_detail'] ?? '') === 'accredited'
                 && $this->centavos($order['total_paid_amount'] ?? '') === $this->centavos($pedido->total)) {
@@ -170,6 +172,30 @@ class MercadoPagoService
         }
 
         return $pagador;
+    }
+
+    private function pagadorBoleto(Pedido $pedido): array
+    {
+        // Usa o snapshot confirmado no checkout, nunca dados arbitrários da requisição de pagamento.
+        $dados = $pedido->processamentoFiscal?->dados_cliente ?? [];
+        $dados = \Illuminate\Support\Facades\Validator::make($dados, [
+            'nome' => ['required', 'string', 'max:60', 'regex:/^\S+\s+\S+/u'],
+            'documento' => ['required', 'string', 'regex:/^(\d{11}|\d{14})$/'],
+            'endereco.logradouro' => ['required', 'string', 'max:60'],
+            'endereco.numero' => ['required', 'string', 'max:60'],
+            'endereco.bairro' => ['required', 'string', 'max:60'],
+            'endereco.cidade' => ['required', 'string', 'max:60'],
+            'endereco.estado' => ['required', \Illuminate\Validation\Rule::in(['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'])],
+            'endereco.cep' => ['required', 'string', 'regex:/^\d{8}$/'],
+        ], ['required' => 'O cadastro do pedido está incompleto para gerar boleto.',
+            'nome.regex' => 'Informe nome e sobrenome ou razão social completa no checkout.'])->validate();
+        [$nome, $sobrenome] = preg_split('/\s+/u', trim($dados['nome']), 2);
+        $endereco = $dados['endereco'];
+
+        return [...$this->pagador($pedido), 'first_name' => $nome, 'last_name' => $sobrenome,
+            'address' => ['street_name' => $endereco['logradouro'], 'street_number' => $endereco['numero'],
+                'zip_code' => $endereco['cep'], 'neighborhood' => $endereco['bairro'],
+                'city' => $endereco['cidade'], 'state' => $endereco['estado']]];
     }
 
     private function moedaCompativel(array $order): bool

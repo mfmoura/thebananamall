@@ -10,6 +10,16 @@ Depois do login, `POST /dashboard/authorize` inicia Authorization Code + PKCE co
 
 Access/refresh tokens e verifier ficam exclusivamente no servidor; tokens são cifrados em `dashboard.oauth`, separados de `bff`. O JavaScript recebe somente a URL de autorização e o estado da sessão. O proxy `/dashboard/api/*` usa uma lista explícita de produtos, preços, imagens e categorias; encaminha o bearer internamente pelos middlewares originais da API e bloqueia a sessão durante renovação. O proxy da loja continua sem rotas administrativas.
 
+## Pedidos
+
+`/dashboard/pedidos` exige a permissão administrativa `pedidos`. Oferece paginação, filtro por número/status e consulta em `/dashboard/pedidos/{id}`. O operador não cria, edita nem exclui pedidos. Os endpoints `/api/admin/pedidos` e `/api/admin/pedidos/{id}` são somente GET; as ações são POST `/{id}/cancelar`, GET `/{id}/danfe` e GET `/{id}/etiqueta`, com perfil administrativo, escopo `admin:manage` e permissão `pedidos`. O proxy do dashboard permite explicitamente essas operações.
+
+Cancelar preserva o registro e estorna as saídas de estoque com o bloqueio e a transação existentes. Somente pedidos aguardando pagamento, sem qualquer cobrança registrada (inclusive excluída logicamente), podem ser cancelados. Cancelamentos remotos e estornos de pagamentos continuam pendentes; a API responde 409 para pedidos incompatíveis.
+
+A DANFE pode ser baixada para impressão após conclusão fiscal. A etiqueta imprimível é de destinatário, usando o snapshot fiscal do pedido pago, sem CPF/CNPJ; não é uma etiqueta de postagem emitida por transportadora. A página de impressão mostra somente a etiqueta. Não há nova emissão fiscal na requisição administrativa.
+
+Em instalações existentes, provisione inicialmente `pedidos` na lista de permissões do administrador responsável; depois, a gestão de usuários permite que operadores com essa permissão a concedam a outras contas. O seeder do superadministrador de teste inclui essa permissão.
+
 O logout revoga somente os tokens administrativos, remove o guard `dashboard` e regenera sessão e CSRF. O driver `cookie` é incompatível com o BFF. O armazenamento e cookie HttpOnly seguem a configuração existente.
 
 ## Usuários

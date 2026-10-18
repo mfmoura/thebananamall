@@ -63,6 +63,13 @@ Route::middleware(['auth:api', 'conta-pronta'])->group(function (): void {
     Route::delete('/enderecos/{endereco}', [EnderecoController::class, 'destroy'])->whereNumber('endereco');
 
     Route::middleware(['perfil:administrador', 'scope:admin:manage'])->prefix('admin')->group(function (): void {
+        Route::middleware('pagina-admin:pedidos')->group(function (): void {
+            Route::get('/pedidos', [\App\Http\Controllers\Api\PedidoAdminController::class, 'index']);
+            Route::get('/pedidos/{pedido}', [\App\Http\Controllers\Api\PedidoAdminController::class, 'show'])->whereNumber('pedido');
+            Route::post('/pedidos/{pedido}/cancelar', [\App\Http\Controllers\Api\PedidoAdminController::class, 'cancelar'])->whereNumber('pedido');
+            Route::get('/pedidos/{pedido}/danfe', [\App\Http\Controllers\Api\PedidoAdminController::class, 'danfe'])->whereNumber('pedido');
+            Route::get('/pedidos/{pedido}/etiqueta', [\App\Http\Controllers\Api\PedidoAdminController::class, 'etiqueta'])->whereNumber('pedido');
+        });
         Route::middleware('pagina-admin:usuarios')->group(function (): void {
             Route::get('/usuarios', [\App\Http\Controllers\Api\UsuarioAdminController::class, 'index']);
             Route::post('/usuarios', [\App\Http\Controllers\Api\UsuarioAdminController::class, 'store'])->middleware('throttle:10,1');

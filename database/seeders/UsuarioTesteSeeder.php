@@ -65,7 +65,7 @@ class UsuarioTesteSeeder extends Seeder
         $superAdministrador = $this->criarUsuario('superadmin-teste', 'superadmin-teste@example.test');
         Administrador::updateOrCreate(
             ['usuario_id' => $superAdministrador->id],
-            ['paginas' => [NivelAcesso::Contabilidade->value, NivelAcesso::Estoque->value, NivelAcesso::Usuarios->value]],
+            ['paginas' => [NivelAcesso::Contabilidade->value, NivelAcesso::Estoque->value, NivelAcesso::Usuarios->value, NivelAcesso::Pedidos->value]],
         );
 
         $logistica = $this->criarUsuario('logistica-teste', 'logistica-teste@example.test');

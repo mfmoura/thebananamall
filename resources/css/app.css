@@ -249,3 +249,10 @@ button:disabled { opacity: .45; cursor: not-allowed; }
     --font-sans: 'Breda Two', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+@media print {
+    body:has(.pedido-etiqueta) * { visibility: hidden; }
+    body:has(.pedido-etiqueta) .pedido-etiqueta,
+    body:has(.pedido-etiqueta) .pedido-etiqueta * { visibility: visible; }
+    .pedido-etiqueta { position: absolute; top: 0; left: 0; padding: 10mm; color: #000; background: #fff; }
+    .pedido-etiqueta button { display: none; }
+}

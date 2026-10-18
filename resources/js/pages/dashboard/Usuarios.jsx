@@ -7,7 +7,7 @@ import useDados from '../../hooks/useDados';
 import { dashboardApi } from '../../services/dashboard';
 
 export const tiposUsuario = { cliente: 'Cliente', administrador: 'Administrador', logistica: 'Logística' };
-export const paginasUsuario = { contabilidade: 'Contabilidade', estoque: 'Estoque', manutencao: 'Manutenção', usuarios: 'Usuários' };
+export const paginasUsuario = { pedidos: 'Pedidos', contabilidade: 'Contabilidade', estoque: 'Estoque', manutencao: 'Manutenção', usuarios: 'Usuários' };
 export const podeGerenciarUsuario = (usuario, conta) => (usuario.administrador?.paginas || []).every((pagina) => conta.paginas.includes(pagina));
 
 export default function Usuarios() {

@@ -9,6 +9,7 @@ import Produtos from './pages/dashboard/Produtos';
 import ProdutoFormulario from './pages/dashboard/ProdutoFormulario';
 import Usuarios from './pages/dashboard/Usuarios';
 import UsuarioFormulario from './pages/dashboard/UsuarioFormulario';
+import PedidosAdmin, { PedidoDetalhes } from './pages/dashboard/Pedidos';
 
 function Login() {
     const navigate = useNavigate();
@@ -52,6 +53,7 @@ function Layout() {
             <nav aria-label="Navegação administrativa"><NavLink to="/dashboard/" end><i className="fa-solid fa-gauge" aria-hidden="true" /> Visão geral</NavLink>
                 {usuario.paginas?.includes('estoque') && <NavLink to="/dashboard/produtos"><i className="fa-solid fa-box" aria-hidden="true" /> Produtos</NavLink>}
                 {usuario.paginas?.includes('usuarios') && <NavLink to="/dashboard/usuarios"><i className="fa-solid fa-users" aria-hidden="true" /> Usuários</NavLink>}
+                {usuario.paginas?.includes('pedidos') && <NavLink to="/dashboard/pedidos"><i className="fa-solid fa-receipt" aria-hidden="true" /> Pedidos</NavLink>}
             </nav>
             <a href="/">Ir para a loja</a>
         </aside>
@@ -87,6 +89,10 @@ export default function DashboardApp() {
                 <Route path="produtos" element={<Produtos />} />
                 <Route path="produtos/novo" element={<ProdutoFormulario key="novo" />} />
                 <Route path="produtos/:id/editar" element={<ProdutoFormulario />} />
+            </Route>
+            <Route element={<PaginaAdministrativa pagina="pedidos" />}>
+                <Route path="pedidos" element={<PedidosAdmin />} />
+                <Route path="pedidos/:id" element={<PedidoDetalhes />} />
             </Route>
             <Route element={<PaginaAdministrativa pagina="usuarios" />}>
                 <Route path="usuarios" element={<Usuarios />} />

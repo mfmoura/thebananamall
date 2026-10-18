@@ -9,10 +9,10 @@ class CriarPagamentoRequest extends ShowPedidoRequest
     public function rules(): array
     {
         return [
-            'meio' => ['required', Rule::in(['pix', 'credit_card', 'debit_card'])],
-            'payment_method_id' => ['required_unless:meio,pix', 'string', 'max:50', 'regex:/^[a-zA-Z0-9_]+$/'],
-            'token' => ['required_unless:meio,pix', 'string', 'max:512'],
-            'parcelas' => ['required_unless:meio,pix', 'integer', 'in:1'],
+            'meio' => ['required', Rule::in(['pix', 'boleto', 'credit_card', 'debit_card'])],
+            'payment_method_id' => ['required_if:meio,credit_card,debit_card', 'string', 'max:50', 'regex:/^[a-zA-Z0-9_]+$/'],
+            'token' => ['required_if:meio,credit_card,debit_card', 'string', 'max:512'],
+            'parcelas' => ['required_if:meio,credit_card,debit_card', 'integer', 'in:1'],
             'card_number' => ['prohibited'],
             'security_code' => ['prohibited'],
             'cvv' => ['prohibited'],
