@@ -21,7 +21,7 @@ class PedidoService
 
     public function listar(Cliente $cliente): Collection
     {
-        return Pedido::query()->with(['formaPagamento', 'itens.produto.imagens', 'processamentoFiscal'])
+        return Pedido::query()->with(['formaPagamento', 'itens.produto.imagens', 'processamentoFiscal', 'pagamento'])
             ->where('cliente_id', $cliente->id)
             ->latest('data')
             ->get();
@@ -29,7 +29,7 @@ class PedidoService
 
     public function buscar(Cliente $cliente, Pedido $pedido): Pedido
     {
-        return $pedido->load(['formaPagamento', 'itens.produto.imagens', 'processamentoFiscal']);
+        return $pedido->load(['formaPagamento', 'itens.produto.imagens', 'processamentoFiscal', 'pagamento']);
     }
 
     public function comprar(Cliente $cliente, int $formaPagamentoId, string $idempotencyKey, array $dadosFiscais = []): Pedido
@@ -121,7 +121,7 @@ class PedidoService
                 $clienteBloqueado->update(['dados_fiscais' => $dadosFiscais]);
                 $this->fiscalService->acompanhar($pedido, $dadosFiscais);
 
-                return [$pedido->load(['formaPagamento', 'itens.produto.imagens', 'processamentoFiscal']), true];
+                return [$pedido->load(['formaPagamento', 'itens.produto.imagens', 'processamentoFiscal', 'pagamento']), true];
             });
 
             if ($criado) {
@@ -173,7 +173,7 @@ class PedidoService
 
     private function pedidoIdempotente(Cliente $cliente, string $key): ?Pedido
     {
-        return Pedido::query()->with(['formaPagamento', 'itens.produto.imagens', 'processamentoFiscal'])
+        return Pedido::query()->with(['formaPagamento', 'itens.produto.imagens', 'processamentoFiscal', 'pagamento'])
             ->where('cliente_id', $cliente->id)
             ->where('idempotency_key', $key)
             ->first();

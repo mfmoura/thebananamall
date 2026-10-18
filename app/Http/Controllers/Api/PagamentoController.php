@@ -12,14 +12,19 @@ use Illuminate\Http\JsonResponse;
 
 class PagamentoController extends Controller
 {
+    public function configuracao(MercadoPagoService $service): JsonResponse
+    {
+        return response()->json($service->configuracaoPublica())->header('Cache-Control', 'no-store, private');
+    }
+
     public function store(CriarPagamentoRequest $request, Pedido $pedido, MercadoPagoService $service): JsonResponse
     {
-        return response()->json($service->criar($pedido, $request->validated()), 201);
+        return response()->json($service->criar($pedido, $request->validated()), 202)->header('Cache-Control', 'no-store, private');
     }
 
     public function show(ShowPedidoRequest $request, Pedido $pedido, MercadoPagoService $service): JsonResponse
     {
-        return response()->json($service->consultar($pedido));
+        return response()->json($service->consultar($pedido))->header('Cache-Control', 'no-store, private');
     }
 
     public function webhook(MercadoPagoWebhookRequest $request, MercadoPagoService $service): JsonResponse

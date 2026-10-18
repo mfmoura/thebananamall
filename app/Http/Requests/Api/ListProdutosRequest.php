@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Api;
 
-use App\Enums\CategoriaProduto;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,7 +17,7 @@ class ListProdutosRequest extends FormRequest
         return [
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
-            'categoria' => ['sometimes', 'nullable', Rule::enum(CategoriaProduto::class)],
+            'categoria' => ['sometimes', 'nullable', 'string', Rule::exists('categorias', 'nome_codigo')->whereNull('deleted_at')],
             'busca' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }

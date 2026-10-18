@@ -47,7 +47,7 @@ export default function Checkout() {
         <h2>Total dos produtos: {dinheiro(carrinho.itens.reduce((soma, item) => soma + Math.round(Number(item.preco_atual ?? item.preco ?? 0) * 100 * item.quantidade), 0) / 100)}</h2>
         {carrinho.itens.some((item) => item.modificado) && <p className="mensagem" role="alert">Há produtos cujo preço mudou. Confira os valores atualizados no <Link to="/carrinho">carrinho</Link> antes de confirmar.</p>}
         <p>Seus dados serão processados. A nota será emitida após a confirmação do pagamento.</p>
-        <p className="mensagem">A cobrança pelo gateway ainda não está disponível. Esta etapa registra o pedido aguardando pagamento.</p>
+        <p>Depois de confirmar os dados, você seguirá para o pagamento por Pix ou cartão com Mercado Pago.</p>
         <MensagemErro erro={erro} />{carregando ? <p>Carregando opções…</p> : formas?.length > 0 && <Formulario desabilitado={carrinhoOcupado} campos={[
             ...(dadosSalvos ? [] : identificacao),
             ...(enderecoSalvo ? [{ nome: 'endereco_confirmado', label: dadosSalvos ? 'Confirmo os dados de identificação e o endereço salvos abaixo.' : 'Confirmo o endereço salvo abaixo.', tipo: 'checkbox' }] : enderecoCompleto),
@@ -69,11 +69,11 @@ export default function Checkout() {
                     pedido = await api.comprar({ forma_pagamento_id: Number(dados.forma_pagamento_id), dados_fiscais: { nome: dados.nome || dadosSalvos?.nome, documento: dados.documento || dadosSalvos?.documento, email: dados.email || dadosSalvos?.email || usuario.email, indicador_ie: 9, endereco } }, chave.current);
                     sessionStorage.removeItem('lcb.checkout-key');
                 });
-                navigate(`/pedidos/${pedido.id}`, { replace: true });
+                navigate(`/checkout/pagamento/${pedido.id}`, { replace: true });
             } finally { setProcessandoPedido(false); }
         }}>
             {enderecoSalvo && <article className="produto-card"><h2>Dados salvos</h2>{dadosSalvos && <p>{dadosSalvos.nome} · {mascararDocumento(dadosSalvos.documento)} · {dadosSalvos.email}</p>}<p>{enderecoSalvo.logradouro}, {enderecoSalvo.numero}{enderecoSalvo.complemento ? `, ${enderecoSalvo.complemento}` : ''}</p><p>{enderecoSalvo.cidade}/{enderecoSalvo.estado} · CEP {String(enderecoSalvo.cep).replace(/^(\d{5})(\d{3})$/, '$1-$2')}</p><Link to="/conta">Alterar endereço</Link></article>}
-            <label>Forma de pagamento<select name="forma_pagamento_id" required><option value="">Selecione</option>{formas.map((forma) => <option key={forma.id} value={forma.id}>{forma.nome}</option>)}</select></label>
+            <label>Forma de pagamento<select name="forma_pagamento_id" required><option value="">Selecione</option>{formas.filter((forma) => ['pix', 'cartao_credito', 'cartao_debito'].includes(forma.codigo)).map((forma) => <option key={forma.id} value={forma.id}>{forma.nome}</option>)}</select></label>
             <p>Consumidor final não contribuinte de ICMS. Para outros enquadramentos, entre em contato.</p>
         </Formulario>}
         {!carregando && formas?.length === 0 && <p>Nenhuma forma de pagamento disponível.</p>}

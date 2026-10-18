@@ -6,9 +6,26 @@ use App\Models\Produto;
 use App\Models\ProdutoImagem;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class ProdutoImagemService
 {
+    public function enviarArquivo(Produto $produto, UploadedFile $arquivo, bool $principal = false): ProdutoImagem
+    {
+        $path = $arquivo->storePublicly('produtos/'.$produto->id, 'public');
+        abort_unless($path, 503, 'Não foi possível salvar a foto. Tente novamente.');
+
+        try {
+            return $this->criar($produto, ['path' => Storage::disk('public')->url($path), 'principal' => $principal]);
+        } catch (Throwable $exception) {
+            // Arquivo sem registro persistido: desfaz somente o upload que falhou.
+            Storage::disk('public')->delete($path);
+            throw $exception;
+        }
+    }
+
     public function criar(Produto $produto, array $dados): ProdutoImagem
     {
         return DB::transaction(function () use ($produto, $dados): ProdutoImagem {

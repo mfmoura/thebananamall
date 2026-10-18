@@ -31,6 +31,7 @@ Route::post('/senha/redefinir', [RecuperacaoSenhaController::class, 'redefinir']
 // Compatibilidade para cadastros de Cliente; perfis privilegiados usam rotas administrativas.
 Route::post('/usuarios', [ClienteController::class, 'store'])->middleware('throttle:10,1');
 Route::post('/clientes', [ClienteController::class, 'store'])->middleware('throttle:10,1');
+Route::get('/categorias', [\App\Http\Controllers\Api\CategoriaController::class, 'index']);
 Route::get('/produtos', [ProdutoController::class, 'index']);
 Route::get('/formas-pagamento', [\App\Http\Controllers\Api\FormaPagamentoController::class, 'index']);
 Route::get('/produtos/{produto}', [ProdutoController::class, 'show'])->whereNumber('produto');
@@ -62,6 +63,14 @@ Route::middleware(['auth:api', 'conta-pronta'])->group(function (): void {
     Route::delete('/enderecos/{endereco}', [EnderecoController::class, 'destroy'])->whereNumber('endereco');
 
     Route::middleware(['perfil:administrador', 'scope:admin:manage'])->prefix('admin')->group(function (): void {
+        Route::middleware('pagina-admin:usuarios')->group(function (): void {
+            Route::get('/usuarios', [\App\Http\Controllers\Api\UsuarioAdminController::class, 'index']);
+            Route::post('/usuarios', [\App\Http\Controllers\Api\UsuarioAdminController::class, 'store'])->middleware('throttle:10,1');
+            Route::get('/usuarios/{usuario}', [\App\Http\Controllers\Api\UsuarioAdminController::class, 'show'])->whereNumber('usuario');
+            Route::patch('/usuarios/{usuario}', [\App\Http\Controllers\Api\UsuarioAdminController::class, 'update'])->whereNumber('usuario');
+            Route::delete('/usuarios/{usuario}', [\App\Http\Controllers\Api\UsuarioAdminController::class, 'destroy'])->whereNumber('usuario');
+            Route::post('/usuarios/{usuario}/email', [\App\Http\Controllers\Api\UsuarioAdminController::class, 'email'])->whereNumber('usuario')->middleware('throttle:3,1');
+        });
         Route::post('/administradores', [AdministradorController::class, 'store']);
         Route::get('/administradores/{administrador}', [AdministradorController::class, 'show'])
             ->whereNumber('administrador');
@@ -93,6 +102,8 @@ Route::middleware(['auth:api', 'conta-pronta'])->group(function (): void {
                 ->middleware('pagina-admin:estoque,manutencao');
 
             Route::middleware('pagina-admin:estoque')->group(function (): void {
+                Route::get('/produtos', [\App\Http\Controllers\Api\ProdutoAdminController::class, 'index']);
+                Route::get('/produtos/{produto}', [\App\Http\Controllers\Api\ProdutoAdminController::class, 'show'])->whereNumber('produto');
                 Route::post('/produtos', [ProdutoController::class, 'store']);
                 Route::put('/produtos/{produto}', [ProdutoController::class, 'update'])->whereNumber('produto');
                 Route::patch('/produtos/{produto}', [ProdutoController::class, 'update'])->whereNumber('produto');
@@ -101,6 +112,8 @@ Route::middleware(['auth:api', 'conta-pronta'])->group(function (): void {
                 Route::delete('/precos/{preco}', [PrecoController::class, 'destroy'])->whereNumber('preco');
                 Route::post('/produtos/{produto}/imagens', [ProdutoImagemController::class, 'store'])
                     ->whereNumber('produto');
+                Route::post('/produtos/{produto}/imagens/upload', [ProdutoImagemController::class, 'upload'])
+                    ->whereNumber('produto')->middleware('throttle:30,1');
                 Route::put('/produtos/{produto}/imagens/{imagem}', [ProdutoImagemController::class, 'update'])
                     ->whereNumber(['produto', 'imagem']);
                 Route::patch('/produtos/{produto}/imagens/{imagem}', [ProdutoImagemController::class, 'update'])
@@ -117,6 +130,7 @@ Route::middleware(['auth:api', 'conta-pronta'])->group(function (): void {
         ->post('/carrinho/mesclar', [CarrinhoController::class, 'merge']);
 
     Route::middleware(['perfil:cliente', 'scope:orders:write'])->group(function (): void {
+        Route::get('/pagamentos/configuracao', [\App\Http\Controllers\Api\PagamentoController::class, 'configuracao']);
         Route::get('/pedidos', [PedidoController::class, 'index']);
         Route::post('/pedidos', [PedidoController::class, 'store']);
         Route::post('/pedidos/{pedido}/pagamento', [\App\Http\Controllers\Api\PagamentoController::class, 'store'])

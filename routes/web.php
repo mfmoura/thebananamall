@@ -6,6 +6,27 @@ use App\Http\Controllers\Web\FirstLoginPasswordController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Web\BffController;
 
+Route::prefix('dashboard')->withoutMiddleware(\App\Http\Middleware\EnsureUsuarioLiberado::class)->group(function (): void {
+    Route::view('/login', 'dashboard')->name('dashboard.login');
+    Route::post('/login', [\App\Http\Controllers\Web\DashboardSessaoController::class, 'store'])->middleware('throttle:6,1')->block(30, 10);
+    Route::post('/logout', [\App\Http\Controllers\Web\DashboardSessaoController::class, 'destroy'])->block(30, 10);
+    Route::get('/session', [\App\Http\Controllers\Web\DashboardSessaoController::class, 'show'])->middleware(\App\Http\Middleware\RequireDashboard::class);
+    Route::view('/', 'dashboard')->middleware(\App\Http\Middleware\RequireDashboard::class);
+    Route::middleware([\App\Http\Middleware\RequireDashboard::class, \App\Http\Middleware\BffSession::class])->group(function (): void {
+        Route::post('/authorize', [\App\Http\Controllers\Web\DashboardSessaoController::class, 'authorize'])->block(30, 10);
+        Route::get('/oauth/authorize', [\App\Http\Controllers\Web\DashboardAuthorizationController::class, 'authorize'])->block(30, 10);
+        Route::get('/callback', [\App\Http\Controllers\Web\DashboardSessaoController::class, 'callback'])->block(30, 10);
+        Route::match(['GET', 'POST', 'PATCH', 'DELETE'], '/api/{path}', \App\Http\Controllers\Web\DashboardProxyController::class)
+            ->where('path', '[a-z0-9/-]+')->block(60, 15);
+        Route::view('/produtos', 'dashboard')->middleware('pagina-admin:estoque');
+        Route::view('/produtos/novo', 'dashboard')->middleware('pagina-admin:estoque');
+        Route::view('/produtos/{produto}/editar', 'dashboard')->whereNumber('produto')->middleware('pagina-admin:estoque');
+        Route::view('/usuarios', 'dashboard')->middleware('pagina-admin:usuarios');
+        Route::view('/usuarios/novo', 'dashboard')->middleware('pagina-admin:usuarios');
+        Route::view('/usuarios/{usuario}/editar', 'dashboard')->whereNumber('usuario')->middleware('pagina-admin:usuarios');
+    });
+});
+
 Route::prefix('bff')->middleware(\App\Http\Middleware\BffSession::class)->group(function (): void {
     Route::get('/session', [BffController::class, 'session'])->block(30, 10);
     Route::post('/authorize', [BffController::class, 'authorize'])->middleware('auth:web')->block(30, 10);
@@ -33,4 +54,4 @@ Route::post('/oauth/first-login/password', [FirstLoginPasswordController::class,
 Route::post('/oauth/logout', [OAuthSessionController::class, 'destroy']);
 
 // Somente rotas de apresentação; APIs, Passport e arquivos não entram no fallback.
-Route::view('/{pagina}', 'hello')->where('pagina', '(?:produtos(?:/[0-9]+)?|carrinho|checkout|conta|cadastro|pedidos(?:/[0-9]+)?|oauth/callback|email/(?:verify|pendente)|senha/(?:recuperar|redefinir)|password/reset|senha-obrigatoria)');
+Route::view('/{pagina}', 'hello')->where('pagina', '(?:produtos(?:/[0-9]+)?|carrinho|checkout(?:/pagamento/[0-9]+)?|conta|cadastro|pedidos(?:/[0-9]+)?|oauth/callback|email/(?:verify|pendente)|senha/(?:recuperar|redefinir)|password/reset|senha-obrigatoria)');

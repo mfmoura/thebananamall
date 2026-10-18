@@ -81,6 +81,7 @@ class PoliticaSenhaService
 
             $idsAntigos = $usuarioBloqueado->historicoSenhas()
                 ->latest('id')
+                ->get(['id'])
                 ->skip(self::HISTORICO_MAXIMO)
                 ->pluck('id');
 

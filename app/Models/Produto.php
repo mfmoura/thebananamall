@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\CategoriaProduto;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -23,7 +23,6 @@ class Produto extends Model
     {
         return [
             'configuracao_fiscal' => 'array',
-            'categoria' => CategoriaProduto::class,
             'ativo' => 'boolean',
         ];
     }
@@ -31,6 +30,11 @@ class Produto extends Model
     public function itensPedido(): HasMany
     {
         return $this->hasMany(PedidoItem::class, 'codigo');
+    }
+
+    public function categoriaCadastro(): BelongsTo
+    {
+        return $this->belongsTo(Categoria::class, 'categoria', 'nome_codigo')->withTrashed();
     }
 
     public function imagens(): HasMany

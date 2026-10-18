@@ -1,5 +1,7 @@
 # BFF da loja
 
+O dashboard possui um proxy administrativo separado em `/dashboard/api/*`, com guard `dashboard`, tokens cifrados em namespace próprio e autorização PKCE. O cliente confidencial registra também `/dashboard/callback`. A lista explícita do proxy da loja permanece sem rotas administrativas. Veja [DASHBOARD.md](DASHBOARD.md).
+
 O React acessa a API por `/bff/api/*`, usando a sessão Laravel em cookie **HttpOnly**, **SameSite=Lax** e **Secure** fora do ambiente `local`. A sessão usa armazenamento no servidor (atualmente PostgreSQL). O driver `cookie` é recusado. A credencial de visitante, o access token e o refresh token são cifrados com a chave da aplicação antes de serem guardados na sessão; não são devolvidos ao JavaScript.
 
 ## Instalação

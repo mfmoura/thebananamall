@@ -35,4 +35,8 @@ Referências oficiais consultadas em 16/10/2026:
 
 - // TODO: Implementar relatórios que consultem também registros excluídos logicamente, preservados permanentemente, com autorização e proteção dos dados sensíveis.
 
-- [x] Integrar backend Mercado Pago via Orders: criação/consulta de Pix e cartões tokenizados, idempotência persistida, assinatura de webhook e confirmação validada antes da fila fiscal. Guia: docs/MERCADO-PAGO.md. Restam formulário MercadoPago.js, homologação da conta, cancelamento/estornos e novas tentativas após rejeição.
+- [x] Integrar backend Mercado Pago via Orders: criação/consulta de Pix e cartões tokenizados, idempotência persistida, assinatura de webhook e confirmação validada antes da fila fiscal. Guia: docs/MERCADO-PAGO.md. Checkout React com tokenização MercadoPago.js, Pix e acompanhamento integrado. Restam credenciais locais, homologação da conta e do navegador, revisão de produção, cancelamento/estornos e novas tentativas após rejeição.
+
+- [ ] Implementar cadastro e manutenção de categorias no dashboard admin, com nome_codigo para identificação e nome para exibição nos fronts, respeitando exclusão lógica e vínculos dos produtos.
+
+- [x] Processar pagamento em fila Redis dedicada, com aceitação HTTP 202, snapshot cifrado, retentativas idempotentes, conciliação independente do navegador e acompanhamento sem bloquear a navegação.

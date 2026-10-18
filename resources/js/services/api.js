@@ -23,9 +23,10 @@ export async function requisitar(path, opcoes = {}) {
     }
 }
 
-async function executarRequisicao(path, { method = 'GET', body, headers = {}, blob = false, signal, invalidarSessao = true } = {}) {
+async function executarRequisicao(path, { method = 'GET', body, headers = {}, blob = false, signal, cache, invalidarSessao = true } = {}) {
     const destino = path.startsWith('/api/') ? `/bff${path}` : path;
     const escrita = !['GET', 'HEAD'].includes(method);
+    const multipart = body instanceof FormData;
     let csrf = {};
     if (escrita) {
         const resposta = await fetch('/oauth/csrf', { credentials: 'same-origin', headers: { Accept: 'application/json' }, signal });
@@ -33,9 +34,9 @@ async function executarRequisicao(path, { method = 'GET', body, headers = {}, bl
         csrf = { 'X-CSRF-TOKEN': (await resposta.json()).csrf_token };
     }
     const response = await fetch(destino, {
-        method, credentials: 'same-origin', signal,
-        headers: { Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers, ...csrf },
-        ...(body ? { body: JSON.stringify(body) } : {}),
+        method, credentials: 'same-origin', signal, ...(cache ? { cache } : {}),
+        headers: { Accept: 'application/json', ...(body && !multipart ? { 'Content-Type': 'application/json' } : {}), ...headers, ...csrf },
+        ...(body ? { body: multipart ? body : JSON.stringify(body) } : {}),
     });
     if (blob && response.ok) return response.blob();
     const json = await response.json().catch(() => null);
@@ -55,8 +56,12 @@ export async function sessao(path, body) {
 }
 
 export const api = {
+    configuracaoPagamento: () => requisitar('/api/pagamentos/configuracao', { cache: 'no-store' }),
+    criarPagamento: (id, dados) => requisitar(`/api/pedidos/${id}/pagamento`, { method: 'POST', body: dados }),
+    consultarPagamento: (id) => requisitar(`/api/pedidos/${id}/pagamento`),
+    categorias: () => requisitar('/api/categorias'),
     produtos: (pagina = 1, signal, filtros = {}) => {
-        const parametros = new URLSearchParams({ per_page: 6, page: pagina });
+        const parametros = new URLSearchParams({ per_page: filtros.porPagina ?? 8, page: pagina });
         for (const campo of ['categoria', 'busca']) {
             if (filtros[campo]?.trim()) parametros.set(campo, filtros[campo].trim());
         }

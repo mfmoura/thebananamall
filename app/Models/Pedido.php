@@ -64,6 +64,11 @@ class Pedido extends Model
         return $this->hasOne(PedidoProcessamentoFiscal::class);
     }
 
+    public function pagamento(): HasOne
+    {
+        return $this->hasOne(PedidoPagamento::class)->select(['id', 'pedido_id', 'status', 'processamento']);
+    }
+
     public function getTotalAttribute(): string
     {
         $centavos = $this->itens->sum(

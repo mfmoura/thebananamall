@@ -53,7 +53,7 @@ class ProdutoTesteSeeder extends Seeder
             $produto->fill([
                 'codigo' => $dados['codigo'],
                 'nome' => $dados['nome'],
-                'categoria' => $dados['categoria'],
+                'categoria' => $dados['categoria']->value,
                 'ativo' => true,
             ]);
             $produto->save();

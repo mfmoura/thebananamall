@@ -14,15 +14,15 @@ class BffApiService
 {
     public function __construct(private readonly Router $router, private readonly ExceptionHandler $exceptions) {}
 
-    public function executar(Request $externa, string $path, string $method, array $body = [], array $headers = []): Response
+    public function executar(Request $externa, string $path, string $method, array $body = [], array $headers = [], array $files = []): Response
     {
         $original = app('request');
         $originalRoute = $externa->route();
         $guard = config('auth.defaults.guard');
-        $request = Request::create(rtrim(config('app.url'), '/').$path, $method, [], [], [], [
+        $request = Request::create(rtrim(config('app.url'), '/').$path, $method, $files ? $body : [], [], $files, [
             'REMOTE_ADDR' => $externa->ip(), 'HTTP_ACCEPT' => 'application/json',
-            'CONTENT_TYPE' => 'application/json',
-        ], json_encode($body, JSON_THROW_ON_ERROR));
+            'CONTENT_TYPE' => $files ? 'multipart/form-data' : 'application/json',
+        ], $files ? null : json_encode($body, JSON_THROW_ON_ERROR));
         foreach ($headers as $name => $value) {
             $request->headers->set($name, $value);
         }

@@ -6,6 +6,13 @@
                  "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
              },
     "variable":  [
+                     { "key": "usuarioAdminId", "value": "", "type": "string" },
+                     { "key": "dashboardAuthorizationUrl", "value": "", "type": "string" },
+                     {
+                         "key": "webUrl",
+                         "value": "http://localhost",
+                         "type": "string"
+                     },
                      {
                          "key":  "bffUrl",
                          "value":  "http://localhost/bff",
@@ -173,13 +180,75 @@
                      }
                  ],
     "item":  [
+        {
+            "name": "Dashboard - usuários",
+            "description": "CRUD administrativo exige admin:manage e página usuarios. Pelo navegador, use /dashboard/api/admin/usuarios com cookie, CSRF e autorização PKCE. Não altere o e-mail por PATCH; use solicitação de troca com confirmação. As contas novas precisam confirmar e-mail. Perfis de visitante e dados financeiros não são expostos.",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "item": [
+                { "name": "Listar usuários", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios?per_page=10&page=1&busca=" } },
+                { "name": "Consultar usuário", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}" } },
+                { "name": "Cadastrar cliente", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios", "body": { "mode": "raw", "raw": "{\n  \"tipo\": \"cliente\",\n  \"login\": \"usuario-painel\",\n  \"email\": \"usuario-painel@example.test\",\n  \"password\": \"V3rde!Azul27\",\n  \"password_confirmation\": \"V3rde!Azul27\"\n}", "options": { "raw": { "language": "json" } } } }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) pm.collectionVariables.set('usuarioAdminId', pm.response.json().data.id);"] } }] },
+                { "name": "Cadastrar administrador", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios", "body": { "mode": "raw", "raw": "{\n  \"tipo\": \"administrador\",\n  \"login\": \"admin-painel\",\n  \"email\": \"admin-painel@example.test\",\n  \"password\": \"V3rde!Azul27\",\n  \"password_confirmation\": \"V3rde!Azul27\",\n  \"paginas\": [\"usuarios\"]\n}", "options": { "raw": { "language": "json" } } } } },
+                { "name": "Cadastrar logística", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios", "body": { "mode": "raw", "raw": "{\n  \"tipo\": \"logistica\",\n  \"login\": \"entregas-painel\",\n  \"email\": \"entregas-painel@example.test\",\n  \"password\": \"V3rde!Azul27\",\n  \"password_confirmation\": \"V3rde!Azul27\",\n  \"nome\": \"Entregas\",\n  \"webhook\": \"https://example.test/eventos\"\n}", "options": { "raw": { "language": "json" } } } } },
+                { "name": "Editar login", "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}", "body": { "mode": "raw", "raw": "{\n  \"login\": \"usuario-editado\"\n}", "options": { "raw": { "language": "json" } } } } },
+                { "name": "Alterar senha", "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}", "body": { "mode": "raw", "raw": "{\n  \"password\": \"N0va!Roxa28\",\n  \"password_confirmation\": \"N0va!Roxa28\"\n}", "options": { "raw": { "language": "json" } } } } },
+                { "name": "Solicitar troca de e-mail", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}/email", "body": { "mode": "raw", "raw": "{\n  \"email\": \"novo-endereco@example.test\"\n}", "options": { "raw": { "language": "json" } } } } },
+                { "name": "Excluir usuário logicamente", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}" } },
+                { "name": "Listar usuários pelo dashboard", "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{webUrl}}/dashboard/api/admin/usuarios?per_page=10&page=1" } }
+            ]
+        },
+        {
+            "name": "Dashboard - catálogo administrativo",
+            "description": "GET administrativos exigem admin:manage e página estoque. Para o BFF, entre na pasta de sessão, autorize e mantenha os cookies; tokens ficam no servidor. Fotos são URLs públicas.",
+            "item": [
+                { "name": "Upload de foto pelo painel", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }], "url": "{{webUrl}}/dashboard/api/admin/produtos/{{produtoId}}/imagens/upload", "body": { "mode": "formdata", "formdata": [{ "key": "arquivo", "type": "file", "src": [], "description": "Selecione JPEG, PNG ou WebP de até 5 MB e 6000x6000 pixels." }, { "key": "principal", "type": "text", "value": "1" }] }, "description": "Requer login e autorização PKCE do dashboard. Mantenha cookie jar e obtenha CSRF antes da escrita. Não defina Content-Type manualmente." } },
+                { "name": "Upload de foto (API administrativa)", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/produtos/{{produtoId}}/imagens/upload", "body": { "mode": "formdata", "formdata": [{ "key": "arquivo", "type": "file", "src": [] }, { "key": "principal", "type": "text", "value": "0" }] }, "description": "Multipart: arquivo obrigatório (JPEG, PNG ou WebP, até 5 MB e 6000x6000); principal opcional (0/1). Requer admin:manage e página estoque. Retorna 201 com foto e URL pública; erros de validação retornam 422. Arquivos permanecem após exclusão lógica." } },
+                { "name": "Autorizar API do painel", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }], "url": "{{webUrl}}/dashboard/authorize" }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) pm.collectionVariables.set('dashboardAuthorizationUrl', pm.response.json().authorization_url);"] } }] },
+                { "name": "Concluir autorização PKCE", "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "text/html" }], "url": "{{dashboardAuthorizationUrl}}" } },
+                { "name": "Listar produtos (API administrativa)", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/produtos?per_page=10&page=1&busca=" } },
+                { "name": "Consultar produto inativo (API administrativa)", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/produtos/{{produtoId}}" } },
+                { "name": "Listar produtos pelo painel", "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{webUrl}}/dashboard/api/admin/produtos?per_page=10&page=1" } },
+                { "name": "Cadastrar produto pelo painel", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }], "url": "{{webUrl}}/dashboard/api/admin/produtos", "body": { "mode": "raw", "raw": "{\n  \"codigo\": \"PAINEL-001\",\n  \"nome\": \"Produto do painel\",\n  \"categoria\": \"camiseta\",\n  \"preco\": \"49.90\",\n  \"ativo\": true\n}", "options": { "raw": { "language": "json" } } } } },
+                { "name": "Adicionar foto pelo painel", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }], "url": "{{webUrl}}/dashboard/api/admin/produtos/{{produtoId}}/imagens", "body": { "mode": "raw", "raw": "{\n  \"path\": \"https://example.com/foto.jpg\",\n  \"principal\": true\n}", "options": { "raw": { "language": "json" } } } } }
+            ]
+        },
+        {
+            "name": "Dashboard - sessão administrativa",
+            "description": "Sessão por cookie HttpOnly, independente do guard cliente. Execute CSRF antes das escritas; mantenha o cookie jar habilitado. Não há cadastro nem retorno de tokens.",
+            "item": [
+                {
+                    "name": "1. Obter CSRF",
+                    "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{webUrl}}/oauth/csrf" },
+                    "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('csrfToken', pm.response.json().csrf_token);"] } }]
+                },
+                {
+                    "name": "2. Entrar no painel",
+                    "request": {
+                        "auth": { "type": "noauth" }, "method": "POST", "url": "{{webUrl}}/dashboard/login",
+                        "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }],
+                        "body": { "mode": "raw", "raw": "{\n  \"login\": \"{{adminLogin}}\",\n  \"password\": \"{{adminPassword}}\"\n}", "options": { "raw": { "language": "json" } } }
+                    }
+                },
+                {
+                    "name": "3. Consultar sessão do painel",
+                    "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{webUrl}}/dashboard/session" }
+                },
+                {
+                    "name": "4. Sair do painel",
+                    "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }], "url": "{{webUrl}}/dashboard/logout" }
+                }
+            ]
+        },
+        {"name":"Listar categorias","request":{"method":"GET","auth":{"type":"noauth"},"url":"{{baseUrl}}/categorias","description":"Lista categorias ativas: id, nome_codigo (filtros e cadastro de produtos), nome (exibição nos fronts). Produtos incluem categoria_cadastro."}},
 {
  "name": "Mercado Pago (Orders)",
  "description": "Configure somente no .env o Access Token e o segredo do webhook. Ver docs/MERCADO-PAGO.md. Cliente com orders:write e pedido da forma correspondente. Nunca enviar PAN/CVV.",
  "item": [
-  {"name":"Criar Pix", "request":{"method":"POST","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"meio\":\"pix\"}"},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
-  {"name":"Criar pagamento com cartão tokenizado", "request":{"method":"POST","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Content-Type","value":"application/json"}],"description":"Substitua TOKEN_GERADO_NO_MERCADOPAGO_JS por token efêmero. O pedido deve usar cartao_credito; débito usa debit_card e uma parcela. Não salvar token na coleção.","body":{"mode":"raw","raw":"{\"meio\":\"credit_card\",\"payment_method_id\":\"master\",\"token\":\"TOKEN_GERADO_NO_MERCADOPAGO_JS\",\"parcelas\":1}"},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
-  {"name":"Consultar e reconciliar cobrança", "request":{"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
+  {"name":"Configuração pública do checkout", "request":{"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Accept","value":"application/json"}],"description":"Exige Cliente e orders:write. Retorna somente Public Key e parcelas=1; no-store. Ausência de Access Token ou Public Key retorna 503. Não retorna credenciais privadas.","url":"{{baseUrl}}/pagamentos/configuracao"}},
+  {"name":"Configuração pública pelo BFF", "request":{"method":"GET","auth":{"type":"noauth"},"header":[{"key":"Accept","value":"application/json"}],"description":"Requer sessão web e autorização PKCE da loja, com cookie jar habilitado. O navegador usa esta rota antes de carregar MercadoPago.js.","url":"{{bffUrl}}/api/pagamentos/configuracao"}},
+  {"name":"Criar Pix", "request":{"description":"Retorna 202 Accepted sem aguardar o provedor. Processamento Redis pagamentos; consulte o GET local até obter instruções Pix ou confirmação. Repetir com os mesmos dados preserva a tentativa.","method":"POST","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"meio\":\"pix\"}"},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
+  {"name":"Criar pagamento com cartão tokenizado", "request":{"method":"POST","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Content-Type","value":"application/json"}],"description":"Retorna 202 Accepted; processamento na fila pagamentos. O token fica temporariamente cifrado no servidor, oculto nas respostas, e é removido após obter a Order. Substitua TOKEN_GERADO_NO_MERCADOPAGO_JS por token efêmero. O pedido deve usar cartao_credito; débito usa debit_card e uma parcela. Não salvar token na coleção.","body":{"mode":"raw","raw":"{\"meio\":\"credit_card\",\"payment_method_id\":\"master\",\"token\":\"TOKEN_GERADO_NO_MERCADOPAGO_JS\",\"parcelas\":1}"},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
+  {"name":"Consultar processamento da cobrança", "request":{"description":"Consulta somente o estado local, sem chamada ao provedor. processamento: pendente, processando, aguardando, concluido ou verificacao_necessaria. O scheduler e o worker conciliam em segundo plano. Não iniciar outra cobrança em caso de resultado incerto.","method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
   {"name":"Webhook assinado (simular pelo painel)", "request":{"method":"POST","auth":{"type":"noauth"},"description":"Sem assinatura válida retorna 403. Use o simulador do painel Mercado Pago com ID real de Order. Segredo fica somente no .env; assinatura HMAC deve corresponder ao ID, request-id e ts. Substitua os placeholders pelos cabeçalhos de uma notificação assinada.","header":[{"key":"Content-Type","value":"application/json"},{"key":"x-request-id","value":"SUBSTITUIR_REQUEST_ID"},{"key":"x-signature","value":"ts=SUBSTITUIR_TIMESTAMP,v1=SUBSTITUIR_ASSINATURA"}],"body":{"mode":"raw","raw":"{\"type\":\"order\"}"},"url":"{{baseUrl}}/webhooks/mercado-pago?data.id=SUBSTITUIR_ORDER_ID"}}
  ]
 },
@@ -404,7 +473,7 @@
                                                                      }
                                                                  ],
                                                       "url":  "{{baseUrl}}/produtos?per_page=5\u0026page=1\u0026categoria=camiseta\u0026busca=LCB",
-                                                      "description":  "Filtros opcionais: categoria (bandeira, botton, camiseta, outro) e busca (trecho de nome, codigo ou descricao, sem diferenciar maiusculas). Remova os filtros para listar tudo. data.data contem os itens; data.next_page_url preserva os filtros. Requisicao publica sem autenticacao."
+                                                      "description":  "Filtros opcionais: categoria (nome_codigo de categoria ativa; inicialmente bandeira, botton, camiseta e outro) e busca (trecho de nome, codigo ou descricao, sem diferenciar maiusculas). Remova os filtros para listar tudo. data.data contem os itens; data.next_page_url preserva os filtros. Requisicao publica sem autenticacao."
                                                   }
                                   },
                                   {

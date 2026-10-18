@@ -3,7 +3,7 @@ services:
     mem_limit: ${DOCKER_NGROK_MEMORY:-128m}
     image: ngrok/ngrok:latest
     profiles: ["webhooks"]
-    command: ["http", "http://nginx:80", "--config=/etc/ngrok.yml"]
+    command: ["http", "http://nginx:80", "--url=https://roxann-nonrationalistical-actinically.ngrok-free.dev", "--config=/etc/ngrok.yml"]
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
     ports:

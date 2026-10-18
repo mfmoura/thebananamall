@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { mensagemValidacao } from '../services/validacaoFormulario';
 import CampoSenha from './CampoSenha';
+import BloqueioAutenticacao from './BloqueioAutenticacao';
 
 export function MensagemErro({ erro }) {
     if (!erro) return null;
@@ -22,11 +23,11 @@ function semMascara(mascara, valor) {
     return mascara ? valor.replace(/\D/g, '') : valor;
 }
 
-export default function Formulario({ campos, enviar, botao = 'Salvar', valores = {}, sucesso = 'Dados salvos.', children, desabilitado = false, aoAlterarCampo, textoOcupado = 'Processando…' }) {
+export default function Formulario({ campos, enviar, botao = 'Salvar', valores = {}, sucesso = 'Dados salvos.', children, desabilitado = false, aoAlterarCampo, bloquearTela = false, textoOcupado = 'Processando…' }) {
     const [erro, setErro] = useState(null);
     const [mensagem, setMensagem] = useState('');
     const [ocupado, setOcupado] = useState(false);
-    return <form className="formulario" onInvalid={(event) => event.target.setCustomValidity(mensagemValidacao(event.target))} onInput={(event) => event.target.setCustomValidity?.('')} onChange={(event) => {
+    return <form className="formulario" aria-busy={ocupado} onInvalid={(event) => event.target.setCustomValidity(mensagemValidacao(event.target))} onInput={(event) => event.target.setCustomValidity?.('')} onChange={(event) => {
         event.target.setCustomValidity?.('');
         const campo = campos.find(({ nome }) => nome === event.target.name);
         if (campo?.mascara) event.target.value = aplicarMascara(campo.mascara, event.target.value);
@@ -45,6 +46,7 @@ export default function Formulario({ campos, enviar, botao = 'Salvar', valores =
         } catch (e) { setErro(e); } finally { setOcupado(false); }
     }}>
         <MensagemErro erro={erro} />
+        {ocupado && bloquearTela && <BloqueioAutenticacao rotulo="Processando, aguarde" />}
         {mensagem && <p className="mensagem" role="status">{mensagem}</p>}
         {campos.map(({ nome, label, tipo = 'text', obrigatorio = true, mascara, ...props }) => tipo === 'password'
             ? <CampoSenha key={nome} label={label} name={nome} defaultValue={valores[nome] ?? ''} required={obrigatorio} {...props} />

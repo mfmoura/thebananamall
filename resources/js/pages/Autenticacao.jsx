@@ -10,7 +10,7 @@ export function Login() {
     const navigate = useNavigate();
     const { login } = useLoja();
     return <section className="tela tela-form"><h1>Entrar</h1>
-        <Formulario campos={[{ nome: 'login', label: 'Login ou e-mail', autoComplete: 'username' }, { nome: 'password', label: 'Senha', tipo: 'password', autoComplete: 'current-password' }]} botao="Entrar" textoOcupado="Entrar" sucesso="" enviar={async (dados) => {
+        <Formulario bloquearTela campos={[{ nome: 'login', label: 'Login ou e-mail', autoComplete: 'username' }, { nome: 'password', label: 'Senha', tipo: 'password', autoComplete: 'current-password' }]} botao="Entrar" textoOcupado="Entrar" sucesso="" enviar={async (dados) => {
             try { await login(dados); navigate(retornoAposLogin(), { replace: true }); } catch (erro) {
                 if (erro.data?.code === 'password_change_required') navigate('/senha-obrigatoria');
                 else if (erro.data?.code === 'email_confirmation_required') navigate('/email/pendente');
@@ -39,7 +39,7 @@ export function Callback() {
 
 export function Cadastro() {
     const navigate = useNavigate();
-    return <section className="tela tela-form"><h1>Criar conta</h1><Formulario campos={[{ nome: 'login', label: 'Nome de usuário', autoComplete: 'username' }, { nome: 'email', label: 'E-mail', tipo: 'email', autoComplete: 'email' }, ...senhaCampos]} enviar={async (dados) => {
+    return <section className="tela tela-form"><h1>Criar conta</h1><Formulario bloquearTela campos={[{ nome: 'login', label: 'Nome de usuário', autoComplete: 'username' }, { nome: 'email', label: 'E-mail', tipo: 'email', autoComplete: 'email' }, ...senhaCampos]} enviar={async (dados) => {
         await api.cadastrar(dados);
         navigate('/email/pendente', { replace: true, state: { cadastroConcluido: true, email: dados.email } });
     }} botao="Cadastrar" /><Link to="/login">Já tenho uma conta</Link></section>;
@@ -59,7 +59,7 @@ export function FluxoEmailSenha() {
     return <section className="tela tela-form"><h1>{titulo}</h1>
         {pendente && <p role="status">{state?.cadastroConcluido ? 'Sua conta foi criada. Confira sua caixa de entrada e clique no link enviado para confirmar seu e-mail antes de entrar.' : 'Confirme seu e-mail para entrar na loja.'} Se precisar de um novo link, informe seu e-mail abaixo.</p>}
         {confirmar && <p>{exigeSenha ? 'Informe uma nova senha para concluir a troca de e-mail.' : 'Confirme seu cadastro para entrar na loja.'}</p>}
-        <Formulario key={pathname} campos={campos} valores={pendente ? { email: state?.email || '' } : {}} botao={pendente ? 'Reenviar confirmação' : 'Confirmar'} sucesso={confirmar || redefinir || primeira ? 'Operação concluída. Entre novamente na sua conta.' : 'Se houver uma conta correspondente, enviaremos um link para o e-mail informado.'} enviar={async (dados) => {
+        <Formulario bloquearTela key={pathname} campos={campos} valores={pendente ? { email: state?.email || '' } : {}} botao={pendente ? 'Reenviar confirmação' : 'Confirmar'} sucesso={confirmar || redefinir || primeira ? 'Operação concluída. Entre novamente na sua conta.' : 'Se houver uma conta correspondente, enviaremos um link para o e-mail informado.'} enviar={async (dados) => {
             if (confirmar || redefinir) {
                 if (!token) throw new Error('Link inválido. Solicite um novo e-mail.');
                 if (!dados.password) { delete dados.password; delete dados.password_confirmation; }

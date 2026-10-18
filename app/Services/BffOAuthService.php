@@ -10,36 +10,50 @@ use Illuminate\Support\Facades\DB;
 
 class BffOAuthService
 {
+    protected string $prefixo = 'bff';
+    protected string $guard = 'web';
+    protected string $authorizationPath = '/oauth/authorize';
+
+    protected function redirectUri(): string
+    {
+        return config('bff.redirect_uri');
+    }
+
+    protected function scopes(): string
+    {
+        return config('bff.scopes');
+    }
+
     public function __construct(private readonly BffApiService $api) {}
 
     public function autorizar(Request $request): string
     {
         abort_unless(config('bff.client_secret'), 503, 'Autenticação temporariamente indisponível.');
-        if ($request->session()->has('bff.tokens')) $this->revogar($request);
+        if ($request->session()->has($this->prefixo.'.tokens')) $this->revogar($request);
         $verifier = Str::random(64);
         $state = Str::random(64);
-        $request->session()->put('bff.pkce', ['state' => $state, 'verifier' => $verifier, 'criado' => time(), 'user_id' => (string) $request->user()->getAuthIdentifier()]);
+        $request->session()->put($this->prefixo.'.pkce', ['state' => $state, 'verifier' => $verifier, 'criado' => time(), 'user_id' => (string) $request->user($this->guard)->getAuthIdentifier()]);
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
-        return url('/oauth/authorize').'?'.http_build_query([
-            'client_id' => config('bff.client_id'), 'redirect_uri' => config('bff.redirect_uri'),
-            'response_type' => 'code', 'scope' => config('bff.scopes'),
+        return url($this->authorizationPath).'?'.http_build_query([
+            'client_id' => config('bff.client_id'), 'redirect_uri' => $this->redirectUri(),
+            'response_type' => 'code', 'scope' => $this->scopes(),
             'state' => $state, 'code_challenge' => $challenge, 'code_challenge_method' => 'S256',
         ]);
     }
 
     public function confirmar(Request $request, array $dados): void
     {
-        $pkce = $request->session()->pull('bff.pkce');
-        abort_unless(is_array($pkce) && time() - $pkce['criado'] <= 600 && hash_equals($pkce['state'], $dados['state']) && $pkce['user_id'] === (string) $request->user()->getAuthIdentifier(), 422, 'Autorização inválida ou expirada.');
-        $tokens = $this->trocar($request, ['grant_type' => 'authorization_code', 'code' => $dados['code'], 'code_verifier' => $pkce['verifier'], 'redirect_uri' => config('bff.redirect_uri')]);
+        $pkce = $request->session()->pull($this->prefixo.'.pkce');
+        abort_unless(is_array($pkce) && time() - $pkce['criado'] <= 600 && hash_equals($pkce['state'], $dados['state']) && $pkce['user_id'] === (string) $request->user($this->guard)->getAuthIdentifier(), 422, 'Autorização inválida ou expirada.');
+        $tokens = $this->trocar($request, ['grant_type' => 'authorization_code', 'code' => $dados['code'], 'code_verifier' => $pkce['verifier'], 'redirect_uri' => $this->redirectUri()]);
         $this->guardar($request, $tokens);
         $request->session()->regenerate();
     }
 
     public function autenticado(Request $request): bool
     {
-        return $request->session()->has('bff.tokens') && $request->user() !== null
-            && ($this->ler($request)['user_id'] ?? null) === (string) $request->user()->getAuthIdentifier();
+        return $request->session()->has($this->prefixo.'.tokens') && $request->user($this->guard) !== null
+            && ($this->ler($request)['user_id'] ?? null) === (string) $request->user($this->guard)->getAuthIdentifier();
     }
 
     public function token(Request $request): ?string
@@ -64,7 +78,7 @@ class BffOAuthService
 
     public function revogar(Request $request): void
     {
-        if ($request->session()->has('bff.tokens')) {
+        if ($request->session()->has($this->prefixo.'.tokens')) {
             $tokens = $this->ler($request);
             // O jti é lido apenas de um token recebido diretamente do Passport.
             $partes = explode('.', $tokens['access_token']);
@@ -76,7 +90,7 @@ class BffOAuthService
                 });
             }
         }
-        $request->session()->forget(['bff.tokens', 'bff.pkce']);
+        $request->session()->forget([$this->prefixo.'.tokens', $this->prefixo.'.pkce']);
     }
 
     private function trocar(Request $request, array $body): array
@@ -98,16 +112,16 @@ class BffOAuthService
         // Confere a identidade também no registro emitido pelo Passport.
         abort_unless(isset($payload['jti']) && Passport::token()->newQuery()
             ->whereKey($payload['jti'])->where('client_id', config('bff.client_id'))
-            ->where('user_id', $request->user()->getAuthIdentifier())->where('revoked', false)->exists(), 401, 'Autorização incompatível com a sessão.');
-        $request->session()->put('bff.tokens', Crypt::encryptString(json_encode([
+            ->where('user_id', $request->user($this->guard)->getAuthIdentifier())->where('revoked', false)->exists(), 401, 'Autorização incompatível com a sessão.');
+        $request->session()->put($this->prefixo.'.tokens', Crypt::encryptString(json_encode([
             'access_token' => $tokens['access_token'], 'refresh_token' => $tokens['refresh_token'],
             'expires_at' => time() + (int) $tokens['expires_in'],
-            'user_id' => (string) $request->user()->getAuthIdentifier(),
+            'user_id' => (string) $request->user($this->guard)->getAuthIdentifier(),
         ], JSON_THROW_ON_ERROR)));
     }
 
     private function ler(Request $request): array
     {
-        return json_decode(Crypt::decryptString($request->session()->get('bff.tokens')), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode(Crypt::decryptString($request->session()->get($this->prefixo.'.tokens')), true, 512, JSON_THROW_ON_ERROR);
     }
 }

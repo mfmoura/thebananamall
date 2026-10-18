@@ -22,10 +22,11 @@ function Produto({ produto, detalhe = false }) {
     const [mensagem, setMensagem] = useState('');
     const imagem = produto.imagens?.find((item) => item.principal) || produto.imagens?.[0];
     return <article className="produto-card">
-        {detalhe ? <GaleriaProduto key={produto.id} produto={produto} /> : imagem && <Link to={`/produtos/${produto.id}`}><img src={imagem.path} alt={produto.nome} width="800" height="800" loading="lazy" decoding="async" /></Link>}
+        {detalhe ? <GaleriaProduto key={produto.id} produto={produto} /> : <Link className="produto-imagem" to={`/produtos/${produto.id}`}>{imagem ? <img src={imagem.path} alt={produto.nome} width="800" height="800" loading="lazy" decoding="async" /> : <span className="imagem-indisponivel">Imagem indisponível</span>}</Link>}
+        <p className="produto-categoria">{produto.categoria_cadastro?.nome}</p>
         <h2><Link to={`/produtos/${produto.id}`}>{produto.nome}</Link></h2>
         {detalhe && produto.descricao && <div className="produto-descricao"><h3>Descrição</h3><p>{produto.descricao}</p></div>}
-        <p>{produto.categoria}</p><strong>{preco(produto) == null ? 'Preço indisponível' : dinheiro(preco(produto))}</strong>
+        <strong>{preco(produto) == null ? 'Preço indisponível' : dinheiro(preco(produto))}</strong>
         {detalhe && <p>Disponível: {Number(produto.estoque).toLocaleString('pt-BR')}</p>}
         <MensagemErro erro={erro} />{mensagem && <p role="status">{mensagem}</p>}
         {detalhe && <>
@@ -40,7 +41,8 @@ function Produto({ produto, detalhe = false }) {
 }
 
 function ListaProdutos() {
-    const { itens, erro, carregando, temMais, carregarMais, categoria, setCategoria, busca, setBusca } = useFiltroProdutos();
+    const { dados: categorias, erro: erroCategorias } = useDados(() => api.categorias());
+    const { itens, erro, carregando, temMais, carregarMais, categoria, setCategoria, busca, setBusca, porPagina } = useFiltroProdutos();
     const sentinela = useRef(null);
     useEffect(() => {
         if (!temMais || carregando || erro || !window.IntersectionObserver) return;
@@ -50,21 +52,18 @@ function ListaProdutos() {
         if (sentinela.current) observer.observe(sentinela.current);
         return () => observer.disconnect();
     }, [temMais, carregando, erro, carregarMais]);
-    return <section className="tela"><h1>Nossa loja</h1><MensagemErro erro={erro} />
+    return <section className="tela"><h1>Nossa loja</h1><MensagemErro erro={erro} /><MensagemErro erro={erroCategorias} />
         <details className="painel-filtros-produtos">
         <summary><i className="fa-solid fa-filter" aria-hidden="true" /> Filtrar produtos</summary>
         <form className="formulario filtros-produtos" role="search" onSubmit={(evento) => evento.preventDefault()}>
             <label>Categoria<select value={categoria} onChange={(evento) => setCategoria(evento.target.value)}>
                 <option value="">Todas as categorias</option>
-                <option value="bandeira">Bandeira</option>
-                <option value="botton">Botton</option>
-                <option value="camiseta">Camiseta</option>
-                <option value="outro">Outro</option>
+                {(categorias || []).map((item) => <option key={item.id} value={item.nome_codigo}>{item.nome}</option>)}
             </select></label>
             <label>Buscar produtos<input type="search" value={busca} maxLength={255} placeholder="Nome, código ou descrição" onChange={(evento) => setBusca(evento.target.value)} /></label>
         </form>
         </details>
-        <div className="produtos-grid" aria-busy={carregando}>{itens.map((produto) => <Produto key={produto.id} produto={produto} />)}{carregando && temMais && <ProdutoSkeleton />}</div>
+        <div className="produtos-grid" aria-busy={carregando}>{itens.map((produto) => <Produto key={produto.id} produto={produto} />)}{carregando && temMais && <ProdutoSkeleton quantidade={porPagina} />}</div>
         {temMais && <div className="paginacao-catalogo" ref={sentinela}>
             {temMais && !carregando && <button onClick={carregarMais}>{erro ? 'Tentar novamente' : 'Carregar mais produtos'}</button>}
         </div>}

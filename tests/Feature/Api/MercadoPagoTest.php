@@ -3,6 +3,8 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\StatusPedido;
+use App\Jobs\ProcessarPedidoPagamento;
+use App\Services\MercadoPagoService;
 use App\Models\FormaPagamento;
 use App\Models\Pedido;
 use App\Models\PedidoPagamento;
@@ -45,10 +47,15 @@ class MercadoPagoTest extends TestCase
             'api.mercadopago.com/v1/orders/ORD123' => Http::response($this->order()),
         ]);
         $url = '/api/pedidos/'.$this->pedido->id.'/pagamento';
-        $this->postJson($url, ['meio' => 'pix'])->assertCreated()->assertJsonPath('data.order_id', 'ORD123')
+        $this->postJson($url, ['meio' => 'pix'])->assertStatus(202)->assertJsonPath('data.processamento', 'pendente')
             ->assertJsonMissing(['idempotency_key', 'requisicao_hash', 'test-secret']);
+        Http::assertNothingSent();
+        Queue::assertPushed(ProcessarPedidoPagamento::class, fn ($job) => $job->queue === 'pagamentos' && $job->connection === 'redis');
+        $this->getJson($url)->assertOk()->assertJsonPath('data.order_id', null);
+        Http::assertNothingSent();
+        app(MercadoPagoService::class)->processar(PedidoPagamento::firstOrFail()->id);
         $this->assertSame(StatusPedido::Pago, $this->pedido->fresh()->status);
-        $this->postJson($url, ['meio' => 'pix'])->assertCreated();
+        $this->postJson($url, ['meio' => 'pix'])->assertStatus(202);
         $this->getJson($url)->assertOk();
         $this->assertSame(1, PedidoPagamento::count());
         Http::assertSent(fn ($r) => $r->method() === 'POST' && $r['total_amount'] === '25.00'
@@ -59,9 +66,13 @@ class MercadoPagoTest extends TestCase
     {
         Http::fake(['*' => Http::failedConnection()]);
         $url = '/api/pedidos/'.$this->pedido->id.'/pagamento';
-        $this->postJson($url, ['meio' => 'pix'])->assertStatus(503);
+        $this->postJson($url, ['meio' => 'pix'])->assertStatus(202);
         $key = PedidoPagamento::firstOrFail()->idempotency_key;
-        $this->postJson($url, ['meio' => 'pix'])->assertStatus(503);
+        for ($i = 0; $i < 2; $i++) {
+            try { app(MercadoPagoService::class)->processar(PedidoPagamento::firstOrFail()->id); $this->fail('Esperava falha de conexão.'); }
+            catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) { $this->assertSame(503, $e->getStatusCode()); }
+        }
+        $this->postJson($url, ['meio' => 'pix'])->assertStatus(202);
         $this->assertSame($key, PedidoPagamento::firstOrFail()->idempotency_key);
         Http::assertSent(fn ($r) => $r->hasHeader('X-Idempotency-Key', $key));
         $this->postJson('/api/pedidos/'.$this->pedido->id.'/cancelar')->assertStatus(409);
@@ -83,6 +94,7 @@ class MercadoPagoTest extends TestCase
             'status' => 'action_required', 'status_detail' => 'waiting_transfer', 'total_paid_amount' => '0.00',
             'transactions' => ['payments' => [['payment_method' => ['qr_code' => 'PIX-COPIA-COLA', 'token' => 'NAO-EXPOR']]]],
         ]))]);
+        app(MercadoPagoService::class)->processar(PedidoPagamento::firstOrFail()->id);
         $this->getJson('/api/pedidos/'.$this->pedido->id.'/pagamento')->assertOk()
             ->assertJsonPath('data.instrucoes.qr_code', 'PIX-COPIA-COLA')->assertJsonMissingPath('data.instrucoes.token');
         $this->assertStringNotContainsString('PIX-COPIA-COLA', PedidoPagamento::first()->getRawOriginal('instrucoes'));
@@ -124,15 +136,203 @@ class MercadoPagoTest extends TestCase
         $this->pagamento();
         foreach ([['total_amount' => '24.99'], ['currency_id' => 'USD'], ['external_reference' => '000'.$this->pedido->id]] as $alteracao) {
             Http::fake(['*' => Http::response(array_replace($this->order(), $alteracao))]);
-            $this->getJson('/api/pedidos/'.$this->pedido->id.'/pagamento')->assertStatus(409);
+            $this->assertSincronizacaoIncompativel();
             $this->assertSame(StatusPedido::AguardandoPagamento, $this->pedido->fresh()->status);
         }
+    }
+
+    public function test_configuracao_do_checkout_expoe_so_public_key_e_nao_permite_cache(): void
+    {
+        config(['mercadopago.public_key' => 'chave-publica-de-teste']);
+        $this->getJson('/api/pagamentos/configuracao')->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonPath('data.public_key', 'chave-publica-de-teste')->assertJsonPath('data.parcelas', 1)
+            ->assertDontSee('test-secret')->assertDontSee('webhook-secret');
+        config(['mercadopago.public_key' => null]);
+        $this->getJson('/api/pagamentos/configuracao')->assertStatus(503);
+        Http::assertNothingSent();
+    }
+
+    public function test_cartao_tokenizado_usa_total_do_pedido_e_uma_parcela_sem_persistir_token(): void
+    {
+        $forma = FormaPagamento::create(['codigo' => 'cartao_credito', 'nome' => 'Cartão', 'ativo' => true]);
+        $this->pedido->update(['forma_pagamento_id' => $forma->id]);
+        $this->pedido->processamentoFiscal()->create(['chave' => fake()->uuid(), 'dados_cliente' => ['documento' => '12345678909'], 'etapa' => 'aguardando_pagamento']);
+        Http::fake([
+            'api.mercadopago.com/v1/orders' => Http::response(['id' => 'ORD123'], 201),
+            'api.mercadopago.com/v1/orders/ORD123' => Http::response($this->order()),
+        ]);
+        $dados = ['meio' => 'credit_card', 'payment_method_id' => 'visa', 'token' => 'token-temporario-cartao', 'parcelas' => 1];
+        $this->postJson('/api/pedidos/'.$this->pedido->id.'/pagamento', $dados)->assertStatus(202)
+            ->assertDontSee('token-temporario-cartao')->assertJsonMissingPath('data.dados_envio');
+        $pagamento = PedidoPagamento::firstOrFail();
+        $this->assertStringNotContainsString('token-temporario-cartao', $pagamento->getRawOriginal('dados_envio'));
+        $this->assertSame('token-temporario-cartao', data_get($pagamento->dados_envio, 'transactions.payments.0.payment_method.token'));
+        $this->assertStringNotContainsString('token-temporario-cartao', serialize(new ProcessarPedidoPagamento($pagamento->id)));
+        Http::assertNothingSent();
+        app(MercadoPagoService::class)->processar($pagamento->id);
+        $this->assertNull($pagamento->fresh()->dados_envio);
+        Http::assertSent(fn ($r) => $r->method() === 'POST' && $r['total_amount'] === '25.00'
+            && $r['payer']['identification'] === ['type' => 'CPF', 'number' => '12345678909']
+            && $r['transactions']['payments'][0]['payment_method'] === ['id' => 'visa', 'type' => 'credit_card', 'token' => 'token-temporario-cartao', 'installments' => 1]);
+        $this->assertStringNotContainsString('token-temporario-cartao', PedidoPagamento::first()->getRawOriginal('instrucoes') ?? '');
+        $this->assertSame(StatusPedido::Pago, $this->pedido->fresh()->status);
+    }
+
+    public function test_rejeita_dados_brutos_do_cartao_e_parcelamento(): void
+    {
+        $url = '/api/pedidos/'.$this->pedido->id.'/pagamento';
+        $this->postJson($url, ['meio' => 'pix', 'card_number' => '4111111111111111', 'cvv' => '123'])->assertUnprocessable();
+        $this->postJson($url, ['meio' => 'credit_card', 'payment_method_id' => 'visa', 'token' => 'token', 'parcelas' => 2])->assertUnprocessable();
+        $this->postJson($url, ['meio' => 'pix', 'transaction_amount' => '0.01'])->assertUnprocessable();
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('pedido_pagamentos', 0);
+    }
+
+    public function test_preserva_order_id_quando_consulta_apos_criacao_falha(): void
+    {
+        Http::fake([
+            'api.mercadopago.com/v1/orders' => Http::response(['id' => 'ORD123'], 201),
+            'api.mercadopago.com/v1/orders/ORD123' => Http::sequence()->pushFailedConnection()->push($this->order()),
+        ]);
+        $url = '/api/pedidos/'.$this->pedido->id.'/pagamento';
+        $this->postJson($url, ['meio' => 'pix'])->assertStatus(202);
+        try { app(MercadoPagoService::class)->processar(PedidoPagamento::firstOrFail()->id); $this->fail('Esperava falha de conexão.'); }
+        catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) { $this->assertSame(503, $e->getStatusCode()); }
+        $this->assertDatabaseHas('pedido_pagamentos', ['pedido_id' => $this->pedido->id, 'order_id' => 'ORD123']);
+        $this->getJson($url)->assertOk()->assertJsonPath('data.order_id', 'ORD123');
+        app(MercadoPagoService::class)->processar(PedidoPagamento::firstOrFail()->id);
+        Http::assertSent(fn ($r) => $r->method() === 'GET');
+        $this->assertCount(1, Http::recorded(fn ($r) => $r->method() === 'POST'));
+    }
+
+    public function test_bff_checkout_configuracao_e_pix_preservam_autorizacao(): void
+    {
+        config(['bff.client_secret' => str_repeat('s', 64), 'mercadopago.public_key' => 'chave-publica-de-teste']);
+        $this->seed(\Database\Seeders\BffClientSeeder::class);
+        $usuario = $this->pedido->cliente->usuario;
+        $this->postJson('/oauth/login', ['login' => $usuario->login, 'password' => 'password'])->assertOk();
+        $url = $this->postJson('/bff/authorize')->assertOk()->json('authorization_url');
+        $callback = $this->get($url)->assertRedirect()->headers->get('Location');
+        $this->get($callback)->assertRedirect('/oauth/callback');
+        $this->getJson('/bff/api/pagamentos/configuracao')->assertOk()->assertJsonPath('data.public_key', 'chave-publica-de-teste')->assertDontSee('test-secret');
+        $this->get('/checkout/pagamento/'.$this->pedido->id)->assertOk();
+        Http::fake([
+            'api.mercadopago.com/v1/orders' => Http::response(['id' => 'ORD123'], 201),
+            'api.mercadopago.com/v1/orders/ORD123' => Http::response($this->order()),
+        ]);
+        $this->postJson('/bff/api/pedidos/'.$this->pedido->id.'/pagamento', ['meio' => 'pix'])->assertStatus(202);
+        $this->getJson('/bff/api/pedidos/'.$this->pedido->id.'/pagamento')->assertOk();
+    }
+
+    public function test_order_brasileira_sem_currency_id_e_conflitos_de_pais_moeda(): void
+    {
+        $this->pagamento();
+        $order = $this->order();
+        unset($order['currency_id']);
+        Http::fake(['*' => Http::sequence()
+            ->push([...$order, 'country_code' => 'ARG', 'currency' => 'BRL'])
+            ->push([...$order, 'country_code' => 'BRA', 'currency' => 'USD'])
+            ->push($order)
+            ->push([...$order, 'country_code' => 'BRA'])]);
+        $url = '/api/pedidos/'.$this->pedido->id.'/pagamento';
+        for ($i = 0; $i < 3; $i++) {
+            $this->assertSincronizacaoIncompativel();
+            $this->assertSame(StatusPedido::AguardandoPagamento, $this->pedido->fresh()->status);
+        }
+        app(MercadoPagoService::class)->sincronizar('ORD123');
+        $this->getJson($url)->assertOk();
+        $this->assertSame(StatusPedido::Pago, $this->pedido->fresh()->status);
+    }
+
+    public function test_scheduler_retoma_registro_duravel_e_respeita_verificacao_manual(): void
+    {
+        $this->pagamento();
+        $pagamento = PedidoPagamento::firstOrFail();
+        $pagamento->timestamps = false;
+        $pagamento->forceFill(['updated_at' => now()->subMinutes(3)])->save();
+        $this->assertSame(1, app(MercadoPagoService::class)->retomarPendentes());
+        Queue::assertPushed(ProcessarPedidoPagamento::class, fn ($job) => $job->pagamentoId === $pagamento->id);
+        $pagamento->update(['processamento' => 'verificacao_necessaria']);
+        $this->assertSame(0, app(MercadoPagoService::class)->retomarPendentes());
+        Http::assertNothingSent();
+    }
+
+    public function test_job_consulta_pendente_sem_recriar_order_e_finaliza_apos_confirmacao(): void
+    {
+        $this->pagamento();
+        Http::fake(['*' => Http::sequence()
+            ->push(array_replace($this->order(), ['status' => 'action_required', 'total_paid_amount' => '0.00']))
+            ->push($this->order())]);
+        $job = (new ProcessarPedidoPagamento(PedidoPagamento::firstOrFail()->id))->withFakeQueueInteractions();
+        $job->handle(app(MercadoPagoService::class));
+        $job->assertReleased(30);
+        $this->assertSame(StatusPedido::AguardandoPagamento, $this->pedido->fresh()->status);
+        $job = (new ProcessarPedidoPagamento(PedidoPagamento::firstOrFail()->id))->withFakeQueueInteractions();
+        $job->handle(app(MercadoPagoService::class));
+        $job->assertNotReleased();
+        $this->assertSame(StatusPedido::Pago, $this->pedido->fresh()->status);
+        $this->getJson('/api/pedidos/'.$this->pedido->id)->assertOk()
+            ->assertJsonPath('data.pagamento.processamento', 'concluido')->assertJsonMissingPath('data.pagamento.dados_envio');
+        Http::assertSentCount(2);
+    }
+
+    public function test_esgotamento_de_tentativas_nao_declara_rejeicao_nem_permite_nova_cobranca(): void
+    {
+        $url = '/api/pedidos/'.$this->pedido->id.'/pagamento';
+        $this->postJson($url, ['meio' => 'pix'])->assertStatus(202);
+        $pagamento = PedidoPagamento::firstOrFail();
+        (new ProcessarPedidoPagamento($pagamento->id))->failed(new \RuntimeException('erro técnico'));
+        $this->getJson($url)->assertOk()->assertJsonPath('data.processamento', 'verificacao_necessaria')
+            ->assertDontSee('erro técnico');
+        $this->assertNull($pagamento->fresh()->dados_envio);
+        app(MercadoPagoService::class)->processar($pagamento->id);
+        $this->assertSame(StatusPedido::AguardandoPagamento, $this->pedido->fresh()->status);
+        Http::assertNothingSent();
+        $this->postJson('/api/pedidos/'.$this->pedido->id.'/cancelar')->assertStatus(409);
+    }
+
+    public function test_solicitacao_antiga_sem_order_nao_reenvia_token_ou_cria_cobranca(): void
+    {
+        $this->postJson('/api/pedidos/'.$this->pedido->id.'/pagamento', ['meio' => 'pix'])->assertStatus(202);
+        $pagamento = PedidoPagamento::firstOrFail();
+        $pagamento->created_at = now()->subMinutes(11);
+        $pagamento->save();
+        $resultado = app(MercadoPagoService::class)->processar($pagamento->id);
+        $this->assertSame('verificacao_necessaria', $resultado->processamento);
+        $this->assertNull($resultado->dados_envio);
+        Http::assertNothingSent();
+        // Uma resposta tardia assinada ainda pode recuperar a mesma Order.
+        Http::fake(['*' => Http::response($this->order())]);
+        app(MercadoPagoService::class)->sincronizar('ORD123');
+        $this->assertSame(StatusPedido::Pago, $this->pedido->fresh()->status);
+    }
+
+    public function test_indisponibilidade_da_publicacao_nao_perde_solicitacao_aceita(): void
+    {
+        \Illuminate\Support\Facades\Bus::shouldReceive('dispatch')->once()->andThrow(new \RuntimeException('Redis indisponível'));
+        $this->postJson('/api/pedidos/'.$this->pedido->id.'/pagamento', ['meio' => 'pix'])->assertStatus(202)
+            ->assertJsonPath('data.processamento', 'pendente')->assertDontSee('Redis indisponível');
+        $pagamento = PedidoPagamento::firstOrFail();
+        $this->assertSame((string) $this->pedido->id, $pagamento->dados_envio['external_reference']);
+        $this->assertSame(StatusPedido::AguardandoPagamento, $this->pedido->fresh()->status);
+        Http::assertNothingSent();
     }
 
     private function pagamento(): void
     {
         PedidoPagamento::create(['pedido_id' => $this->pedido->id, 'idempotency_key' => fake()->uuid(),
             'requisicao_hash' => str_repeat('a', 64), 'order_id' => 'ORD123']);
+    }
+
+    private function assertSincronizacaoIncompativel(): void
+    {
+        try {
+            app(MercadoPagoService::class)->sincronizar('ORD123');
+            $this->fail('A cobrança incompatível deve ser rejeitada.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(409, $e->getStatusCode());
+        }
     }
 
     private function order(): array

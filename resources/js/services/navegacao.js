@@ -1,4 +1,4 @@
-const rotaLoja = /^\/(?:produtos(?:\/\d+)?|carrinho|checkout|conta|pedidos(?:\/\d+)?)?$/;
+const rotaLoja = /^\/(?:produtos(?:\/\d+)?|carrinho|checkout(?:\/pagamento\/\d+)?|conta|pedidos(?:\/\d+)?)?$/;
 
 export function destinoSeguro(valor) {
     if (typeof valor !== 'string' || !valor.startsWith('/') || valor.startsWith('//')) return null;

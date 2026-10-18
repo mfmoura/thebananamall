@@ -4,6 +4,12 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
+Artisan::command('pagamentos:retomar', function (): void {
+    $total = app(\App\Services\MercadoPagoService::class)->retomarPendentes();
+    $this->info("Pagamentos elegíveis: {$total}");
+})->purpose('Recuperar envio e conciliação de pagamentos após indisponibilidade da fila');
+Schedule::command('pagamentos:retomar')->everyMinute()->withoutOverlapping();
+
 Artisan::command('fiscal:retomar', function (): void {
     $total = app(\App\Services\PedidoFiscalService::class)->retomarPendentes();
     $this->info("Processamentos fiscais elegíveis: {$total}");

@@ -41,7 +41,7 @@ class FormatApiResponse
 
         $formatted = ApiResponse::wrap($data, $statusCode);
 
-        foreach (['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'] as $header) {
+        foreach (['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'Cache-Control', 'Vary'] as $header) {
             if ($response->headers->has($header)) {
                 $formatted->headers->set($header, $response->headers->get($header));
             }

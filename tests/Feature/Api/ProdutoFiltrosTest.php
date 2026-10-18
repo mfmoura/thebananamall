@@ -55,4 +55,24 @@ class ProdutoFiltrosTest extends TestCase
     {
         $this->getJson('/api/produtos?categoria=invalida&busca[]=teste')->assertUnprocessable();
     }
+
+    public function test_categories_come_from_database_and_products_expose_display_name(): void
+    {
+        $categoria = \App\Models\Categoria::create(['nome_codigo' => 'adesivo', 'nome' => 'Adesivos']);
+        Produto::create(['codigo' => 'ADESIVO-1', 'nome' => 'Adesivo LCB', 'categoria' => 'adesivo', 'ativo' => true]);
+
+        $this->getJson('/api/categorias')->assertOk()->assertJsonFragment([
+            'id' => $categoria->id, 'nome_codigo' => 'adesivo', 'nome' => 'Adesivos',
+        ]);
+        $this->getJson('/api/produtos?categoria=adesivo&per_page=5')->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.data.0.categoria', 'adesivo')
+            ->assertJsonPath('data.data.0.categoria_cadastro.nome', 'Adesivos');
+
+        $categoria->delete();
+        $this->getJson('/api/categorias')->assertOk()->assertJsonMissing(['nome_codigo' => 'adesivo']);
+        $this->getJson('/api/produtos?categoria=adesivo')->assertUnprocessable();
+        $this->getJson('/api/produtos?busca=ADESIVO-1&per_page=5')->assertOk()
+            ->assertJsonPath('data.data.0.categoria_cadastro.nome', 'Adesivos');
+    }
 }

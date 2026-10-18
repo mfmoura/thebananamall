@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { retornoAposLogout } from '../services/navegacao';
 import { useLoja } from '../context/LojaContext';
@@ -6,7 +6,7 @@ import { useCarrinhoResumo, useMenus } from '../hooks/loja';
 import ItemCarrinho from './ItemCarrinho';
 import AvisoReservaCarrinho from './AvisoReservaCarrinho';
 const moeda = (valor) => (valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-export default function BarraSuperior() {
+function AcoesBarra() {
  const { usuario, logout, setErro, carrinhoOcupado } = useLoja();
  const navigate = useNavigate();
  const location = useLocation();
@@ -14,12 +14,7 @@ export default function BarraSuperior() {
  const abrir = useMenus(nav);
  const { itens, total, quantidade } = useCarrinhoResumo();
  return (
-<header className="barra-superior">
-    <nav className="barra-conteudo" aria-label="Navegação principal" ref={nav}>
-        <Link className="marca" to="/" aria-label="LCB — página inicial">
-            <img src="/images/lcb-logo.png" alt="Liga Comunista Brasileira" width="1920" height="720" />
-        </Link>
-        <div className="barra-acoes">
+        <div className="barra-acoes" ref={nav}>
             <Link to="/produtos" className="menu-catalogo">Loja</Link>
             <details className="menu-suspenso" data-menu="usuario" onToggle={abrir}>
                 <summary><i className="fa-regular fa-user" aria-hidden="true" /><span>Minha conta</span><i className="fa-solid fa-chevron-down seta" aria-hidden="true" /></summary>
@@ -41,13 +36,50 @@ export default function BarraSuperior() {
                     <div className="carrinho-itens" data-carrinho-itens aria-busy={carrinhoOcupado}>{itens.length ? itens.map((item) => <ItemCarrinho key={item.codigo} item={item} />) : <p className="carrinho-vazio">Seu carrinho está vazio.</p>}</div>
                     <div className="carrinho-total"><span>Total</span><strong data-carrinho-total>{moeda(total)}</strong></div>
                     <Link className="menu-opcao" to="/carrinho">Ver e editar carrinho</Link>
-                    <button className="botao-principal" type="button" disabled={!itens.length || carrinhoOcupado} onClick={() => { if (!usuario) sessionStorage.setItem('lcb.destino', '/checkout'); navigate(usuario ? '/checkout' : '/login'); }}><i className="fa-solid fa-lock" aria-hidden="true" />Finalizar compra</button>
+                    <button className="botao-principal" type="button" data-mp-checkout-cta="checkout-api" disabled={!itens.length || carrinhoOcupado} onClick={() => { if (!usuario) sessionStorage.setItem('lcb.destino', '/checkout'); navigate(usuario ? '/checkout' : '/login'); }}><i className="fa-solid fa-lock" aria-hidden="true" />Finalizar compra</button>
                     <p className="menu-observacao">Entre como Cliente para finalizar a compra.</p>
                 </div>
             </details>
         </div>
-    </nav>
-</header>
 
 );
+}
+
+export default function BarraSuperior() {
+ const lateral = useRef(null);
+ const [menuAberto, setMenuAberto] = useState(false);
+ const location = useLocation();
+ const fechar = () => lateral.current?.close();
+ useEffect(() => { fechar(); }, [location.pathname, location.search, location.hash]);
+ useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 768px)');
+    const aoRedimensionar = () => { if (desktop.matches) fechar(); };
+    desktop.addEventListener('change', aoRedimensionar);
+    return () => desktop.removeEventListener('change', aoRedimensionar);
+ }, []);
+ useEffect(() => {
+    if (!menuAberto) return;
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = anterior; };
+ }, [menuAberto]);
+ return <header className="barra-superior">
+    <nav className="barra-conteudo" aria-label="Navegação principal">
+        <Link className="marca" to="/" aria-label="LCB — página inicial">
+            <img src="/images/lcb-logo.png" alt="Liga Comunista Brasileira" width="1920" height="720" />
+        </Link>
+        <div className="menu-desktop"><AcoesBarra /></div>
+        <button className="menu-mobile-botao" type="button" aria-label="Abrir menu" aria-expanded={menuAberto} aria-controls="menu-lateral" aria-haspopup="dialog" onClick={() => { lateral.current.showModal(); setMenuAberto(true); }}>
+            <i className="fa-solid fa-bars" aria-hidden="true" />
+        </button>
+    </nav>
+    <dialog id="menu-lateral" className="menu-lateral" ref={lateral} aria-label="Menu da loja" onClose={() => setMenuAberto(false)} onClick={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) fechar();
+    }}>
+        <div className="menu-lateral-cabecalho"><strong>Menu da loja</strong><button type="button" aria-label="Fechar menu" onClick={fechar} autoFocus><i className="fa-solid fa-xmark" aria-hidden="true" /></button></div>
+        <nav aria-label="Navegação mobile" onClick={(event) => { if (event.target.closest('a')) fechar(); }}><AcoesBarra /></nav>
+    </dialog>
+ </header>;
 }

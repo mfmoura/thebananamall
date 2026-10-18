@@ -13,6 +13,7 @@ const Carrinho = lazy(() => import('./pages/Carrinho'));
 const Checkout = lazy(() => import('./pages/Checkout'));
 const Conta = lazy(() => import('./pages/Conta'));
 const Pedidos = lazy(() => import('./pages/Pedidos'));
+const Pagamento = lazy(() => import('./pages/Pagamento'));
 
 function PaginaSkeleton() {
     return <section className="tela" role="status" aria-label="Carregando página" aria-busy="true">
@@ -28,7 +29,7 @@ function Protegida() {
     useEffect(() => {
         if (!usuario && !carregando) sessionStorage.setItem('lcb.destino', `${location.pathname}${location.search}${location.hash}`);
     }, [usuario, carregando, location.pathname, location.search, location.hash]);
-    if (carregando) return <PaginaSkeleton />;
+    if (carregando) return <><PaginaSkeleton /><BloqueioAutenticacao rotulo="Verificando acesso" /></>;
     return usuario ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
@@ -46,7 +47,7 @@ function Conteudo() {
         <BarraSuperior />
         <main id="conteudo" className="pagina" tabIndex={-1}>
             {erro && <><MensagemErro erro={erro} /><button onClick={() => setErro('')}>Fechar aviso</button></>}
-            <Suspense fallback={<PaginaSkeleton />}><Routes>
+            <Suspense fallback={<><PaginaSkeleton /><BloqueioAutenticacao rotulo="Carregando página" /></>}><Routes>
                 <Route path="/" element={<Catalogo />} />
                 <Route path="/produtos" element={<Catalogo />} />
                 <Route path="/produtos/:id" element={<Catalogo />} />
@@ -58,6 +59,7 @@ function Conteudo() {
                 <Route element={<Protegida />}>
                     <Route path="/conta" element={<Conta />} />
                     <Route path="/checkout" element={<Checkout />} />
+                    <Route path="/checkout/pagamento/:id" element={<Pagamento />} />
                     <Route path="/pedidos" element={<Pedidos />} />
                     <Route path="/pedidos/:id" element={<Pedidos />} />
                 </Route>

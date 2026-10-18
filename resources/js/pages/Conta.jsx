@@ -4,6 +4,7 @@ import { useLoja } from '../context/LojaContext';
 import { api } from '../services/api';
 import FormularioEndereco from '../components/FormularioEndereco';
 import Formulario, { MensagemErro, senhaCampos } from '../components/Formulario';
+import { useProcessamento } from '../context/ProcessamentoContext';
 
 
 export default function Conta() {
@@ -11,9 +12,10 @@ export default function Conta() {
     const [endereco, setEndereco] = useState(null);
     const [erro, setErro] = useState(null);
     const navigate = useNavigate();
+    const { executar } = useProcessamento();
     return <section className="tela tela-form"><h1>Minha conta</h1><p>{usuario.login} · {usuario.email}</p><MensagemErro erro={erro} />
         <h2>Nome de usuário</h2><Formulario key={usuario.login} campos={[{ nome: 'login', label: 'Login' }]} valores={usuario} enviar={async (dados) => { await api.atualizarUsuario(usuario.id, dados); await atualizarUsuario(); }} />
-        <h2>Trocar senha</h2><Formulario campos={senhaCampos} enviar={async (dados) => { await api.atualizarUsuario(usuario.id, dados); await logout(); navigate('/login'); }} sucesso="Entre novamente com a nova senha." />
+        <h2>Trocar senha</h2><Formulario bloquearTela campos={senhaCampos} enviar={async (dados) => { await api.atualizarUsuario(usuario.id, dados); await logout(); navigate('/login'); }} sucesso="Entre novamente com a nova senha." />
         <h2>Trocar e-mail</h2><Formulario campos={[{ nome: 'email', label: 'Novo e-mail', tipo: 'email' }]} enviar={({ email }) => api.trocarEmail(usuario.id, email)} sucesso="Confira o novo e-mail e confirme pelo link recebido." />
         <h2>Meus endereços</h2>
         {usuario.enderecos?.map((item) => <article className="produto-card" key={item.id}><p>{item.logradouro}, {item.numero} — {item.cidade}/{item.estado} · {item.cep}</p><button onClick={() => setEndereco(item)}>Editar</button><button onClick={async () => {
@@ -29,9 +31,11 @@ export default function Conta() {
         <h2>Encerrar conta</h2><button onClick={async () => {
             if (!window.confirm('Excluir sua conta? Esta ação não pode ser desfeita.')) return;
             try {
-                if (usuario.cliente) await api.excluirCliente(usuario.cliente.id);
-                else await api.excluirUsuario(usuario.id);
-                await logout(); navigate('/');
+                await executar(async () => {
+                    if (usuario.cliente) await api.excluirCliente(usuario.cliente.id);
+                    else await api.excluirUsuario(usuario.id);
+                    await logout(); navigate('/');
+                }, 'Encerrando conta');
             } catch (e) { setErro(e); }
         }}>Excluir minha conta</button>
     </section>;
