@@ -6,6 +6,7 @@ export default function useCartaoMercadoPago({ publicKey, total, email, aoTokeni
     const [erro, setErro] = useState(null);
     const [tokenizando, setTokenizando] = useState(false);
     const [exigeEmissor, setExigeEmissor] = useState(false);
+    const [bandeira, setBandeira] = useState(null);
     const callback = useRef(aoTokenizar);
     callback.current = aoTokenizar;
     useEffect(() => {
@@ -13,7 +14,7 @@ export default function useCartaoMercadoPago({ publicKey, total, email, aoTokeni
         let cardForm;
         let timeout;
         const falhar = (mensagem) => { if (ativo) { setErro(new Error(mensagem)); setPronto(false); setTokenizando(false); } };
-        setPronto(false); setErro(null);
+        setPronto(false); setErro(null); setBandeira(null); setExigeEmissor(false);
         carregarMercadoPago().then((MercadoPago) => {
             if (!ativo) return;
             const mp = new MercadoPago(publicKey, { locale: 'pt-BR' });
@@ -21,9 +22,9 @@ export default function useCartaoMercadoPago({ publicKey, total, email, aoTokeni
                 amount: String(total), iframe: true,
                 form: {
                     id: 'mp-cartao',
-                    cardNumber: { id: 'mp-numero', placeholder: 'Número do cartão' },
-                    expirationDate: { id: 'mp-validade', placeholder: 'MM/AA' },
-                    securityCode: { id: 'mp-cvv', placeholder: 'CVV' },
+                    cardNumber: { id: 'mp-numero', placeholder: '0000 0000 0000 0000', style: { fontSize: '16px', fontFamily: 'Arial', color: '#382b29' } },
+                    expirationDate: { id: 'mp-validade', placeholder: 'MM/AA', mode: 'short', style: { fontSize: '16px', fontFamily: 'Arial', color: '#382b29' } },
+                    securityCode: { id: 'mp-cvv', placeholder: 'CVV', style: { fontSize: '16px', fontFamily: 'Arial', color: '#382b29' } },
                     cardholderName: { id: 'mp-titular' },
                     cardholderEmail: { id: 'mp-email' },
                     identificationType: { id: 'mp-documento-tipo' },
@@ -51,9 +52,15 @@ export default function useCartaoMercadoPago({ publicKey, total, email, aoTokeni
                         return () => { if (ativo) setTokenizando(false); };
                     },
                     onPaymentMethodsReceived: (falha, dados) => {
-                        if (!ativo || falha) return;
+                        if (!ativo) return;
+                        if (falha) { setBandeira(null); setExigeEmissor(false); return; }
                         const metodos = Array.isArray(dados) ? dados : dados?.results || [];
+                        const metodo = metodos[0];
+                        setBandeira(metodo ? { id: metodo.id, nome: metodo.name } : null);
                         setExigeEmissor(metodos.some((metodo) => metodo.additional_info_needed?.includes('issuer_id')));
+                    },
+                    onBinChange: () => {
+                        if (ativo) { setBandeira(null); setExigeEmissor(false); }
                     },
                     onError: () => {
                         if (ativo) { setErro(new Error('Confira os dados do cartão e do titular e tente novamente.')); setTokenizando(false); }
@@ -74,5 +81,5 @@ export default function useCartaoMercadoPago({ publicKey, total, email, aoTokeni
         }).catch((falha) => { if (ativo) setErro(falha); });
         return () => { ativo = false; clearTimeout(timeout); cardForm?.unmount(); };
     }, [publicKey, total, email]);
-    return { pronto, erro, tokenizando, exigeEmissor };
+    return { pronto, erro, tokenizando, exigeEmissor, bandeira };
 }

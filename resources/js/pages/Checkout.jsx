@@ -42,7 +42,7 @@ export default function Checkout() {
         : dadosSalvos?.endereco || null;
     if (!usuario?.cliente) return <section className="tela"><h1>Checkout</h1><p>Somente uma conta Cliente pode finalizar a compra.</p></section>;
     if (!carrinho.itens?.length) return <section className="tela"><h1>Checkout</h1><p>Seu carrinho está vazio.</p><Link to="/produtos">Ver produtos</Link></section>;
-    return <section className="tela tela-form"><h1>Finalizar compra</h1>
+    return <section className="tela tela-form checkout"><h1>Finalizar compra</h1>
         <div aria-busy={carrinhoOcupado}>{carrinho.itens.map((item) => <ItemCarrinho key={item.codigo} item={item} />)}</div>
         <h2>Total dos produtos: {dinheiro(carrinho.itens.reduce((soma, item) => soma + Math.round(Number(item.preco_atual ?? item.preco ?? 0) * 100 * item.quantidade), 0) / 100)}</h2>
         {carrinho.itens.some((item) => item.modificado) && <p className="mensagem" role="alert">Há produtos cujo preço mudou. Confira os valores atualizados no <Link to="/carrinho">carrinho</Link> antes de confirmar.</p>}

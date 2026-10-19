@@ -54,6 +54,14 @@
 .mp-campo-seguro iframe { display: block; width: 100%; height: 100%; border: 0; }
 .mp-campos-linha { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .mp-total { font-size: 24px; }
+.cartao-numero-linha { display: flex; align-items: center; gap: 12px; }
+.cartao-numero-linha .mp-campo-seguro { flex: 1; min-width: 0; }
+.cartao-bandeira { display: flex; align-items: center; gap: 8px; color: var(--lcb-vinho); font-size: 13px; }
+.cartao-bandeira:empty { display: none; }
+.cartao-bandeira > i { font-size: 28px; }
+.pagamento-cartao [data-mp-field][role="group"] { display: grid; gap: 8px; font-size: 14px; min-width: 0; }
+.pagamento-cartao .formulario label[hidden] { display: none; }
+@media (max-width: 480px) { .cartao-bandeira { flex-direction: column; gap: 2px; max-width: 80px; font-size: 11px; } }
 .mp-qr { display: block; width: 240px; height: 240px; margin: 24px auto; }
 
 @font-face {
@@ -122,13 +130,14 @@
 .produtos-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, min(100%, 240px))); justify-content: center; gap: 24px; }
 .produto-card { padding: 24px; border: 1px solid #e4ded8; background: #fff; margin-bottom: 18px; }
 .produtos-grid > .produto-card { min-width: 0; padding: 16px; margin-bottom: 0; text-align: center; overflow-wrap: anywhere; box-shadow: 0 0 10px 0 rgba(0, 0, 0, .15); }
-.produtos-grid > .produto-card:not(.produto-skeleton) { transition: box-shadow .2s ease; }
+.checkout :is(.item-carrinho-editavel, .produto-card) { box-shadow: 0 0 10px 0 rgba(0, 0, 0, .15); }
+.produtos-grid > .produto-card:not(.produto-skeleton), .checkout :is(.item-carrinho-editavel, .produto-card) { transition: box-shadow .2s ease; }
 @media (hover: hover) {
-    .produtos-grid > .produto-card:not(.produto-skeleton):hover { box-shadow: 0 0 20px 0 rgba(0, 0, 0, .25); }
+    .produtos-grid > .produto-card:not(.produto-skeleton):hover, .checkout :is(.item-carrinho-editavel, .produto-card):hover { box-shadow: 0 0 20px 0 rgba(0, 0, 0, .25); }
 }
-.produtos-grid > .produto-card:not(.produto-skeleton):focus-within { box-shadow: 0 0 20px 0 rgba(0, 0, 0, .25); }
+.produtos-grid > .produto-card:not(.produto-skeleton):focus-within, .checkout :is(.item-carrinho-editavel, .produto-card):focus-within { box-shadow: 0 0 20px 0 rgba(0, 0, 0, .25); }
 @media (prefers-reduced-motion: reduce) {
-    .produtos-grid > .produto-card:not(.produto-skeleton) { transition: none; }
+    .produtos-grid > .produto-card:not(.produto-skeleton), .checkout :is(.item-carrinho-editavel, .produto-card) { transition: none; }
 }
 .produto-card .produto-categoria { color: var(--lcb-vinho); font-style: italic; text-align: left; }
 .produtos-grid .produto-card img, .produtos-grid .skeleton-imagem { height: 180px; }
