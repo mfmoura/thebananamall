@@ -6,18 +6,20 @@ use App\Enums\StatusPedido;
 use App\Jobs\ProcessarPedidoPagamento;
 use App\Models\Pedido;
 use App\Models\PedidoPagamento;
-use Illuminate\Http\Client\ConnectionException;
+use App\Webservices\MercadoPagoClient;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class MercadoPagoService
 {
-    public function __construct(private readonly PedidoService $pedidos) {}
+    public function __construct(
+        private readonly PedidoService $pedidos,
+        private readonly MercadoPagoClient $client,
+    ) {}
 
     public function configuracaoPublica(): array
     {
-        $this->credencial();
+        $this->client->verificarConfiguracao();
         $publicKey = trim((string) config('mercadopago.public_key'));
         abort_if($publicKey === '', 503, 'Pagamento temporariamente indisponível.');
 
@@ -26,7 +28,7 @@ class MercadoPagoService
 
     public function criar(Pedido $pedido, array $dados): PedidoPagamento
     {
-        $this->credencial();
+        $this->client->verificarConfiguracao();
         // Persiste a chave ANTES da chamada: um timeout deve reutilizar a mesma cobrança.
         $pagamento = DB::transaction(function () use ($pedido, $dados): PedidoPagamento {
             $pedido = Pedido::query()->lockForUpdate()->findOrFail($pedido->id);
@@ -105,7 +107,7 @@ class MercadoPagoService
             return $pagamento;
         }
         $pagamento->update(['processamento' => 'processando']);
-        $order = $this->chamar('post', '/v1/orders', $pagamento->dados_envio, $pagamento->idempotency_key);
+        $order = $this->client->criarOrder($pagamento->dados_envio, $pagamento->idempotency_key);
         abort_unless(is_string($order['id'] ?? null) && preg_match('/^[a-zA-Z0-9]+$/D', $order['id']), 502, 'Resposta inválida do provedor.');
 
         // Conserva o identificador antes da consulta: uma falha de rede não pode perder a cobrança criada.
@@ -129,7 +131,7 @@ class MercadoPagoService
     public function sincronizar(string $orderId): PedidoPagamento
     {
         abort_unless(preg_match('/^[a-zA-Z0-9]+$/D', $orderId), 422);
-        $order = $this->chamar('get', '/v1/orders/'.$orderId);
+        $order = $this->client->consultarOrder($orderId);
 
         return DB::transaction(function () use ($order, $orderId): PedidoPagamento {
             $pedido = Pedido::query()->lockForUpdate()->findOrFail($order['external_reference'] ?? null);
@@ -144,7 +146,14 @@ class MercadoPagoService
                 'order_id' => $orderId, 'status' => $order['status'] ?? 'desconhecido',
                 'dados_envio' => null,
                 'processamento' => in_array($order['status'] ?? '', ['processed', 'failed', 'canceled', 'cancelled', 'expired', 'refunded', 'charged_back'], true) ? 'concluido' : 'aguardando',
-                'instrucoes' => array_intersect_key($instrucoes, array_flip(['qr_code', 'qr_code_base64', 'ticket_url', 'digitable_line', 'barcode_content'])),
+                'instrucoes' => [
+                    ...array_intersect_key($pagamento->instrucoes ?? [], array_flip(['criado_em', 'expira_em'])),
+                    ...array_intersect_key($instrucoes, array_flip(['qr_code', 'qr_code_base64', 'ticket_url', 'digitable_line', 'barcode_content'])),
+                    ...array_filter([
+                        'criado_em' => $order['created_date'] ?? null,
+                        'expira_em' => data_get($order, 'transactions.payments.0.date_of_expiration'),
+                    ], fn ($valor) => is_string($valor) && $valor !== ''),
+                ],
             ]);
             if (($order['status'] ?? '') === 'processed' && ($order['status_detail'] ?? '') === 'accredited'
                 && $this->centavos($order['total_paid_amount'] ?? '') === $this->centavos($pedido->total)) {
@@ -166,7 +175,14 @@ class MercadoPagoService
     private function pagador(Pedido $pedido): array
     {
         $pagador = ['email' => $pedido->cliente->usuario->email];
-        $documento = preg_replace('/\D/', '', (string) ($pedido->processamentoFiscal?->dados_cliente['documento'] ?? ''));
+        $dados = $pedido->processamentoFiscal?->dados_cliente ?? [];
+        $nome = trim((string) ($dados['nome'] ?? ''));
+        if ($nome !== '') {
+            [$primeiro, $sobrenome] = array_pad(preg_split('/\s+/u', $nome, 2), 2, null);
+            $pagador['first_name'] = $primeiro;
+            if ($sobrenome !== null) $pagador['last_name'] = $sobrenome;
+        }
+        $documento = preg_replace('/\D/', '', (string) ($dados['documento'] ?? ''));
         if (in_array(strlen($documento), [11, 14], true)) {
             $pagador['identification'] = ['type' => strlen($documento) === 11 ? 'CPF' : 'CNPJ', 'number' => $documento];
         }
@@ -208,31 +224,5 @@ class MercadoPagoService
 
         return ($order['country_code'] ?? null) === 'BRA'
             || ($order['currency_id'] ?? $order['currency'] ?? null) === 'BRL';
-    }
-
-    private function credencial(): string
-    {
-        $token = trim((string) config('mercadopago.access_token'));
-        abort_unless(is_string($token) && $token !== '', 503, 'Pagamento temporariamente indisponível.');
-
-        return $token;
-    }
-
-    private function chamar(string $metodo, string $path, array $dados = [], ?string $key = null): array
-    {
-        $http = Http::withToken($this->credencial())->acceptJson()->connectTimeout(5)->timeout(config('mercadopago.timeout'));
-        if ($key) {
-            $http = $http->withHeaders(['X-Idempotency-Key' => $key]);
-        }
-        try {
-            $response = $http->{$metodo}('https://api.mercadopago.com'.$path, $dados);
-        } catch (ConnectionException) {
-            abort(503, 'Provedor indisponível. Tente novamente com os mesmos dados.');
-        }
-        abort_unless($response->successful(), 502, 'Não foi possível processar o pagamento.');
-        $json = $response->json();
-        abort_unless(is_array($json), 502, 'Resposta inválida do provedor.');
-
-        return $json;
     }
 }

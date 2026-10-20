@@ -9,6 +9,7 @@ use Illuminate\Validation\Rule;
 class UpdateProdutoRequest extends AdministradorRequest
 {
     use RegrasProdutoFiscal;
+    use \App\Http\Requests\Api\Concerns\RegrasEmbalagem;
 
     public function rules(): array
     {
@@ -17,6 +18,9 @@ class UpdateProdutoRequest extends AdministradorRequest
 
         return [
             ...$this->regrasProdutoFiscal(),
+            ...$this->regrasEmbalagem(),
+            'grade' => ['sometimes', 'array', 'max:50'],
+            'grade.*' => ['required', 'string', 'max:30', 'distinct:ignore_case', 'regex:/^\\S(?:.*\\S)?$/u'],
             'codigo' => ['sometimes', 'required', 'string', 'max:80', Rule::unique('produtos', 'codigo')->ignore($produto)],
             'nome' => ['sometimes', 'required', 'string', 'max:255'],
             'descricao' => ['sometimes', 'nullable', 'string', 'max:10000'],

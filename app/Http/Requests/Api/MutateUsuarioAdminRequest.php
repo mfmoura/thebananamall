@@ -10,6 +10,9 @@ class MutateUsuarioAdminRequest extends AdministradorRequest
     {
         $usuario = $this->route('usuario');
         return parent::authorize() && $usuario instanceof Usuario && ! $usuario->visitante()->exists()
-            && ! array_diff($usuario->administrador?->paginas ?? [], $this->user()->administrador->paginas ?? []);
+            && ($this->user()->administrador->acessaPagina('manutencao')
+                || ($usuario->administrador()->exists() && $this->user()->administrador->acessaPagina('usuarios')))
+            && ($this->user()->administrador->acessaPagina('manutencao')
+                || ! array_diff($usuario->administrador?->paginas ?? [], $this->user()->administrador->paginas ?? []));
     }
 }

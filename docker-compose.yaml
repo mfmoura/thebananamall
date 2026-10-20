@@ -108,8 +108,11 @@ services:
       POSTGRES_DB: default
     volumes:
       - db-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
     networks:
       - dados
+      - db_local
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U default -d default"]
       interval: 5s
@@ -147,6 +150,7 @@ networks:
   php_ingress:
   vite_ingress:
   workers_saida:
+  db_local:
   dados:
     internal: true
 

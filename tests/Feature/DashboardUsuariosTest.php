@@ -24,7 +24,7 @@ class DashboardUsuariosTest extends TestCase
             ->shouldReceive('removerSobBloqueio')->andReturn(true);
     }
 
-    private function administrador(array $paginas = ['usuarios']): Usuario
+    private function administrador(array $paginas = ['usuarios', 'manutencao']): Usuario
     {
         $usuario = Usuario::factory()->create(['email_validado' => true]);
         $usuario->administrador()->create(['paginas' => $paginas]);
@@ -47,6 +47,42 @@ class DashboardUsuariosTest extends TestCase
         return $id;
     }
 
+    public function test_outros_perfis_consultam_mas_somente_manutencao_altera_nao_administradores(): void
+    {
+        $cliente = Usuario::factory()->create();
+        $cliente->cliente()->create([]);
+        foreach (['usuarios', 'estoque', 'contabilidade', 'pedidos'] as $pagina) {
+            Passport::actingAs($this->administrador([$pagina]), ['admin:manage']);
+            $this->getJson('/api/admin/usuarios/'.$cliente->id)->assertOk();
+            $this->postJson('/api/admin/usuarios', $this->payload())->assertForbidden();
+            $this->patchJson('/api/admin/usuarios/'.$cliente->id, ['login' => 'negado'])->assertForbidden();
+            $this->postJson('/api/admin/usuarios/'.$cliente->id.'/email', ['email' => 'outro@example.test'])->assertForbidden();
+            $this->deleteJson('/api/admin/usuarios/'.$cliente->id)->assertForbidden();
+        }
+        Passport::actingAs($this->administrador(['manutencao']), ['admin:manage']);
+        $this->postJson('/api/admin/usuarios', $this->payload())->assertCreated();
+        $this->patchJson('/api/admin/usuarios/'.$cliente->id, ['login' => 'permitido'])->assertOk();
+        $this->deleteJson('/api/admin/usuarios/'.$cliente->id)->assertOk();
+        $this->postJson('/api/admin/usuarios', [...$this->payload('administrador'), 'login' => 'admin-manutencao', 'paginas' => ['usuarios', 'estoque']])->assertCreated();
+    }
+    public function test_manutencao_concede_permissoes_alheias_e_edita_admin_com_mais_permissoes(): void
+    {
+        $operador = $this->administrador(['manutencao']);
+        $alvo = $this->administrador(['usuarios', 'estoque']);
+        Passport::actingAs($operador, ['admin:manage']);
+        $this->patchJson('/api/admin/usuarios/'.$alvo->id, ['login' => 'admin-editado', 'paginas' => ['usuarios', 'pedidos', 'contabilidade']])
+            ->assertOk()->assertJsonPath('data.administrador.paginas', ['usuarios', 'pedidos', 'contabilidade']);
+        $this->deleteJson('/api/admin/usuarios/'.$alvo->id)->assertForbidden();
+        $this->patchJson('/api/admin/usuarios/'.$operador->id, ['paginas' => ['manutencao', 'usuarios', 'estoque']])->assertOk();
+    }
+
+    public function test_manutencao_nao_pode_remover_a_propria_permissao_de_gestao(): void
+    {
+        $operador = $this->administrador(['manutencao']);
+        Passport::actingAs($operador, ['admin:manage']);
+        $this->patchJson('/api/admin/usuarios/'.$operador->id, ['paginas' => ['estoque']])->assertUnprocessable();
+    }
+
     public function test_lista_pagina_busca_e_filtra_sem_expor_dados_sensiveis(): void
     {
         $admin = $this->administrador();
@@ -65,7 +101,7 @@ class DashboardUsuariosTest extends TestCase
 
     public function test_cadastra_cliente_administrador_e_logistica_com_senha_segura(): void
     {
-        Passport::actingAs($this->administrador(['usuarios', 'estoque']), ['admin:manage']);
+        Passport::actingAs($this->administrador(['usuarios', 'estoque', 'manutencao']), ['admin:manage']);
         $cliente = $this->postJson('/api/admin/usuarios', $this->payload())->assertCreated()->assertJsonPath('data.email_validado', false)->json('data.id');
         $this->assertTrue(app(PoliticaSenhaService::class)->corresponde('V3rde!Azul27', Usuario::find($cliente)->password));
         $this->assertDatabaseHas('clientes', ['usuario_id' => $cliente]);
@@ -77,8 +113,9 @@ class DashboardUsuariosTest extends TestCase
 
     public function test_impede_concessao_de_permissoes_alheias_e_confirmacao_manual(): void
     {
-        Passport::actingAs($this->administrador(), ['admin:manage']);
+        Passport::actingAs($this->administrador(['usuarios']), ['admin:manage']);
         $this->postJson('/api/admin/usuarios', [...$this->payload('administrador'), 'paginas' => ['estoque']])->assertUnprocessable();
+        Passport::actingAs($this->administrador(['manutencao']), ['admin:manage']);
         $this->postJson('/api/admin/usuarios', [...$this->payload(), 'email_validado' => true])->assertUnprocessable();
         $this->postJson('/api/admin/usuarios', [...$this->payload(), 'password_confirmation' => 'diferente'])->assertUnprocessable();
         $this->assertDatabaseMissing('users', ['login' => 'nova-conta']);
@@ -86,7 +123,7 @@ class DashboardUsuariosTest extends TestCase
 
     public function test_edita_login_senha_e_permissoes_preservando_historico_e_revogando_tokens(): void
     {
-        Passport::actingAs($this->administrador(['usuarios', 'estoque']), ['admin:manage']);
+        Passport::actingAs($this->administrador(['usuarios', 'estoque', 'manutencao']), ['admin:manage']);
         $alvo = $this->administrador(['estoque']);
         $token = $this->tokenDoUsuario($alvo);
         $this->patchJson('/api/admin/usuarios/'.$alvo->id, ['login' => 'login-editado'])->assertOk()->assertJsonPath('data.login', 'login-editado');
@@ -102,7 +139,7 @@ class DashboardUsuariosTest extends TestCase
 
     public function test_protege_a_propria_conta_e_administradores_com_mais_permissoes(): void
     {
-        $admin = $this->administrador();
+        $admin = $this->administrador(['usuarios']);
         $alvo = $this->administrador(['usuarios', 'estoque']);
         Passport::actingAs($admin, ['admin:manage']);
         $this->deleteJson('/api/admin/usuarios/'.$admin->id)->assertForbidden();
@@ -139,7 +176,7 @@ class DashboardUsuariosTest extends TestCase
         $this->getJson('/api/admin/usuarios')->assertUnauthorized();
         $admin = $this->administrador(['estoque']);
         Passport::actingAs($admin, ['admin:manage']);
-        $this->getJson('/api/admin/usuarios')->assertForbidden();
+        $this->getJson('/api/admin/usuarios')->assertOk();
         Passport::actingAs($this->administrador(), ['catalog:read']);
         $this->getJson('/api/admin/usuarios')->assertForbidden();
         $cliente = Usuario::factory()->create(['email_validado' => true]);

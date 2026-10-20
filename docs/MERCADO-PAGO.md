@@ -1,6 +1,6 @@
 # Mercado Pago — Checkout Transparente via Orders
 
-O backend cria cobranças para pedidos já persistidos. O valor vem dos itens do pedido, nunca do navegador. A implementação usa o cliente HTTP do Laravel, sem SDK adicional.
+O backend cria cobranças para pedidos já persistidos. O valor vem dos itens do pedido, nunca do navegador. As chamadas de Orders ficam em `app/Webservices/MercadoPagoClient.php`, usando o cliente HTTP do Laravel. `MercadoPagoService` mantém criação local, filas e conciliação dos pedidos. A assinatura dos webhooks é validada pelo SDK oficial mercadopago/dx-php, instalado pelo Composer.
 
 ## Configuração
 
@@ -48,6 +48,10 @@ Contrato oficial: [Boleto na Orders API](https://www.mercadopago.com.br/develope
 
 ### Testes de modalidades pelo terminal
 
+Recusas HTTP 402 na criação de Orders podem conter a cobrança em `data`. O backend preserva seu identificador e confirma o resultado por GET antes de concluir a tentativa. Erros sem Order válida continuam sendo falhas técnicas; uma consulta que falhe após obter o ID retoma somente o GET, sem recriar a cobrança.
+
+Para executar a API e o job contra o provedor real de teste, fora das suites padrão: `docker compose exec -T -e MP_HOMOLOGACAO_TESTE_CONFIRMADO=1 php php artisan test tests/Integration/MercadoPagoHomologacaoTest.php`. Use somente depois de confirmar que as credenciais configuradas são de teste. A execução usa SQLite em memória, dados fictícios, filas interceptadas e chamadas reais ao Mercado Pago. Não testa o navegador, o Horizon nem entrega automática de webhook. O webhook local é assinado e consulta a Order real. Os resultados exibem somente IDs, estados e nomes dos campos de instruções; não incluem tokens, códigos Pix ou linhas digitáveis. Débito indisponível é reportado como não homologado, sem considerar sua recusa uma aprovação.
+
 Execute `docker compose exec -T php php artisan test --filter='PixBoletoTest|MercadoPagoModalidadesTest|ProcessarPedidoPagamentoTest|MercadoPagoTest|MercadoPagoConfiguracaoTest'`.
 
 `MercadoPagoModalidadesTest` cobre fixtures de crédito Visa/Mastercard/Elo/Amex e débito Visa/Mastercard, aceitação HTTP 202 sem chamada externa, execução do worker, total dos itens, idempotência, proteção do token, recusa, pendência, cancelamento/expiração/estorno informados pelo provedor, timeout e payloads inválidos. `ProcessarPedidoPagamentoTest` isola a decisão de reagendar a conciliação e a propagação de falhas para retentativa. São testes PHPUnit com HTTP simulado e bloqueio de chamadas inesperadas, sem navegador e sem cobranças reais.
@@ -66,6 +70,8 @@ Referências oficiais:
 - [Validador oficial de assinatura](https://github.com/mercadopago/sdk-php/blob/master/src/MercadoPago/Webhook/WebhookSignatureValidator.php)
 
 ## Checkout e tokenização React
+
+O seletor de forma de pagamento para novas compras exibe Pix, boleto e cartão de crédito. Débito fica oculto até confirmar a habilitação da conta, após recusa no teste remoto. O suporte existente na API e o acompanhamento de pedidos anteriores permanecem disponíveis; ocultar a opção no React não é uma regra de autorização da API.
 
 O botão **Finalizar compra** (`resources/js/components/BarraSuperior.jsx`) abre `/checkout`, que valida os dados fiscais e persiste o pedido. **Confirmar pedido** leva à nova página `/checkout/pagamento/{id}`. A página sempre obtém pedido, total e forma de pagamento do servidor, preservando autorização por proprietário. **Continuar pagamento**, em Meus pedidos, permite retomar a página após sair ou recarregar.
 
@@ -94,8 +100,12 @@ Contrato de país/moeda conferido na [referência oficial de consulta da Order](
 
 ## Fila de pagamentos
 
+Quando a confirmação verificada muda o pedido de aguardando pagamento para pago, `PedidoService` enfileira `PagamentoConfirmadoNotification` ao usuário Cliente, independentemente da modalidade ou da origem da conciliação (worker/webhook). A transição é protegida pelo bloqueio do pedido; confirmações repetidas não enfileiram outra mensagem. A notificação usa Redis/`emails`, payload cifrado, envio após commit e três tentativas com backoff de 10/30/60 segundos. O e-mail contém número e link do pedido, sem instruções de cobrança ou credenciais. Contas e perfis excluídos são descartados antes do envio. Horizon deve estar ativo; a aprovação não garante entrega imediata na caixa de entrada. O acompanhamento na tela é automático, sem botão de atualização manual.
+
 Aplique a migration `2026_10_18_120000_add_processamento_to_pedido_pagamentos` e reinicie o Horizon para carregar o supervisor `pagamentos`. Ele usa conexão Redis, timeout de 45 segundos por job, oito tentativas com backoff de 10/30/60/120 segundos, exclusão mútua por pagamento e somente o identificador local no payload. A publicação acontece após commit. Se o Redis falhar, a solicitação continua no PostgreSQL e `pagamentos:retomar`, executado a cada minuto, recupera registros parados há dois minutos. O scheduler também retoma a conciliação de Orders pendentes, sem depender de navegador aberto ou webhook.
 
 `processamento` representa o estado local: `pendente`, `processando`, `aguardando` retorno remoto, `concluido` ou `verificacao_necessaria`. O campo `status` continua representando a Order. Sem Order ID e após esgotar tentativas ou ultrapassar dez minutos desde a solicitação, o resultado é incerto: requer verificação operacional e não é declarado como rejeição. O token efêmero é apagado e uma nova cobrança não é autorizada. Com Order ID, a conciliação continua pelo scheduler. Tentativas legadas sem snapshot nem Order ID também exigem verificação. O webhook assinado continua consultando o recurso do provedor e pode recuperar uma Order criada antes de um timeout.
 
 Os endpoints de pedido incluem apenas o resumo `pagamento` (`id`, `pedido_id`, `status`, `processamento`). A página de detalhes atualiza esse estado em segundo plano a cada dez segundos enquanto o pagamento estiver em andamento. Nenhuma confirmação do navegador altera o status financeiro do pedido. A emissão fiscal continua sendo liberada somente pela confirmação validada do provedor.
+
+O receptor delega a validação ao WebhookSignatureValidator do SDK oficial mercadopago/dx-php; o SDK normaliza espaços e interpreta o header x-signature inteiro. A versão 3.16.0 instalada preserva a caixa do ID no manifest. Assinatura inválida ou ausente retorna 401. ID alfanumérico e x-request-id permanecem obrigatórios neste receptor de Orders; falhas não consultam o provedor.

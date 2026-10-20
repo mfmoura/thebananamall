@@ -1,5 +1,7 @@
 # Testes manuais no Postman
 
+Cronômetro de pagamento: `GET /pedidos/{pedidoId}/pagamento` inclui `instrucoes.criado_em` e `instrucoes.expira_em` quando retornadas pelo provedor (datas ISO 8601). O detalhe do pedido no frontend consulta esse endpoint para obter os prazos; o resumo da listagem permanece inalterado. O frontend atualiza a contagem e a barra a cada segundo com o vencimento absoluto, sem reiniciar ao recarregar. Sem vencimento, mostra o tempo de espera desde a criação; chegar a zero não confirma nem cancela o pagamento. O prazo aparece após a conciliação pela fila `pagamentos`.
+
 O catálogo aceita `categoria` (nome_codigo de uma categoria ativa; inicialmente bandeira, botton, camiseta e outro) e `busca` (trecho do nome, código ou descrição, sem distinguir maiúsculas). Os filtros podem ser combinados e são aplicados antes da paginação. Na loja React, a categoria é aplicada imediatamente e a busca após 1 segundo sem digitação.
 
 1. Inicie os containers: `docker compose up -d`.
@@ -92,7 +94,7 @@ A pasta **Fiscal Contora (homologacao)** inclui emissão, consulta local, sincro
 
 - `POST /api/admin/notas-fiscais` exige Administrador com pagina `contabilidade`. Registra documento fiscal autorizado com natureza `compra`, `remessa`, `devolucao`, `doacao`, `venda` ou `perda`; cada item cria a movimentacao de estoque correspondente.
 - Uma nota de venda vinculada a `pedido_id` valida os itens contra o pedido e nao baixa estoque novamente, pois o checkout ja consumiu a reserva. Venda sem pedido, doacao e perda baixam o estoque disponivel, descontadas as reservas ativas no Redis.
-- `POST /api/admin/estoque/movimentacoes` aceita somente `entrada` e exige Administrador com pagina `estoque` ou `manutencao`. Informe referencia e observacao para manter o ajuste auditavel.
+- `POST /api/admin/estoque/movimentacoes` aceita ajustes de `entrada` e `saida` para Estoque ou Manutenção (`tipo=ajuste`, padrão), com status Ajuste de Estoque. Contabilidade usa `tipo=nota`, somente `entrada`, com `nota` obrigatória e status Nota a verificar; por enquanto não há verificação externa.
 - A collection inclui exemplos de registro de nota de compra e ajuste de entrada. Configure `adminToken` com escopo `admin:manage` e as permissoes da pagina correspondente.
 
 ### Exclusão lógica e confirmação de cadastro
@@ -149,6 +151,10 @@ Pagamento assíncrono: `POST /pedidos/{pedidoId}/pagamento` retorna **202 Accept
 
 ## Boleto no checkout
 
+Após a confirmação verificada do pagamento, qualquer modalidade (Pix, boleto, crédito ou débito) enfileira um e-mail ao Cliente na conexão Redis, fila `emails`, após commit. A mensagem contém o número e o link do pedido; notificações repetidas do provedor não enfileiram outra confirmação para o mesmo pedido. Pendência e recusa não enviam esse e-mail. O payload é cifrado e o Horizon precisa estar ativo; contas excluídas são descartadas antes do envio. A tela acompanha o pagamento automaticamente, sem botão de atualização manual.
+
+Recusas de cartão que retornam HTTP 402 do Mercado Pago com Order válida são conciliadas pelo worker: o ID é preservado, o recurso é consultado e o GET local passa a informar `status=failed` e `processamento=concluido`. A solicitação inicial da loja continua retornando 202. Falha na consulta mantém a mesma Order para retomada, sem reenviar o token. Resultado incerto não autoriza nova cobrança.
+
 Para pedido com forma `boleto`, envie `POST {{baseUrl}}/pedidos/{{pedidoId}}/pagamento` com `{"meio":"boleto"}`, bearer `clienteToken` e escopo `orders:write`. O pedido precisa ter snapshot fiscal completo, incluindo nome completo/razão social, CPF/CNPJ e endereço. Retorna 202 e processa na fila Redis `pagamentos`. Consulte GET no mesmo endereço até obter `instrucoes.digitable_line`, `barcode_content` e `ticket_url`; abra o link para conferir o vencimento e imprimir. Geração não significa pagamento confirmado. Pelo navegador, use o mesmo fluxo no BFF com cookie/CSRF; nenhum token de cartão é necessário.
 
 ## Pedidos no dashboard
@@ -158,3 +164,30 @@ Em `/dashboard/pedidos`, administradores com a permissão `pedidos` podem listar
 A pasta **Dashboard - Pedidos (consulta e acoes)** usa `baseUrl`, `pedidoId` e `adminToken` (token OAuth administrativo com escopo `admin:manage`). Cancelamento usa POST sem payload, preserva o histórico e estorna o estoque. Somente pedidos aguardando pagamento e sem qualquer cobrança criada podem ser cancelados; os demais retornam 409, até existir suporte a cancelamento/estorno no provedor.
 
 DANFE retorna PDF quando disponível. A etiqueta retorna nome e endereço do snapshot fiscal do pedido pago para impressão; não é uma etiqueta de postagem de transportadora. No navegador, o painel usa sessão HttpOnly e CSRF pelo proxy `/dashboard/api/admin/pedidos`, sem expor tokens. Somente as ações explícitas são permitidas pelo proxy.
+
+Validação de Webhooks Orders: assinatura inválida ou ausente retorna 401; o receptor delega o header x-signature inteiro ao WebhookSignatureValidator do SDK oficial mercadopago/dx-php. O ID mantém a caixa, conforme a implementação PHP do SDK consultada. ID e x-request-id continuam obrigatórios neste receptor.
+
+
+Expedição: use a requisição 'Expedição - pedidos pagos aguardando entrega', com adminToken, escopo admin:manage e permissão pedidos. expedicao=1 restringe a listagem a pedidos pagos/em_processamento, com nota autorizada e processamento fiscal concluído, ainda não enviados. Consulte o detalhe administrativo para disponibilidade de DANFE e etiqueta de destinatário. Etiqueta de postagem e webhook logístico ainda dependem do provedor de frete para loja própria.
+
+
+## Cotação de frete integrada
+
+Cadastre peso_gramas, altura_cm, largura_cm e comprimento_cm nos produtos; a requisição 'Configurar embalagem do produto (Admin)' demonstra o payload. Use 'Cotar frete Hub (Cliente)' com um carrinho não vazio e clienteToken com orders:write. A consulta salva freteCotacaoId e freteServico na coleção. A criação de pedido agora exige essas variáveis; escolha somente códigos presentes na resposta e recote após cinco minutos ou mudança dos itens/destino. Não envie custo_frete nem token do Hub. O frontend usa o BFF com cookie e CSRF. Veja [Frete](../docs/FRETE.md).
+
+### Logística por produto
+A pasta Logística por produto lista e pesquisa produtos, consulta saldo e histórico paginado por produto_id (page/per_page, máximo 50), e registra movimentações com adminToken/admin:manage. Estoque e Manutenção usam tipo=ajuste e direcao=entrada ou saida; nota é opcional e o status é Ajuste de Estoque. Contabilidade usa tipo=nota, direcao=entrada e nota obrigatória (referência fictícia, sem consulta externa), status Nota a verificar. Perfis acumulados podem escolher o tipo; a API valida a permissão correspondente. Saídas respeitam reservas e saldo disponível. Registros anteriores permanecem no histórico.
+
+O reenvio de confirmação (POST /api/email/reenviar-confirmacao) também aceita administradores com prazo anterior vencido, gerando um novo link com validade contada desde a solicitação. Contas comuns expiradas continuam exigindo novo cadastro. Na loja, login pendente informa a necessidade de confirmação; use Reenviar confirmação. No painel, POST /dashboard/login com credenciais corretas e perfil administrativo ativo solicita automaticamente confirmação pela fila emails, no máximo uma vez por minuto por conta, e retorna 403 sem autenticar. HTTP 202 indica aceitação, sem garantir entrega.
+
+Usuários não administradores: consulta disponível aos perfis administrativos; criação, edição, troca de e-mail e exclusão exigem a página `manutencao`. O painel apresenta Visualizar aos demais perfis. Manutenção também cria e edita administradores e pode conceder qualquer permissão administrativa, inclusive as que não possui, e editar administradores com outras permissões. Operadores somente com `usuarios` continuam limitados às próprias permissões. Exclusão de administradores exige `usuarios` e permissões compatíveis.
+
+## Cadastro de categorias
+
+GET /api/categorias lista categorias ativas. A pasta Cadastro de categorias oferece POST /api/admin/categorias, PATCH e DELETE /api/admin/categorias/{categoriaId}, com Bearer adminToken, escopo admin:manage e permissão estoque. Copie o id retornado no cadastro para categoriaId. O cadastro recebe nome_codigo (até 40 caracteres: letras minúsculas, números, hífen ou sublinhado) e nome (até 255 caracteres). PATCH altera somente nome; nome_codigo é imutável e não pode ser reutilizado após exclusão. DELETE é lógico e preserva os vínculos existentes. Produtos recebem categoria com o nome_codigo de uma categoria ativa.
+
+Confirmação administrativa: obtenha CSRF em GET /oauth/csrf, preserve o cookie e execute POST /dashboard/email/confirmar com token do link administrativo (variável emailVerificationToken). Para troca de e-mail, inclua password e password_confirmation. A resposta requires_password_change indica continuação em /dashboard/senha-obrigatoria. /api/email/confirmar aceita somente contas sem perfil administrativo. Novos links administrativos apontam para /dashboard/email/verify; reenvio disponível em /dashboard/email/pendente.
+
+## Grades de tamanhos
+
+A pasta **Grade de tamanhos** cadastra um produto com grade, registra entrada por tamanho e exercita inclusão, alteração, substituição e remoção no carrinho. Usa `adminToken` (admin:manage e página estoque), `clienteToken` (cart:read/cart:write), `produtoGradeId` preenchido pelo cadastro e `tamanhoGrade` (inicialmente M). Cadastre saldo em P e M antes do exemplo de substituição. O checkout existente preserva o tamanho; peso, medidas e cotação de frete continuam necessários. Veja [Grades de tamanhos](../docs/GRADES.md).

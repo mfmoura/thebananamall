@@ -7,16 +7,33 @@ export default function useCartaoMercadoPago({ publicKey, total, email, aoTokeni
     const [tokenizando, setTokenizando] = useState(false);
     const [exigeEmissor, setExigeEmissor] = useState(false);
     const [bandeira, setBandeira] = useState(null);
+    const [tentativa, setTentativa] = useState(0);
+    const [falhaCarregamento, setFalhaCarregamento] = useState(false);
     const callback = useRef(aoTokenizar);
     callback.current = aoTokenizar;
     useEffect(() => {
         let ativo = true;
         let cardForm;
         let timeout;
-        const falhar = (mensagem) => { if (ativo) { setErro(new Error(mensagem)); setPronto(false); setTokenizando(false); } };
-        setPronto(false); setErro(null); setBandeira(null); setExigeEmissor(false);
+        let inicializacaoFalhou = false;
+        let camposProntos = false;
+        const documentosDisponiveis = () => Array.from(document.getElementById('mp-documento-tipo')?.options || []).some((opcao) => opcao.value);
+        const falhar = (mensagem) => {
+            clearTimeout(timeout);
+            inicializacaoFalhou = true;
+            if (ativo) { setErro(new Error(mensagem)); setPronto(false); setTokenizando(false); setFalhaCarregamento(true); }
+        };
+        setPronto(false); setErro(null); setBandeira(null); setExigeEmissor(false); setFalhaCarregamento(false); setTokenizando(false);
         carregarMercadoPago().then((MercadoPago) => {
             if (!ativo) return;
+            // Arma antes da montagem: onReady também pode ser chamado durante a inicialização.
+            timeout = window.setTimeout(() => {
+                falhar(documentosDisponiveis()
+                    ? 'Os campos seguros demoraram para carregar. Confira a conexão ou o bloqueador de conteúdo e tente carregar novamente.'
+                    : 'O Mercado Pago não concluiu o carregamento dos tipos de documento do titular. Tente carregar os campos novamente.');
+                cardForm?.unmount();
+                cardForm = null;
+            }, 30000);
             const mp = new MercadoPago(publicKey, { locale: 'pt-BR' });
             cardForm = mp.cardForm({
                 amount: String(total), iframe: true,
@@ -33,9 +50,18 @@ export default function useCartaoMercadoPago({ publicKey, total, email, aoTokeni
                     installments: { id: 'mp-parcelas' },
                 },
                 callbacks: {
-                    onFormMounted: (falha) => { if (falha) falhar('Não foi possível montar os campos seguros. Recarregue a página.'); },
+                    onFormMounted: (falha) => { if (ativo && falha) falhar('Não foi possível montar os campos seguros. Tente carregar novamente.'); },
+                    onIdentificationTypesReceived: (falha, tipos) => {
+                        if (ativo && (falha || !Array.isArray(tipos) || !tipos.some((tipo) => typeof tipo.id === 'string' && tipo.id))) {
+                            falhar('Não foi possível carregar os tipos de documento do titular. Tente carregar os campos novamente.');
+                        }
+                    },
                     onReady: () => {
-                        if (!ativo) return;
+                        if (!ativo || inicializacaoFalhou || camposProntos) return;
+                        if (!documentosDisponiveis()) {
+                            falhar('O tipo de documento do titular não foi preenchido pelo Mercado Pago. Tente carregar os campos novamente.');
+                            return;
+                        }
                         const montados = ['mp-numero', 'mp-validade', 'mp-cvv'].every((id) => {
                             const host = document.getElementById(id);
                             const frames = host?.querySelectorAll('iframe');
@@ -45,6 +71,7 @@ export default function useCartaoMercadoPago({ publicKey, total, email, aoTokeni
                                 && getComputedStyle(host).pointerEvents !== 'none' && getComputedStyle(frames[0]).pointerEvents !== 'none';
                         });
                         if (!montados) { falhar('Os campos seguros não carregaram. Confira o bloqueador de conteúdo e recarregue a página.'); return; }
+                        camposProntos = true;
                         clearTimeout(timeout); setPronto(true); setErro(null);
                     },
                     onFetching: (recurso) => {
@@ -52,7 +79,7 @@ export default function useCartaoMercadoPago({ publicKey, total, email, aoTokeni
                         return () => { if (ativo) setTokenizando(false); };
                     },
                     onPaymentMethodsReceived: (falha, dados) => {
-                        if (!ativo) return;
+                        if (!ativo || !camposProntos || inicializacaoFalhou) return;
                         if (falha) { setBandeira(null); setExigeEmissor(false); return; }
                         const metodos = Array.isArray(dados) ? dados : dados?.results || [];
                         const metodo = metodos[0];
@@ -63,11 +90,11 @@ export default function useCartaoMercadoPago({ publicKey, total, email, aoTokeni
                         if (ativo) { setBandeira(null); setExigeEmissor(false); }
                     },
                     onError: () => {
-                        if (ativo) { setErro(new Error('Confira os dados do cartão e do titular e tente novamente.')); setTokenizando(false); }
+                        if (ativo && !inicializacaoFalhou) { setErro(new Error('Confira os dados do cartão e do titular e tente novamente.')); setTokenizando(false); }
                     },
                     onSubmit: async (event) => {
                         event.preventDefault();
-                        if (!ativo) return;
+                        if (!ativo || !camposProntos || inicializacaoFalhou) return;
                         setTokenizando(false); setErro(null);
                         const { token, paymentMethodId } = cardForm.getCardFormData();
                         if (!token || !paymentMethodId) { setErro(new Error('Confira os dados do cartão para continuar.')); return; }
@@ -77,9 +104,8 @@ export default function useCartaoMercadoPago({ publicKey, total, email, aoTokeni
                     },
                 },
             });
-            timeout = window.setTimeout(() => falhar('Os campos seguros demoraram para carregar. Recarregue a página para tentar novamente.'), 15000);
-        }).catch((falha) => { if (ativo) setErro(falha); });
+        }).catch(() => falhar('Não foi possível carregar os campos seguros. Confira a conexão ou o bloqueador de conteúdo e tente carregar novamente.'));
         return () => { ativo = false; clearTimeout(timeout); cardForm?.unmount(); };
-    }, [publicKey, total, email]);
-    return { pronto, erro, tokenizando, exigeEmissor, bandeira };
+    }, [publicKey, total, email, tentativa]);
+    return { pronto, erro, tokenizando, exigeEmissor, bandeira, falhaCarregamento, recarregar: () => setTentativa((valor) => valor + 1) };
 }

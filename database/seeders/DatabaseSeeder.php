@@ -22,6 +22,10 @@ class DatabaseSeeder extends Seeder
             ProdutoCatalogoSeeder::class,
             ProdutoDescricaoSeeder::class,
         ]);
+        if (app()->environment(['local', 'testing'])) {
+            $this->call(ProdutoEmbalagemTesteSeeder::class);
+            $this->call(ProdutoGradeTesteSeeder::class);
+        }
         if (config('bff.client_secret')) {
             $this->call(BffClientSeeder::class);
         }

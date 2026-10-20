@@ -20,11 +20,13 @@ A loja usa Checkout Transparente via Orders, com MercadoPago.js v2 e campos segu
 
 ## Entrada HTTP e isolamento no Docker Compose
 
-O Nginx é a única entrada HTTP da aplicação, na porta 80 do ambiente local. PHP-FPM e Node/Vite não publicam portas no host e usam redes distintas, cada uma compartilhada apenas com o Nginx. Assets e WebSocket de desenvolvimento passam por `/vite/`. PostgreSQL e Redis ficam na rede interna `dados`, compartilhada somente com PHP, Horizon e scheduler; não publicam portas no host. PHP e workers mantêm saída para pagamento, provedor fiscal e SMTP; Node mantém saída para instalação de dependências. O túnel opcional ngrok alcança somente o Nginx, com painel de diagnóstico limitado ao loopback do host.
+O Nginx é a única entrada HTTP da aplicação, na porta 80 do ambiente local. PHP-FPM e Node/Vite não publicam portas no host e usam redes distintas, cada uma compartilhada apenas com o Nginx. Assets e WebSocket de desenvolvimento passam por `/vite/`. PostgreSQL e Redis ficam na rede interna `dados`, compartilhada somente com PHP, Horizon e scheduler. Redis não publica portas no host; PostgreSQL publica `127.0.0.1:5432:5432`, permitindo administração somente pelo próprio computador. PHP e workers mantêm saída para pagamento, provedor fiscal e SMTP; Node mantém saída para instalação de dependências. O túnel opcional ngrok alcança somente o Nginx, com painel de diagnóstico limitado ao loopback do host.
 
 Esse controle reduz exposição direta e limita comunicação entre containers. O host Docker e administradores do daemon continuam privilegiados; requisições às rotas publicadas ainda chegam ao Laravel pelo Nginx. A mudança não comprova conformidade PCI DSS nem retira automaticamente componentes do escopo. Produção ainda exige HTTPS/TLS e verificação das regras efetivas na hospedagem. Vite é ferramenta de desenvolvimento: em produção usar assets compilados e manter Node parado.
 
 Verificação local em 18/10/2026 após recriar os containers: Compose e `nginx -t` válidos; página inicial, sessão BFF, catálogo e assets via Nginx responderam HTTP 200; handshake HMR respondeu HTTP 101. As portas 5173, 5432 e 9000 recusaram conexão pelo loopback do host. Node alcançou Nginx, mas não PHP, PostgreSQL ou Redis por seus IPs internos; Nginx também não alcançou PostgreSQL ou Redis por IP. Essas evidências são do Docker local, não da hospedagem de produção.
+
+Atualização em 19/10/2026: acesso administrativo local ao PostgreSQL habilitado em `127.0.0.1:5432`, com rede `db_local` exclusiva do banco para viabilizar essa publicação no Docker. A rede `dados` permanece interna. A verificação de bloqueio da porta 5432 registrada acima descreve a configuração anterior de 18/10/2026.
 
 ## Trabalho necessário para a declaração
 
@@ -35,7 +37,7 @@ Verificação local em 18/10/2026 após recriar os containers: Compose e `nginx 
 
 ## Formulário de homologação
 
-O formulário MCP de Checkout API passou a exigir `ou_api_integration_model` ao selecionar cartões, com opções de cumprimento ou não cumprimento do padrão. A LCB ainda não declarou esse campo. Os dados de ramo e operação foram confirmados pelo responsável: varejo, uma marca, Brasil e uma conta. A submissão não foi concluída, pois não se deve preencher a declaração PCI por inferência a partir de testes ou de iframes.
+Em 19/10/2026, o responsável escolheu explicitamente “Declarar que ainda não cumpre o padrão”. O formulário MCP de Checkout API foi enviado com `ou_api_integration_model=no`, para a aplicação `880483999981556`, produto 24, Brasil. O Mercado Pago respondeu `Form saved successfully`, formulário **16400**, `needs_review=false`. Foram informados varejo, uma marca, um país, uma conta por país e Pix/boleto/crédito/débito configurados. O retorno confirma o salvamento do formulário, não comprova conformidade PCI, aprovação financeira de todas as modalidades ou liberação de produção. A avaliação e adequação PCI permanecem pendentes.
 
 ## Fontes
 

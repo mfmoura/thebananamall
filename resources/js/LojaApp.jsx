@@ -6,6 +6,7 @@ import Rodape from './components/Rodape';
 import { Callback, Cadastro, FluxoEmailSenha, Login } from './pages/Autenticacao';
 import { MensagemErro } from './components/Formulario';
 import BloqueioAutenticacao from './components/BloqueioAutenticacao';
+import PaginaSkeleton from './components/PaginaSkeleton';
 import { destinoSeguro } from './services/navegacao';
 
 const Catalogo = lazy(() => import('./pages/Catalogo'));
@@ -15,26 +16,18 @@ const Conta = lazy(() => import('./pages/Conta'));
 const Pedidos = lazy(() => import('./pages/Pedidos'));
 const Pagamento = lazy(() => import('./pages/Pagamento'));
 
-function PaginaSkeleton() {
-    return <section className="tela" role="status" aria-label="Carregando página" aria-busy="true">
-        <div className="skeleton-bloco skeleton-titulo" aria-hidden="true" />
-        <div className="skeleton-bloco skeleton-linha" aria-hidden="true" />
-        <div className="skeleton-bloco skeleton-linha" aria-hidden="true" />
-    </section>;
-}
-
 function Protegida() {
     const { usuario, carregando } = useLoja();
     const location = useLocation();
     useEffect(() => {
         if (!usuario && !carregando) sessionStorage.setItem('lcb.destino', `${location.pathname}${location.search}${location.hash}`);
     }, [usuario, carregando, location.pathname, location.search, location.hash]);
-    if (carregando) return <><PaginaSkeleton /><BloqueioAutenticacao rotulo="Verificando acesso" /></>;
+    if (carregando) return <PaginaSkeleton rotulo="Verificando acesso" />;
     return usuario ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
 function Conteudo() {
-    const { erro, setErro, processandoAutenticacao } = useLoja();
+    const { erro, setErro, processandoAutenticacao, carrinhoOcupado } = useLoja();
     const location = useLocation();
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -47,7 +40,7 @@ function Conteudo() {
         <BarraSuperior />
         <main id="conteudo" className="pagina" tabIndex={-1}>
             {erro && <><MensagemErro erro={erro} /><button onClick={() => setErro('')}>Fechar aviso</button></>}
-            <Suspense fallback={<><PaginaSkeleton /><BloqueioAutenticacao rotulo="Carregando página" /></>}><Routes>
+            <Suspense fallback={<PaginaSkeleton />}><Routes>
                 <Route path="/" element={<Catalogo />} />
                 <Route path="/produtos" element={<Catalogo />} />
                 <Route path="/produtos/:id" element={<Catalogo />} />
@@ -68,6 +61,7 @@ function Conteudo() {
         </main>
         <Rodape />
         {processandoAutenticacao && <BloqueioAutenticacao />}
+        {carrinhoOcupado && <BloqueioAutenticacao rotulo="Atualizando compra" />}
     </>;
 }
 

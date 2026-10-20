@@ -6,6 +6,8 @@ Esta integração implementa NF-e modelo 55 de teste: rascunho, transmissão ass
 
 ## Configuração
 
+O cliente de comunicação externa fica em `app/Webservices/FiscalContoraClient.php`. Os services fiscais mantêm a coordenação da emissão, persistência e regras de negócio, recebendo o cliente pelo container do Laravel.
+
 O Docker Compose também inicia `horizon` e `scheduler`. A conexão de fila é Redis, com fila `fiscal` separada da `default`; o PHP inclui `pcntl`, exigida pelo Horizon. O agendador recupera publicações pendentes a cada minuto e não confirma pagamentos.
 
 ## Compra e emissão assíncrona
@@ -79,3 +81,6 @@ O snapshot enviado ao provedor fica cifrado no banco com a chave Laravel e ocult
 - [Idempotência](https://fiscal.contora.com.br/documentacao/resiliencia)
 
 Os testes automatizados usam `Http::fake`, banco SQLite em memória e armazenamento temporário. Não fazem emissão real nem consomem eventos da conta.
+
+
+Frete integrado: o worker usa o snapshot persistido do pedido, preserva total_frete e envia shipping.freight_amount e modality para rateio pela Contora. O pagamento fiscal e o total do pedido incluem o frete escolhido. Veja [Frete](FRETE.md).

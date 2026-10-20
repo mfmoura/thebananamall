@@ -1,7 +1,8 @@
 import { useId, useState } from 'react';
 
-export default function CampoSenha({ label, ...props }) {
-    const id = useId();
+export default function CampoSenha({ label, id: idInformado, ...props }) {
+    const idGerado = useId();
+    const id = idInformado || idGerado;
     const [visivel, setVisivel] = useState(false);
 
     return <div className="campo-senha">

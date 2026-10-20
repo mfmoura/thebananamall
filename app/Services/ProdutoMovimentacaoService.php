@@ -19,17 +19,18 @@ class ProdutoMovimentacaoService
     public function __construct(
         private readonly ReservaEstoqueService $reservaEstoqueService,
         private readonly CarrinhoService $carrinhoService,
+        private readonly GradeProdutoService $grades,
     ) {}
 
-    public function contarEstoque(Produto $produto): float
+    public function contarEstoque(Produto $produto, ?string $tamanho = null): float
     {
-        return $this->reservaEstoqueService->contarEstoque($produto);
+        return $this->reservaEstoqueService->contarEstoque($produto, $tamanho);
     }
 
-    public function contarDisponivel(Produto $produto): float
+    public function contarDisponivel(Produto $produto, ?string $tamanho = null): float
     {
         return $this->carrinhoService->comBloqueioDeEstoque(
-            fn (): float => $this->reservaEstoqueService->contarDisponivel($produto),
+            fn (): float => $this->reservaEstoqueService->contarDisponivel($produto, $tamanho),
         );
     }
 
@@ -44,6 +45,7 @@ class ProdutoMovimentacaoService
                 'estoque' => $contado,
                 'estoque_reservado' => $reservado,
                 'estoque_disponivel' => round($contado - $reservado, 3),
+                'estoque_por_tamanho' => $this->reservaEstoqueService->resumoPorTamanho($produto),
             ];
         });
     }
@@ -60,16 +62,19 @@ class ProdutoMovimentacaoService
                 $produto = Produto::query()->lockForUpdate()->findOrFail($dados['produto_id']);
                 $direcao = DirecaoMovimentacao::from($dados['direcao']);
                 $quantidade = (float) $dados['quantidade'];
+                $tamanho = $dados['tamanho'] ?? null;
+                $this->grades->validarTamanho($produto, $tamanho, $quantidade);
 
-                $this->validarSaida($produto, $direcao, $quantidade);
+                $this->validarSaida($produto, $direcao, $quantidade, true, $tamanho);
 
                 $nota = NotaEstoque::query()->create([
                     'usuario_id' => $usuario->id,
-                    'referencia' => $dados['nota'],
+                    'referencia' => ($dados['tipo'] ?? 'ajuste') === 'nota' ? $dados['nota'] : 'AJUSTE-ESTOQUE',
+                    'status' => ($dados['tipo'] ?? 'ajuste') === 'nota' ? 'Nota a verificar' : 'Ajuste de Estoque',
                     'observacao' => $dados['observacao'] ?? null,
                 ]);
 
-                return $this->criarMovimentacao($produto, $nota, $direcao, $quantidade);
+                return $this->criarMovimentacao($produto, $nota, $direcao, $quantidade, null, $tamanho);
             },
         ));
     }
@@ -105,16 +110,18 @@ class ProdutoMovimentacaoService
             'observacao' => 'Movimentacao originada pela nota fiscal '.$nota->numero.'.',
         ]);
 
-        foreach ($nota->itens->groupBy('produto_id')->sortKeys() as $produtoId => $itens) {
-            $produto = Produto::query()->lockForUpdate()->findOrFail($produtoId);
+        foreach ($nota->itens->groupBy(fn ($item) => $item->produto_id.':'.$item->tamanho)->sortKeys() as $itens) {
+            $produto = Produto::query()->lockForUpdate()->findOrFail($itens->first()->produto_id);
+            $tamanho = $itens->first()->tamanho;
+            $this->grades->validarTamanho($produto, $tamanho, (float) $itens->sum('quantidade'));
             $quantidade = (float) $itens->sum(static fn ($item): float => (float) $item->quantidade);
 
-            $this->validarSaida($produto, $direcao, $quantidade);
-            $this->criarMovimentacao($produto, $notaEstoque, $direcao, $quantidade);
+            $this->validarSaida($produto, $direcao, $quantidade, true, $tamanho);
+            $this->criarMovimentacao($produto, $notaEstoque, $direcao, $quantidade, null, $tamanho);
         }
     }
 
-    public function registrarSaidaDoPedido(Produto $produto, Pedido $pedido, float $quantidade): ProdutoMovimentacao
+    public function registrarSaidaDoPedido(Produto $produto, Pedido $pedido, float $quantidade, ?string $tamanho = null): ProdutoMovimentacao
     {
         $nota = NotaEstoque::query()->firstOrCreate(
             ['pedido_id' => $pedido->id],
@@ -122,9 +129,10 @@ class ProdutoMovimentacaoService
         );
 
         // O checkout consome a quantidade já reservada pelo carrinho do próprio Cliente.
-        $this->validarSaida($produto, DirecaoMovimentacao::Saida, $quantidade, false);
+        $this->grades->validarTamanho($produto, $tamanho, $quantidade);
+        $this->validarSaida($produto, DirecaoMovimentacao::Saida, $quantidade, false, $tamanho);
 
-        return $this->criarMovimentacao($produto, $nota, DirecaoMovimentacao::Saida, $quantidade);
+        return $this->criarMovimentacao($produto, $nota, DirecaoMovimentacao::Saida, $quantidade, null, $tamanho);
     }
 
     public function estornar(ProdutoMovimentacao $movimentacao, ?int $usuarioId): bool
@@ -160,7 +168,7 @@ class ProdutoMovimentacaoService
         $produto = Produto::query()->lockForUpdate()->findOrFail($original->produto_id);
         $direcaoEstorno = $original->direcao->oposta();
         $quantidade = (float) $original->quantidade;
-        $this->validarSaida($produto, $direcaoEstorno, $quantidade);
+        $this->validarSaida($produto, $direcaoEstorno, $quantidade, true, $original->tamanho);
 
         $notaEstorno = NotaEstoque::query()->create([
             'usuario_id' => $usuarioId,
@@ -168,7 +176,7 @@ class ProdutoMovimentacaoService
             'observacao' => 'Estorno da movimentação '.$original->id,
         ]);
 
-        $this->criarMovimentacao($produto, $notaEstorno, $direcaoEstorno, $quantidade, $original->id);
+        $this->criarMovimentacao($produto, $notaEstorno, $direcaoEstorno, $quantidade, $original->id, $original->tamanho);
 
         return true;
     }
@@ -178,11 +186,12 @@ class ProdutoMovimentacaoService
         DirecaoMovimentacao $direcao,
         float $quantidade,
         bool $descontarReservas = true,
+        ?string $tamanho = null,
     ): void
     {
         $estoque = $descontarReservas
-            ? $this->reservaEstoqueService->contarDisponivel($produto)
-            : $this->contarEstoque($produto);
+            ? $this->reservaEstoqueService->contarDisponivel($produto, $tamanho)
+            : $this->contarEstoque($produto, $tamanho);
 
         if (
             $direcao === DirecaoMovimentacao::Saida
@@ -200,9 +209,11 @@ class ProdutoMovimentacaoService
         DirecaoMovimentacao $direcao,
         float $quantidade,
         ?int $estornoDeId = null,
+        ?string $tamanho = null,
     ): ProdutoMovimentacao {
         return $produto->movimentacoes()->create([
             'nota_id' => $nota->id,
+            'tamanho' => $tamanho,
             'direcao' => $direcao,
             'quantidade' => $quantidade,
             'data' => now(),

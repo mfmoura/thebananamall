@@ -16,6 +16,7 @@ class NotaFiscalService
     public function __construct(
         private readonly CarrinhoService $carrinhoService,
         private readonly ProdutoMovimentacaoService $movimentacaoService,
+        private readonly GradeProdutoService $grades,
     ) {}
 
     public function registrar(Usuario $usuario, array $dados): NotaFiscal
@@ -60,6 +61,7 @@ class NotaFiscalService
                     /** @var Produto $produto */
                     $produto = $produtos->get((int) $item['produto_id']);
                     $quantidade = (float) $item['quantidade'];
+                    $this->grades->validarTamanho($produto, $item['tamanho'] ?? null, $quantidade);
                     $valorUnitario = (float) $item['valor_unitario'];
                     $valorTotal = isset($item['valor_total'])
                         ? (float) $item['valor_total']
@@ -68,7 +70,7 @@ class NotaFiscalService
                     $itens[] = [
                         ...$item,
                         'codigo_produto' => $item['codigo_produto'] ?? $produto->codigo,
-                        'descricao' => $item['descricao'] ?? $produto->nome,
+                        'descricao' => $item['descricao'] ?? ($produto->nome.(isset($item['tamanho']) ? ' - Tamanho '.$item['tamanho'] : '')),
                         'valor_total' => number_format($valorTotal, 2, '.', ''),
                     ];
                 }
@@ -114,10 +116,10 @@ class NotaFiscalService
     /** @param array<int, array{produto_id:int|string, quantidade:int|float|string}> $itens */
     private function validarItensDaVenda(array $itens, Pedido $pedido): void
     {
-        $quantidadesPedido = $pedido->itens->groupBy('codigo')->map(
+        $quantidadesPedido = $pedido->itens->groupBy(fn ($item) => $item->codigo.':'.$item->tamanho)->map(
             static fn ($linhas): float => (float) $linhas->sum('quantidade'),
         );
-        $quantidadesNota = collect($itens)->groupBy('produto_id')->map(
+        $quantidadesNota = collect($itens)->groupBy(fn ($item) => $item['produto_id'].':'.($item['tamanho'] ?? ''))->map(
             static fn ($linhas): float => (float) $linhas->sum('quantidade'),
         );
 

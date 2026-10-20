@@ -23,11 +23,11 @@ function semMascara(mascara, valor) {
     return mascara ? valor.replace(/\D/g, '') : valor;
 }
 
-export default function Formulario({ campos, enviar, botao = 'Salvar', valores = {}, sucesso = 'Dados salvos.', children, desabilitado = false, aoAlterarCampo, bloquearTela = false, textoOcupado = 'Processando…' }) {
+export default function Formulario({ campos, enviar, botao = 'Salvar', valores = {}, sucesso = 'Dados salvos.', children, desabilitado = false, aoAlterarCampo, bloquearTela = true, limparSenhasAposEnvio = true, action, textoOcupado = 'Processando…' }) {
     const [erro, setErro] = useState(null);
     const [mensagem, setMensagem] = useState('');
     const [ocupado, setOcupado] = useState(false);
-    return <form className="formulario" aria-busy={ocupado} onInvalid={(event) => event.target.setCustomValidity(mensagemValidacao(event.target))} onInput={(event) => event.target.setCustomValidity?.('')} onChange={(event) => {
+    return <form className="formulario" method="post" action={action} aria-busy={ocupado} onInvalid={(event) => event.target.setCustomValidity(mensagemValidacao(event.target))} onInput={(event) => event.target.setCustomValidity?.('')} onChange={(event) => {
         event.target.setCustomValidity?.('');
         const campo = campos.find(({ nome }) => nome === event.target.name);
         if (campo?.mascara) event.target.value = aplicarMascara(campo.mascara, event.target.value);
@@ -41,18 +41,21 @@ export default function Formulario({ campos, enviar, botao = 'Salvar', valores =
             const dados = Object.fromEntries(new FormData(form));
             for (const campo of campos) if (campo.mascara && campo.nome in dados) dados[campo.nome] = semMascara(campo.mascara, dados[campo.nome]);
             await enviar(dados);
-            form.querySelectorAll('input[data-campo-senha]').forEach((input) => { input.value = ''; });
+            // O login preserva os valores para o gerenciador de senhas reconhecer o envio.
+            if (limparSenhasAposEnvio) form.querySelectorAll('input[data-campo-senha]').forEach((input) => { input.value = ''; });
             setMensagem(sucesso);
         } catch (e) { setErro(e); } finally { setOcupado(false); }
     }}>
         <MensagemErro erro={erro} />
         {ocupado && bloquearTela && <BloqueioAutenticacao rotulo="Processando, aguarde" />}
         {mensagem && <p className="mensagem" role="status">{mensagem}</p>}
-        {campos.map(({ nome, label, tipo = 'text', obrigatorio = true, mascara, ...props }) => tipo === 'password'
-            ? <CampoSenha key={nome} label={label} name={nome} defaultValue={valores[nome] ?? ''} required={obrigatorio} {...props} />
+        {campos.map(({ nome, label, tipo = 'text', obrigatorio = true, mascara, oculto = false, ...props }) => <div key={nome} className={`campo-formulario${oculto ? ' campo-reservado' : ''}`} inert={oculto || undefined} aria-hidden={oculto || undefined}>
+            {tipo === 'password'
+            ? <CampoSenha label={label} name={nome} defaultValue={valores[nome] ?? ''} {...props} required={!oculto && obrigatorio} disabled={oculto || props.disabled} />
             : tipo === 'checkbox'
-                ? <label key={nome} className="campo-checkbox"><input name={nome} type="checkbox" required={obrigatorio} {...props} />{label}</label>
-                : <label key={nome}>{label}<input name={nome} type={tipo} defaultValue={valores[nome] ?? ''} required={obrigatorio} {...props} /></label>)}
+                ? <label className="campo-checkbox"><input name={nome} type="checkbox" {...props} required={!oculto && obrigatorio} disabled={oculto || props.disabled} />{label}</label>
+                : <label>{label}<input name={nome} type={tipo} defaultValue={valores[nome] ?? ''} {...props} required={!oculto && obrigatorio} disabled={oculto || props.disabled} /></label>}
+        </div>)}
         {children}
         <button className="botao-principal" disabled={ocupado || desabilitado}>{ocupado ? textoOcupado : botao}</button>
     </form>;

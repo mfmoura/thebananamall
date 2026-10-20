@@ -2,14 +2,15 @@
 
 namespace App\Services;
 
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
+use App\Webservices\ViaCepClient;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 class ViaCepService
 {
+    public function __construct(private readonly ViaCepClient $client) {}
+
     /** @param array<string, mixed> $endereco */
     public function confirmarEndereco(array $endereco, string $prefixoCampo = ''): void
     {
@@ -29,16 +30,7 @@ class ViaCepService
         if (! preg_match('/^\\d{8}$/', $cep)) {
             throw ValidationException::withMessages([$this->campo($prefixoCampo, 'cep') => 'Informe um CEP com oito dígitos.']);
         }
-        $url = rtrim((string) config('services.viacep.base_url'), '/');
-
-        try {
-            $resposta = Http::acceptJson()
-                ->connectTimeout(3)
-                ->timeout((int) config('services.viacep.timeout', 8))
-                ->get("{$url}/ws/{$cep}/json/");
-        } catch (ConnectionException $exception) {
-            throw new ServiceUnavailableHttpException(null, 'Não foi possível consultar o ViaCEP. Tente novamente.', $exception);
-        }
+        $resposta = $this->client->consultar($cep);
 
         if ($resposta->status() === 400) {
             throw ValidationException::withMessages([$this->campo($prefixoCampo, 'cep') => 'O CEP informado é inválido.']);

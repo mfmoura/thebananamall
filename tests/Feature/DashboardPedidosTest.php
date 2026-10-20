@@ -46,6 +46,25 @@ class DashboardPedidosTest extends TestCase
         $this->deleteJson('/api/admin/pedidos/'.$pedido->id)->assertStatus(405);
     }
 
+    public function test_expedicao_exige_pagamento_nota_autorizada_e_pedido_ainda_nao_enviado(): void
+    {
+        foreach (['aguardando_pagamento', 'pago', 'em_processamento', 'enviado', 'entregue', 'cancelado', 'falhou'] as $status) {
+            $pedido = $this->pedido($status);
+            $nota = $pedido->notasFiscais()->create(['tipo_operacao' => 'saida', 'natureza_operacao' => 'venda', 'status' => 'autorizada']);
+            $pedido->processamentoFiscal()->create(['chave' => fake()->uuid(), 'etapa' => 'concluido', 'nota_fiscal_id' => $nota->id]);
+        }
+        $semNota = $this->pedido('pago');
+        $semNota->processamentoFiscal()->create(['chave' => fake()->uuid(), 'etapa' => 'concluido']);
+        $notaCancelada = $this->pedido('pago');
+        $nota = $notaCancelada->notasFiscais()->create(['tipo_operacao' => 'saida', 'natureza_operacao' => 'venda', 'status' => 'cancelada']);
+        $notaCancelada->processamentoFiscal()->create(['chave' => fake()->uuid(), 'etapa' => 'concluido', 'nota_fiscal_id' => $nota->id]);
+        $this->pedido('pago')->delete();
+        $this->admin();
+        $this->getJson('/api/admin/pedidos?expedicao=1')->assertOk()->assertJsonPath('data.total', 2);
+        $this->getJson('/api/admin/pedidos?expedicao=1&status=entregue')->assertOk()->assertJsonPath('data.total', 0);
+        $this->getJson('/api/admin/pedidos?expedicao=invalido')->assertUnprocessable();
+    }
+
     public function test_exige_perfil_escopo_e_permissao_pedidos(): void
     {
         $this->getJson('/api/admin/pedidos')->assertUnauthorized();
@@ -106,6 +125,8 @@ class DashboardPedidosTest extends TestCase
         $pedido = $this->pedido();
         $this->postJson('/dashboard/login', ['login' => $usuario->login, 'password' => 'password'])->assertOk();
         $this->get('/dashboard/pedidos')->assertOk();
+        $this->get('/dashboard/expedicao')->assertOk();
+        $this->get('/dashboard/expedicao/'.$pedido->id)->assertOk();
         $url = $this->postJson('/dashboard/authorize')->assertOk()->json('authorization_url');
         $callback = $this->get($url)->assertRedirect()->headers->get('Location');
         $this->get($callback)->assertRedirect('/dashboard/');

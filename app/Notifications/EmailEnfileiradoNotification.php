@@ -13,7 +13,8 @@ abstract class EmailEnfileiradoNotification extends Notification implements Shou
     use Queueable;
 
     public $tries = 3;
-    public $timeout = 30;
+    // Inclui renderização das views e SMTP (limitado separadamente a 20s).
+    public $timeout = 90;
 
     public function __construct()
     {

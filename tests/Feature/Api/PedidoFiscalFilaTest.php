@@ -40,6 +40,7 @@ class PedidoFiscalFilaTest extends TestCase
     {
         parent::setUp();
         Queue::fake();
+        $this->mock(\App\Services\FreteService::class)->shouldReceive('confirmar')->andReturn(['valor' => '0.00', 'nome' => 'Teste', 'modalidade_fiscal' => 0]);
         Http::preventStrayRequests();
         config(['services.fiscal_contora.cnpj' => '12345678000199', 'services.fiscal_contora.uf_emitente' => 'SP', 'services.fiscal_contora.serie' => 1, 'services.fiscal_contora.ambiente' => 'homologacao']);
         $this->usuario = Usuario::factory()->create(['email_validado' => true]);
@@ -157,6 +158,8 @@ class PedidoFiscalFilaTest extends TestCase
 
     public function test_falha_ao_publicar_na_fila_nao_perde_pagamento_e_outbox_recupera(): void
     {
+        // Isola a falha da fila fiscal; a confirmação também agenda uma notificação por e-mail.
+        \Illuminate\Support\Facades\Notification::fake();
         $pedido = $this->pedido();
         Bus::shouldReceive('dispatch')->once()->andThrow(new \RuntimeException('Redis temporariamente indisponível'));
         $this->assertTrue(app(PedidoService::class)->registrarPagamentoConfirmado($pedido));
@@ -176,7 +179,7 @@ class PedidoFiscalFilaTest extends TestCase
         $exemplo = json_decode(file_get_contents(base_path('docs/exemplos/contora-emissao.json')), true);
 
         return $this->withHeader('Idempotency-Key', '33333333-3333-4333-8333-333333333333')
-            ->postJson('/api/pedidos', ['forma_pagamento_id' => $this->pagamento, 'dados_fiscais' => $exemplo['destinatario']]);
+            ->postJson('/api/pedidos', ['frete_cotacao_id' => '44444444-4444-4444-8444-444444444444', 'frete_servico' => '04510', 'forma_pagamento_id' => $this->pagamento, 'dados_fiscais' => $exemplo['destinatario']]);
     }
 
     private function pedido(): Pedido

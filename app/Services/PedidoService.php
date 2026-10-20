@@ -7,6 +7,7 @@ use App\Models\Cliente;
 use App\Models\FormaPagamento;
 use App\Models\Pedido;
 use App\Models\Produto;
+use App\Notifications\PagamentoConfirmadoNotification;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +18,7 @@ class PedidoService
         private readonly CarrinhoService $carrinhoService,
         private readonly ProdutoMovimentacaoService $movimentacaoService,
         private readonly PedidoFiscalService $fiscalService,
+        private readonly FreteService $freteService,
     ) {}
 
     public function listar(Cliente $cliente): Collection
@@ -32,13 +34,15 @@ class PedidoService
         return $pedido->load(['formaPagamento', 'itens.produto.imagens', 'processamentoFiscal', 'pagamento']);
     }
 
-    public function comprar(Cliente $cliente, int $formaPagamentoId, string $idempotencyKey, array $dadosFiscais = []): Pedido
+    public function comprar(Cliente $cliente, int $formaPagamentoId, string $idempotencyKey, array $dadosFiscais = [], string $freteCotacaoId = '', string $freteServico = ''): Pedido
     {
         return $this->carrinhoService->comBloqueioDeEstoque(function () use (
             $cliente,
             $formaPagamentoId,
             $idempotencyKey,
             $dadosFiscais,
+            $freteCotacaoId,
+            $freteServico,
         ): Pedido {
             $existente = $this->pedidoIdempotente($cliente, $idempotencyKey);
 
@@ -54,7 +58,7 @@ class PedidoService
 
             $this->carrinhoService->validarParaCheckout($cliente, $carrinho);
 
-            [$pedido, $criado] = DB::transaction(function () use ($cliente, $formaPagamentoId, $idempotencyKey, $carrinho, $dadosFiscais): array {
+            [$pedido, $criado] = DB::transaction(function () use ($cliente, $formaPagamentoId, $idempotencyKey, $carrinho, $dadosFiscais, $freteCotacaoId, $freteServico): array {
                 $clienteBloqueado = Cliente::query()->lockForUpdate()->findOrFail($cliente->id);
                 $existente = $this->pedidoIdempotente($clienteBloqueado, $idempotencyKey);
 
@@ -83,12 +87,15 @@ class PedidoService
                     ]);
                 }
 
+                $frete = $this->freteService->confirmar($clienteBloqueado, $freteCotacaoId, $freteServico, $dadosFiscais['endereco']['cep'], $carrinho, $produtos);
                 $pedido = Pedido::query()->create([
                     'cliente_id' => $clienteBloqueado->id,
                     'forma_pagamento_id' => $formaPagamento->id,
                     'status' => StatusPedido::AguardandoPagamento,
                     'data' => now(),
                     'idempotency_key' => $idempotencyKey,
+                    'custo_frete' => $frete['valor'],
+                    'frete' => $frete,
                 ]);
 
                 foreach ($carrinho->itens as $item) {
@@ -105,6 +112,7 @@ class PedidoService
 
                     $pedido->itens()->create([
                         'codigo' => $produto->id,
+                        'tamanho' => $item->tamanho,
                         'configuracao_fiscal' => $produto->configuracao_fiscal,
                         'preco_id' => $precoAtual->id,
                         'preco' => $precoAtual->preco,
@@ -115,6 +123,7 @@ class PedidoService
                         $produto,
                         $pedido,
                         $item->quantidade(),
+                        $item->tamanho,
                     );
                 }
 
@@ -167,7 +176,12 @@ class PedidoService
                 return false;
             }
 
-            return $pedido->update(['status' => StatusPedido::Pago]);
+            $atualizado = $pedido->update(['status' => StatusPedido::Pago]);
+            if ($atualizado && ! $pedido->cliente->trashed()) {
+                $pedido->cliente->usuario?->notify(new PagamentoConfirmadoNotification($pedido->id));
+            }
+
+            return $atualizado;
         });
     }
 

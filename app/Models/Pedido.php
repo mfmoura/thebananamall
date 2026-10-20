@@ -20,17 +20,21 @@ class Pedido extends Model
         'status',
         'data',
         'idempotency_key',
+        'custo_frete',
+        'frete',
     ];
 
     protected $hidden = ['idempotency_key'];
 
-    protected $appends = ['total'];
+    protected $appends = ['subtotal', 'total'];
 
     protected function casts(): array
     {
         return [
             'status' => StatusPedido::class,
             'data' => 'datetime',
+            'custo_frete' => 'decimal:2',
+            'frete' => 'array',
         ];
     }
 
@@ -69,7 +73,7 @@ class Pedido extends Model
         return $this->hasOne(PedidoPagamento::class)->select(['id', 'pedido_id', 'status', 'processamento']);
     }
 
-    public function getTotalAttribute(): string
+    public function getSubtotalAttribute(): string
     {
         $centavos = $this->itens->sum(
             static fn (PedidoItem $item): int => (int) round(
@@ -78,5 +82,11 @@ class Pedido extends Model
         );
 
         return number_format($centavos / 100, 2, '.', '');
+    }
+
+    public function getTotalAttribute(): string
+    {
+        return number_format(((int) round((float) $this->subtotal * 100)
+            + (int) round((float) ($this->custo_frete ?? 0) * 100)) / 100, 2, '.', '');
     }
 }

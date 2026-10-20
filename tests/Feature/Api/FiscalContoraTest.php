@@ -78,6 +78,19 @@ class FiscalContoraTest extends TestCase
         });
     }
 
+    public function test_frete_e_persistido_e_enviado_ao_provedor(): void
+    {
+        $dados = $this->dados();
+        $dados['total_frete'] = 25.80;
+        $dados['modalidade_frete'] = 0;
+        $dados['pagamentos'][0]['valor'] = 50.80;
+        $nota = app(\App\Services\ContoraNotaFiscalService::class)->emitir(auth('api')->user(), $dados);
+        $this->assertSame('25.80', $nota->total_frete);
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/nfe/drafts')
+            && $request['payload']['shipping']['freight_amount'] === 25.8
+            && $request['payload']['shipping']['modality'] === 0);
+    }
+
     public function test_emissao_e_idempotente_e_nao_movimenta_estoque_de_homologacao(): void
     {
         $dados = $this->dados();

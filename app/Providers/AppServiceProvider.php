@@ -24,6 +24,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Mail\Events\MessageSent::class, function ($evento): void {
+            \Illuminate\Support\Facades\Log::info('E-mail aceito pelo transporte.', [
+                'notificacao' => $evento->data['__laravel_notification'] ?? null,
+                'message_id' => $evento->sent->getMessageId(),
+            ]);
+        });
         \App\Models\Pedido::observe(\App\Observers\PedidoObserver::class);
         Passport::useClientModel(OAuthClient::class);
         // Passport resolve este contrato mesmo quando o BFF dispensa consentimento.

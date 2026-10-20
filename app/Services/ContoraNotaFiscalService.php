@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\StatusNotaFiscal;
 use App\Models\NotaFiscal;
 use App\Models\Usuario;
+use App\Webservices\FiscalContoraClient;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Arr;
@@ -115,7 +116,7 @@ class ContoraNotaFiscalService
             throw new HttpException(409, 'Já existe uma nota com este número e série. Reutilize a idempotency_key original.');
         }
 
-        $dominio = Arr::only($dados, ['pedido_id', 'natureza_operacao']);
+        $dominio = Arr::only($dados, ['pedido_id', 'natureza_operacao', 'total_frete']);
         $dominio += [
             'provedor' => 'contora', 'referencia_provedor' => null,
             'numero' => (string) (int) $dados['numero'], 'serie' => (string) (int) $dados['serie'],

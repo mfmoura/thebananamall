@@ -12,6 +12,7 @@ class PedidoItem extends Model
     protected $table = 'pedido_itens';
 
     protected $fillable = [
+        'tamanho',
         'pedido_id',
         'configuracao_fiscal',
         'codigo',

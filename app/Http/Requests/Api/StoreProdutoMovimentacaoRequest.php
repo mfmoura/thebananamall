@@ -11,17 +11,20 @@ class StoreProdutoMovimentacaoRequest extends AdministradorRequest
     {
         $administrador = $this->user()?->administrador;
 
-        return $this->input('direcao') === DirecaoMovimentacao::Entrada->value
-            && ($administrador?->acessaPagina('estoque') || $administrador?->acessaPagina('manutencao'));
+        return $this->input('tipo', 'ajuste') === 'nota'
+            ? ($administrador?->acessaPagina('contabilidade') && $this->input('direcao') === 'entrada')
+            : ($administrador?->acessaPagina('estoque') || $administrador?->acessaPagina('manutencao'));
     }
 
     public function rules(): array
     {
         return [
+            'tamanho' => ['sometimes', 'nullable', 'string', 'max:30'],
             'produto_id' => ['required', 'integer', 'exists:produtos,id,deleted_at,NULL'],
-            'direcao' => ['required', Rule::in([DirecaoMovimentacao::Entrada->value])],
+            'tipo' => ['sometimes', Rule::in(['ajuste', 'nota'])],
+            'direcao' => ['required', Rule::enum(DirecaoMovimentacao::class)],
             'quantidade' => ['required', 'numeric', 'gt:0', 'decimal:0,3'],
-            'nota' => ['required', 'string', 'max:120'],
+            'nota' => [Rule::requiredIf($this->input('tipo') === 'nota'), 'nullable', 'string', 'max:120'],
             'observacao' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ];
     }

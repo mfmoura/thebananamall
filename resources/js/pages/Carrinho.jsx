@@ -20,7 +20,7 @@ export default function Carrinho() {
     return <section className="tela"><h1>Meu carrinho</h1><MensagemErro erro={erro} />
         <AvisoReservaCarrinho />
         {!itens.length ? <p>Seu carrinho está vazio. <Link to="/produtos">Conheça nossos produtos</Link>.</p> : <>
-            {itens.map((item) => <ItemCarrinho key={item.codigo} item={item} />)}
+            {itens.map((item) => <ItemCarrinho key={`${item.codigo}:${item.tamanho ?? ''}`} item={item} />)}
             <h2>Total: {dinheiro(total / 100)}</h2>
             <p>Valores e disponibilidade são conferidos novamente ao finalizar.</p>
             <Link className="botao-principal" aria-disabled={carrinhoOcupado} to={usuario ? '/checkout' : '/login'} onClick={(event) => { if (carrinhoOcupado) { event.preventDefault(); return; } if (!usuario) sessionStorage.setItem('lcb.destino', '/checkout'); }}>{usuario ? 'Finalizar compra' : 'Entrar para finalizar'}</Link>

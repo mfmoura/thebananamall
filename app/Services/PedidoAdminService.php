@@ -12,6 +12,10 @@ class PedidoAdminService
     public function listar(array $filtros): LengthAwarePaginator
     {
         return Pedido::query()->with(['itens', 'formaPagamento', 'processamentoFiscal'])
+            ->when($filtros['expedicao'] ?? false, fn ($q) => $q
+                ->whereIn('status', [StatusPedido::Pago, StatusPedido::EmProcessamento])
+                ->whereHas('processamentoFiscal', fn ($fiscal) => $fiscal->where('etapa', 'concluido')
+                    ->whereHas('notaFiscal', fn ($nota) => $nota->where('status', 'autorizada'))))
             ->when($filtros['pedido_id'] ?? null, fn ($q, $id) => $q->whereKey($id))
             ->when($filtros['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->orderByDesc('id')->paginate($filtros['per_page'] ?? 10);

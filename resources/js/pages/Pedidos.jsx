@@ -4,6 +4,16 @@ import { api } from '../services/api';
 import useDados from '../hooks/useDados';
 import { MensagemErro } from '../components/Formulario';
 import { dinheiro } from './Catalogo';
+import TempoPagamento from '../components/TempoPagamento';
+import { estadoPagamento } from '../services/estadoPagamento';
+
+async function carregarPedido(id) {
+    const pedido = await api.pedido(id);
+    if (pedido.status === 'aguardando_pagamento' && pedido.pagamento) {
+        pedido.pagamento = await api.consultarPagamento(id);
+    }
+    return pedido;
+}
 
 export default function Pedidos() {
     const { id } = useParams();
@@ -11,7 +21,7 @@ export default function Pedidos() {
     const [falha, setFalha] = useState(null);
     const [ocupado, setOcupado] = useState(false);
     const [atual, setAtual] = useState(null);
-    const { dados, erro, carregando } = useDados(() => id ? api.pedido(id) : api.pedidos(), `${id}-${revisao}`);
+    const { dados, erro, carregando } = useDados(() => id ? carregarPedido(id) : api.pedidos(), `${id}-${revisao}`);
     useEffect(() => { setAtual(null); }, [id, revisao]);
     const estado = atual || dados;
     useEffect(() => {
@@ -21,7 +31,7 @@ export default function Pedidos() {
         let timer;
         const atualizar = async () => {
             if (!document.hidden) {
-                try { const pedido = await api.pedido(id); if (ativo) setAtual(pedido); }
+                try { const pedido = await carregarPedido(id); if (ativo) setAtual(pedido); }
                 catch (e) { if (ativo) setFalha(e); }
             }
             if (ativo) timer = setTimeout(atualizar, 10000);
@@ -37,8 +47,9 @@ export default function Pedidos() {
         {carregando && <p role="status">Carregando pedidos…</p>}
         {estado && (id ? [estado] : estado).map((pedido) => <article className="produto-card" key={pedido.id}>
             <h2><Link to={`/pedidos/${pedido.id}`}>Pedido #{pedido.id}</Link></h2>
-            <p>Status: {pedido.status}</p><p>Total: {dinheiro(pedido.total)}</p>
+            <p>Status: {pedido.status}</p><p>Produtos: {dinheiro(pedido.subtotal)} · Frete: {dinheiro(pedido.custo_frete)} {pedido.frete?.nome}</p>{pedido.frete?.prazo && <p>Entrega: {pedido.frete.prazo}</p>}<p>Total: {dinheiro(pedido.total)}</p>
             {pedido.status === 'aguardando_pagamento' && <>
+                {id && pedido.pagamento && !estadoPagamento(pedido, pedido.pagamento).encerrado && !estadoPagamento(pedido, pedido.pagamento).verificacao && <TempoPagamento key={pedido.pagamento.id} pagamento={pedido.pagamento} />}
                 {pedido.pagamento && <p role="status">{pedido.pagamento.processamento === 'verificacao_necessaria'
                     ? 'O pagamento precisa de verificação. Entre em contato com a loja antes de tentar novamente.'
                     : pedido.pagamento.processamento === 'concluido' ? 'Pagamento encerrado. Consulte os detalhes.'
@@ -46,7 +57,7 @@ export default function Pedidos() {
                 <p><Link className="botao-principal" to={`/checkout/pagamento/${pedido.id}`}>{pedido.pagamento ? 'Acompanhar pagamento' : 'Continuar pagamento'}</Link></p>
             </>}
             <p>{pedido.processamento_fiscal?.mensagem || 'Seus dados estão sendo processados. A emissão fiscal depende da confirmação do pagamento.'}</p>
-            {id && <><ul>{pedido.itens?.map((item) => <li key={item.id}><Link to={`/produtos/${item.codigo}`}>{item.produto?.nome || 'Produto indisponível'}</Link> · {Number(item.quantidade)} × {dinheiro(item.preco)}</li>)}</ul>
+            {id && <><ul>{pedido.itens?.map((item) => <li key={item.id}><Link to={`/produtos/${item.codigo}`}>{item.produto?.nome || 'Produto indisponível'}</Link>{item.tamanho && ` · Tamanho ${item.tamanho}`} · {Number(item.quantidade)} × {dinheiro(item.preco)}</li>)}</ul>
                 <button disabled={ocupado} onClick={() => executar(async () => {
                     const blob = await api.danfe(id);
                     const url = URL.createObjectURL(blob);

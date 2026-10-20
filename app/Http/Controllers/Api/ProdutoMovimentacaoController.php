@@ -14,6 +14,16 @@ use Illuminate\Http\JsonResponse;
 
 class ProdutoMovimentacaoController extends Controller
 {
+    public function produto(Produto $produto, ProdutoService $service): JsonResponse
+    {
+        return response()->json($service->consultarLogistica($produto));
+    }
+
+    public function historico(\App\Http\Requests\Api\HistoricoEstoqueRequest $request, ProdutoService $service): JsonResponse
+    {
+        return response()->json($service->historicoEstoque($request->validated()));
+    }
+
     public function index(ListProdutoMovimentacoesRequest $request, ProdutoService $service): JsonResponse
     {
         return response()->json($service->movimentacoes());
@@ -22,7 +32,7 @@ class ProdutoMovimentacaoController extends Controller
     public function contarEstoque(
         ShowProdutoEstoqueRequest $request,
         Produto $produto,
-        ProdutoService $service,
+        ProdutoMovimentacaoService $service,
     ): JsonResponse {
         return response()->json(['produto_id' => $produto->id] + $service->resumoEstoque($produto));
     }

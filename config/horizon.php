@@ -16,7 +16,7 @@ return [
         'emails' => [
             'connection' => 'redis', 'queue' => ['emails'], 'balance' => 'simple',
             'maxProcesses' => 1, 'maxTime' => 3600, 'maxJobs' => 500,
-            'memory' => 128, 'tries' => 3, 'timeout' => 45, 'nice' => 0,
+            'memory' => 128, 'tries' => 3, 'timeout' => 105, 'nice' => 0,
         ],
         'fiscal' => [
             'connection' => 'redis', 'queue' => ['fiscal'], 'balance' => 'auto',

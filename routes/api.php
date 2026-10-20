@@ -70,7 +70,7 @@ Route::middleware(['auth:api', 'conta-pronta'])->group(function (): void {
             Route::get('/pedidos/{pedido}/danfe', [\App\Http\Controllers\Api\PedidoAdminController::class, 'danfe'])->whereNumber('pedido');
             Route::get('/pedidos/{pedido}/etiqueta', [\App\Http\Controllers\Api\PedidoAdminController::class, 'etiqueta'])->whereNumber('pedido');
         });
-        Route::middleware('pagina-admin:usuarios')->group(function (): void {
+        Route::middleware('pagina-admin:usuarios,manutencao,estoque,contabilidade,pedidos')->group(function (): void {
             Route::get('/usuarios', [\App\Http\Controllers\Api\UsuarioAdminController::class, 'index']);
             Route::post('/usuarios', [\App\Http\Controllers\Api\UsuarioAdminController::class, 'store'])->middleware('throttle:10,1');
             Route::get('/usuarios/{usuario}', [\App\Http\Controllers\Api\UsuarioAdminController::class, 'show'])->whereNumber('usuario');
@@ -106,9 +106,18 @@ Route::middleware(['auth:api', 'conta-pronta'])->group(function (): void {
             });
 
             Route::post('/estoque/movimentacoes', [ProdutoMovimentacaoController::class, 'store'])
-                ->middleware('pagina-admin:estoque,manutencao');
+                ->middleware('pagina-admin:estoque,manutencao,contabilidade');
+
+            Route::middleware('pagina-admin:estoque,manutencao,contabilidade')->group(function (): void {
+                Route::get('/logistica/produtos', [\App\Http\Controllers\Api\ProdutoAdminController::class, 'index']);
+                Route::get('/logistica/produtos/{produto}', [ProdutoMovimentacaoController::class, 'produto'])->whereNumber('produto');
+                Route::get('/logistica/movimentacoes', [ProdutoMovimentacaoController::class, 'historico']);
+            });
 
             Route::middleware('pagina-admin:estoque')->group(function (): void {
+                Route::post('/categorias', [\App\Http\Controllers\Api\CategoriaController::class, 'store']);
+                Route::patch('/categorias/{categoria}', [\App\Http\Controllers\Api\CategoriaController::class, 'update'])->whereNumber('categoria');
+                Route::delete('/categorias/{categoria}', [\App\Http\Controllers\Api\CategoriaController::class, 'destroy'])->whereNumber('categoria');
                 Route::get('/produtos', [\App\Http\Controllers\Api\ProdutoAdminController::class, 'index']);
                 Route::get('/produtos/{produto}', [\App\Http\Controllers\Api\ProdutoAdminController::class, 'show'])->whereNumber('produto');
                 Route::post('/produtos', [ProdutoController::class, 'store']);
@@ -140,6 +149,7 @@ Route::middleware(['auth:api', 'conta-pronta'])->group(function (): void {
         Route::get('/pagamentos/configuracao', [\App\Http\Controllers\Api\PagamentoController::class, 'configuracao']);
         Route::get('/pedidos', [PedidoController::class, 'index']);
         Route::post('/pedidos', [PedidoController::class, 'store']);
+        Route::post('/pedidos/frete', [PedidoController::class, 'frete'])->middleware('throttle:10,1');
         Route::post('/pedidos/{pedido}/pagamento', [\App\Http\Controllers\Api\PagamentoController::class, 'store'])
             ->whereNumber('pedido')->middleware('throttle:10,1');
         Route::get('/pedidos/{pedido}/pagamento', [\App\Http\Controllers\Api\PagamentoController::class, 'show'])

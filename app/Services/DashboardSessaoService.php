@@ -5,10 +5,15 @@ namespace App\Services;
 use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 
 class DashboardSessaoService
 {
-    public function __construct(private readonly PoliticaSenhaService $senhas, private readonly DashboardOAuthService $oauth) {}
+    public function __construct(
+        private readonly PoliticaSenhaService $senhas,
+        private readonly DashboardOAuthService $oauth,
+        private readonly EmailVerificationService $emails,
+    ) {}
 
     public function entrar(Request $request, array $dados): void
     {
@@ -18,7 +23,15 @@ class DashboardSessaoService
 
         abort_unless($usuario && $this->senhas->corresponde($dados['password'], $usuario->password), 401, 'Credenciais inválidas.');
         abort_unless($usuario->administrador()->exists(), 403, 'Acesso restrito a administradores.');
-        abort_unless($usuario->email_validado, 403, 'Confirme seu e-mail antes de entrar.');
+        if (! $usuario->email_validado) {
+            RateLimiter::attempt(
+                'dashboard:confirmacao:'.$usuario->id,
+                1,
+                fn () => $this->emails->enviarConfirmacaoInicial($usuario),
+                60,
+            );
+            abort(403, 'Confirme seu e-mail antes de entrar. A solicitação de envio foi aceita; confira sua caixa de entrada e spam. Aguarde um minuto antes de solicitar outro envio pelo login.');
+        }
         abort_if($usuario->must_change_password, 403, 'Troque sua senha inicial antes de entrar no painel.');
 
         $usuario->forceFill(['last_login_at' => now(), 'must_reauthenticate' => false])->save();

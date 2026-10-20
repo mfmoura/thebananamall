@@ -23,6 +23,7 @@ final class CarrinhoItem implements JsonSerializable
         float $quantidade,
         ?string $data = null,
         ?string $preco = null,
+        public readonly ?string $tamanho = null,
     ) {
         $this->validarQuantidade($quantidade);
         $this->codigo = $codigo;
@@ -31,9 +32,9 @@ final class CarrinhoItem implements JsonSerializable
         $this->preco = $preco;
     }
 
-    public static function criar(int $codigo, float $quantidade, ?string $preco = null): self
+    public static function criar(int $codigo, float $quantidade, ?string $preco = null, ?string $tamanho = null): self
     {
-        return new self($codigo, $quantidade, now()->toDateString(), $preco);
+        return new self($codigo, $quantidade, now()->toDateString(), $preco, $tamanho);
     }
 
     /** @param array{codigo: int|string, quantidade: int|float|string, data?: string} $dados */
@@ -44,6 +45,7 @@ final class CarrinhoItem implements JsonSerializable
             (float) $dados['quantidade'],
             $dados['data'] ?? now()->toDateString(),
             isset($dados['preco']) ? (string) $dados['preco'] : null,
+            $dados['tamanho'] ?? null,
         );
     }
 
@@ -56,6 +58,11 @@ final class CarrinhoItem implements JsonSerializable
     {
         $this->nomeProduto = $nome;
         $this->imagemPrincipal = $imagemPrincipal;
+    }
+
+    public function chave(): string
+    {
+        return $this->codigo.':'.($this->tamanho ?? '');
     }
 
     public function quantidade(): float
@@ -92,6 +99,7 @@ final class CarrinhoItem implements JsonSerializable
     {
         return [
             'codigo' => $this->codigo,
+            'tamanho' => $this->tamanho,
             'quantidade' => $this->quantidade,
             'data' => $this->data,
             'preco' => $this->preco,

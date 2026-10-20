@@ -10,6 +10,7 @@ class ListPedidosAdminRequest extends AdministradorRequest
     public function rules(): array
     {
         return [
+            'expedicao' => ['sometimes', 'boolean'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
             'pedido_id' => ['sometimes', 'nullable', 'integer', 'min:1'],

@@ -16,7 +16,9 @@ class UsuarioExclusaoService
             if ($conta === null) {
                 return false;
             }
-            if ($somenteExpirado && ($conta->email_validado || $conta->last_login_at !== null
+            if ($somenteExpirado && ($conta->login === Usuario::LOGIN_ADMINISTRADOR_PRINCIPAL
+                || $conta->administrador()->exists()
+                || $conta->email_validado || $conta->last_login_at !== null
                 || $conta->email_confirmation_expires_at === null || $conta->email_confirmation_expires_at->isFuture()
                 || $conta->visitante()->exists())) {
                 return false;
@@ -43,6 +45,8 @@ class UsuarioExclusaoService
     {
         $total = 0;
         Usuario::query()->where('email_validado', false)->whereNull('last_login_at')
+            ->where('login', '<>', Usuario::LOGIN_ADMINISTRADOR_PRINCIPAL)
+            ->whereDoesntHave('administrador')
             ->where('email_confirmation_expires_at', '<=', now())->whereDoesntHave('visitante')
             ->chunkById(100, function ($usuarios) use (&$total): void {
                 foreach ($usuarios as $usuario) {

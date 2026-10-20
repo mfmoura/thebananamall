@@ -17,6 +17,10 @@ class StorePedidoRequest extends ClientePedidoRequest
     public function rules(): array
     {
         return [
+            'frete_cotacao_id' => ['required', 'uuid'],
+            'frete_servico' => ['required', 'string', Rule::in(array_map('strval', array_keys(config('frete.servicos'))))],
+            'custo_frete' => ['prohibited'],
+            'frete' => ['prohibited'],
             ...$this->regrasDestinatarioFiscal('dados_fiscais'),
             'forma_pagamento_id' => [
                 'required',

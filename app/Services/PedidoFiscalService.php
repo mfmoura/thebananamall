@@ -158,7 +158,7 @@ class PedidoFiscalService
                 $item->update(['configuracao_fiscal' => $configuracao]);
             }
             $itens[] = [
-                'produto_id' => $item->codigo, 'quantidade' => (float) $item->quantidade, 'valor_unitario' => (float) $item->preco,
+                'produto_id' => $item->codigo, 'tamanho' => $item->tamanho, 'quantidade' => (float) $item->quantidade, 'valor_unitario' => (float) $item->preco,
                 'ncm' => $configuracao['ncm'], 'unidade_comercial' => $configuracao['unidade'], 'tributos' => $configuracao['tributos'],
                 'cfop' => $processamento->dados_cliente['endereco']['estado'] === $uf ? $configuracao['cfop_interno'] : $configuracao['cfop_interestadual'],
             ];
@@ -179,6 +179,8 @@ class PedidoFiscalService
             'numero' => $this->proximoNumero($cnpj), 'serie' => (int) config('services.fiscal_contora.serie', 1),
             'consumidor_final' => true, 'finalidade' => 1, 'destinatario' => $processamento->dados_cliente,
             'pagamentos' => [['meio' => $meio, 'valor' => (float) $pedido->total]], 'itens' => $itens,
+            'total_frete' => (float) $pedido->custo_frete,
+            ...($pedido->frete ? ['modalidade_frete' => $pedido->frete['modalidade_fiscal']] : []),
         ];
     }
 

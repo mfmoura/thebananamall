@@ -12,6 +12,7 @@ class NotaFiscalItem extends Model
     protected $table = 'nota_fiscal_itens';
 
     protected $fillable = [
+        'tamanho',
         'produto_id',
         'codigo_produto',
         'descricao',

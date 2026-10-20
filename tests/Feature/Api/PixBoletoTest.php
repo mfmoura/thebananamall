@@ -46,15 +46,19 @@ class PixBoletoTest extends TestCase
     public function test_pix_disponibiliza_qr_code_e_confirma_somente_apos_webhook_validado(): void
     {
         $pedido = $this->pedido('pix');
+        $pedido->processamentoFiscal()->create(['chave' => fake()->uuid(), 'etapa' => 'aguardando_pagamento',
+            'dados_cliente' => ['nome' => 'APRO Teste', 'documento' => '12345678909']]);
         $url = '/api/pedidos/'.$pedido->id.'/pagamento';
         $order = ['id' => 'ORDPIXTESTE', 'external_reference' => (string) $pedido->id, 'country_code' => 'BRA',
+            'created_date' => '2026-10-19T18:00:00Z',
             'total_amount' => '50.00', 'total_paid_amount' => '0.00', 'status' => 'action_required', 'status_detail' => 'waiting_transfer',
-            'transactions' => ['payments' => [['payment_method' => ['id' => 'pix', 'type' => 'bank_transfer',
+            'transactions' => ['payments' => [['date_of_expiration' => '2026-10-20T18:00:00Z', 'payment_method' => ['id' => 'pix', 'type' => 'bank_transfer',
                 'qr_code' => 'PIX-COPIA-COLA-FICTICIO', 'qr_code_base64' => 'aW1hZ2Vt', 'ticket_url' => 'https://example.test/pix']]]]];
         Http::fake([
             'api.mercadopago.com/v1/orders' => Http::response(['id' => 'ORDPIXTESTE'], 201),
             'api.mercadopago.com/v1/orders/ORDPIXTESTE' => Http::sequence()->push($order)->push([
                 ...$order, 'status' => 'processed', 'status_detail' => 'accredited', 'total_paid_amount' => '50.00',
+                'created_date' => null, 'transactions' => ['payments' => [['payment_method' => ['id' => 'pix']]]],
             ]),
         ]);
         $this->postJson($url, ['meio' => 'pix'])->assertAccepted()->assertJsonPath('data.processamento', 'pendente');
@@ -65,7 +69,9 @@ class PixBoletoTest extends TestCase
         $this->getJson($url)->assertOk()->assertJsonPath('data.processamento', 'aguardando')
             ->assertJsonPath('data.instrucoes.qr_code', 'PIX-COPIA-COLA-FICTICIO')
             ->assertJsonPath('data.instrucoes.qr_code_base64', 'aW1hZ2Vt')
-            ->assertJsonPath('data.instrucoes.ticket_url', 'https://example.test/pix');
+            ->assertJsonPath('data.instrucoes.ticket_url', 'https://example.test/pix')
+            ->assertJsonPath('data.instrucoes.criado_em', '2026-10-19T18:00:00Z')
+            ->assertJsonPath('data.instrucoes.expira_em', '2026-10-20T18:00:00Z');
         $this->assertSame(StatusPedido::AguardandoPagamento, $pedido->fresh()->status);
         $this->assertStringNotContainsString('PIX-COPIA-COLA-FICTICIO', $pagamento->fresh()->getRawOriginal('instrucoes'));
         Http::assertSentCount(2);
@@ -73,11 +79,13 @@ class PixBoletoTest extends TestCase
         $assinatura = hash_hmac('sha256', "id:ORDPIXTESTE;request-id:pix-teste;ts:$ts;", 'segredo-ficticio');
         $this->withHeaders(['x-request-id' => 'pix-teste', 'x-signature' => "ts=$ts,v1=$assinatura"])
             ->postJson('/api/webhooks/mercado-pago?data.id=ORDPIXTESTE', ['type' => 'order'])->assertOk();
-        $this->getJson($url)->assertOk()->assertJsonPath('data.processamento', 'concluido');
+        $this->getJson($url)->assertOk()->assertJsonPath('data.processamento', 'concluido')
+            ->assertJsonPath('data.instrucoes.expira_em', '2026-10-20T18:00:00Z');
         $this->assertSame(StatusPedido::Pago, $pedido->fresh()->status);
         $this->assertDatabaseCount('pedido_pagamentos', 1);
         Http::assertSentCount(3);
         Http::assertSent(fn ($r) => $r->method() === 'POST' && $r['total_amount'] === '50.00'
+            && $r['payer']['first_name'] === 'APRO' && $r['payer']['last_name'] === 'Teste'
             && $r['transactions']['payments'][0]['payment_method'] === ['id' => 'pix', 'type' => 'bank_transfer']);
     }
 

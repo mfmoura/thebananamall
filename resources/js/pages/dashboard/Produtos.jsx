@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { MensagemErro } from '../../components/Formulario';
-import BloqueioAutenticacao from '../../components/BloqueioAutenticacao';
+import TabelaSkeleton from '../../components/TabelaSkeleton';
 import { useProcessamento } from '../../context/ProcessamentoContext';
 import useDados from '../../hooks/useDados';
 import { dashboardApi } from '../../services/dashboard';
@@ -22,7 +22,7 @@ export default function Produtos() {
             setParametros({ busca: new FormData(event.currentTarget).get('busca').trim(), page: 1 });
         }}><label htmlFor="busca-produto">Buscar por nome ou código</label><div><input id="busca-produto" key={busca} name="busca" defaultValue={busca} maxLength={255} /><button type="submit">Buscar</button></div></form>
         <MensagemErro erro={erro || falha} />
-        {carregando && <BloqueioAutenticacao rotulo="Carregando produtos" />}
+        {carregando && <TabelaSkeleton rotulo="produtos" colunas={['Foto', 'Código', 'Nome', 'Categoria', 'Preço', 'Status', 'Ações']} />}
         {dados && <><div className="dashboard-tabela"><table><caption>{dados.total} produto(s) cadastrado(s)</caption><thead><tr><th>Foto</th><th>Código</th><th>Nome</th><th>Categoria</th><th>Preço</th><th>Status</th><th>Ações</th></tr></thead><tbody>
             {dados.data.map((produto) => {
                 const foto = produto.imagens?.find((item) => item.principal) || produto.imagens?.[0];

@@ -10,6 +10,17 @@ use Illuminate\Http\JsonResponse;
 
 class EmailVerificationController extends Controller
 {
+    public function verifyDashboard(VerifyEmailRequest $request, EmailVerificationService $service): JsonResponse
+    {
+        $dados = $request->validated();
+        $usuario = $service->confirmar($dados['token'], $dados['password'] ?? null, administrativo: true);
+
+        return response()->json([
+            'message' => 'E-mail confirmado. Continue pelo painel administrativo.',
+            'requires_password_change' => $usuario->must_change_password,
+        ]);
+    }
+
     public function verify(VerifyEmailRequest $request, EmailVerificationService $service): JsonResponse
     {
         $dados = $request->validated();

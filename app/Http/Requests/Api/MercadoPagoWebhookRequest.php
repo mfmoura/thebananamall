@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
+use MercadoPago\Exceptions\InvalidWebhookSignatureException;
+use MercadoPago\Webhook\WebhookSignatureValidator;
 
 class MercadoPagoWebhookRequest extends FormRequest
 {
@@ -11,24 +13,19 @@ class MercadoPagoWebhookRequest extends FormRequest
         $secret = config('mercadopago.webhook_secret');
         abort_unless(is_string($secret) && $secret !== '', 503, 'Webhook indisponível.');
         $id = $this->query('data_id'); // PHP normaliza o ponto de data.id para underscore.
-        $requestId = $this->header('x-request-id');
-        $signature = $this->header('x-signature', '');
+        $id = is_string($id) ? trim($id) : null;
+        $requestId = trim((string) $this->header('x-request-id', ''));
+        $signature = trim((string) $this->header('x-signature', ''));
         if (! is_string($id) || ! preg_match('/^[a-zA-Z0-9]+$/D', $id) || ! $requestId) {
             return false;
         }
-        $parts = [];
-        foreach (explode(',', $signature) as $part) {
-            $pair = explode('=', trim($part), 2);
-            if (count($pair) === 2) {
-                $parts[$pair[0]] = $pair[1];
-            }
-        }
-        if (! ctype_digit($parts['ts'] ?? '') || ! isset($parts['v1'])) {
+        try {
+            WebhookSignatureValidator::validate($signature, $requestId, $id, $secret);
+        } catch (InvalidWebhookSignatureException) {
             return false;
         }
-        $manifest = 'id:'.$id.';request-id:'.$requestId.';ts:'.$parts['ts'].';';
 
-        return hash_equals(hash_hmac('sha256', $manifest, $secret), $parts['v1']);
+        return true;
     }
 
     public function rules(): array
@@ -38,6 +35,11 @@ class MercadoPagoWebhookRequest extends FormRequest
 
     public function orderId(): string
     {
-        return $this->query('data_id');
+        return trim($this->query('data_id'));
+    }
+
+    protected function failedAuthorization(): void
+    {
+        abort(401, 'Notificação não autorizada.');
     }
 }

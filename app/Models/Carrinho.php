@@ -48,12 +48,12 @@ final class Carrinho implements JsonSerializable
         return new self($visitanteId, null, [], $visitanteId);
     }
 
-    public function adicionarProduto(int $codigo, float $quantidade = 1, ?string $preco = null): self
+    public function adicionarProduto(int $codigo, float $quantidade = 1, ?string $preco = null, ?string $tamanho = null): self
     {
         $itens = $this->itens;
 
         foreach ($itens as $indice => $item) {
-            if ($item->codigo === $codigo) {
+            if ($item->codigo === $codigo && $item->tamanho === $tamanho) {
                 $item->alterarQuantidade($item->quantidade() + $quantidade);
                 $itens[$indice] = $item;
 
@@ -61,15 +61,15 @@ final class Carrinho implements JsonSerializable
             }
         }
 
-        $itens[] = CarrinhoItem::criar($codigo, $quantidade, $preco);
+        $itens[] = CarrinhoItem::criar($codigo, $quantidade, $preco, $tamanho);
 
         return new self($this->id, $this->id_cliente, $itens, $this->id_visitante);
     }
 
-    public function alterarQuantidade(int $codigo, float $quantidade): ?self
+    public function alterarQuantidade(int $codigo, float $quantidade, ?string $tamanho = null): ?self
     {
         foreach ($this->itens as $item) {
-            if ($item->codigo === $codigo) {
+            if ($item->codigo === $codigo && $item->tamanho === $tamanho) {
                 $item->alterarQuantidade($quantidade);
 
                 return new self($this->id, $this->id_cliente, $this->itens, $this->id_visitante);
@@ -79,11 +79,11 @@ final class Carrinho implements JsonSerializable
         return null;
     }
 
-    public function excluirItem(int $codigo): ?self
+    public function excluirItem(int $codigo, ?string $tamanho = null): ?self
     {
         $itens = array_values(array_filter(
             $this->itens,
-            static fn (CarrinhoItem $item): bool => $item->codigo !== $codigo,
+            static fn (CarrinhoItem $item): bool => $item->codigo !== $codigo || $item->tamanho !== $tamanho,
         ));
 
         if (count($itens) === count($this->itens)) {
@@ -102,6 +102,8 @@ final class Carrinho implements JsonSerializable
             static fn (array $item): CarrinhoItem => CarrinhoItem::criar(
                 (int) $item['codigo'],
                 (float) $item['quantidade'],
+                null,
+                $item['tamanho'] ?? null,
             ),
             $itens,
         );
@@ -114,7 +116,7 @@ final class Carrinho implements JsonSerializable
         $carrinho = $this;
 
         foreach ($outro->itens as $item) {
-            $carrinho = $carrinho->adicionarProduto($item->codigo, $item->quantidade(), $item->preco());
+            $carrinho = $carrinho->adicionarProduto($item->codigo, $item->quantidade(), $item->preco(), $item->tamanho);
         }
 
         return $carrinho;

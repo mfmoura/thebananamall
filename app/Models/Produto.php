@@ -13,7 +13,7 @@ class Produto extends Model
 
     protected $table = 'produtos';
 
-    protected $fillable = ['codigo', 'nome', 'descricao', 'categoria', 'ativo', 'configuracao_fiscal'];
+    protected $fillable = ['grade', 'codigo', 'nome', 'descricao', 'categoria', 'ativo', 'configuracao_fiscal', 'peso_gramas', 'altura_cm', 'largura_cm', 'comprimento_cm', 'embalagem_estimada'];
 
     protected $appends = ['preco'];
 
@@ -24,6 +24,12 @@ class Produto extends Model
         return [
             'configuracao_fiscal' => 'array',
             'ativo' => 'boolean',
+            'grade' => 'array',
+            'peso_gramas' => 'integer',
+            'altura_cm' => 'decimal:2',
+            'largura_cm' => 'decimal:2',
+            'comprimento_cm' => 'decimal:2',
+            'embalagem_estimada' => 'boolean',
         ];
     }
 

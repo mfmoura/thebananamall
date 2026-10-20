@@ -22,6 +22,10 @@ async function consultar(path, opcoes) {
 }
 
 export const dashboardApi = {
+    produtosLogistica: (parametros) => consultar(`admin/logistica/produtos?${parametros}`),
+    produtoLogistica: (id) => consultar(`admin/logistica/produtos/${id}`),
+    historicoEstoque: (parametros) => consultar(`admin/logistica/movimentacoes?${parametros}`),
+    movimentarEstoque: (body) => consultar('admin/estoque/movimentacoes', { method: 'POST', body }),
     pedidos: (parametros) => consultar(`admin/pedidos?${parametros}`),
     pedido: (id) => consultar(`admin/pedidos/${id}`),
     cancelarPedido: (id) => consultar(`admin/pedidos/${id}/cancelar`, { method: 'POST' }),

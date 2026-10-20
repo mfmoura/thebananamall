@@ -51,6 +51,7 @@ class MercadoPagoModalidadesTest extends TestCase
             'credito amex' => ['credit_card', 'amex', 'cartao_credito'],
             'debito visa' => ['debit_card', 'debvisa', 'cartao_debito'],
             'debito master' => ['debit_card', 'debmaster', 'cartao_debito'],
+            'debito elo' => ['debit_card', 'debelo', 'cartao_debito'],
         ];
     }
 
@@ -117,6 +118,60 @@ class MercadoPagoModalidadesTest extends TestCase
         $this->postJson('/api/pedidos/'.$this->pedido->id.'/cancelar')->assertConflict();
         $this->assertDatabaseCount('pedido_pagamentos', 1);
         Http::assertSentCount(2);
+    }
+
+    public function test_recusa_402_preserva_order_consulta_e_conclui_sem_repetir_cobranca(): void
+    {
+        $recusa = $this->order(['status' => 'failed', 'status_detail' => 'failed']);
+        Http::fake([
+            'api.mercadopago.com/v1/orders' => Http::response(['errors' => [['code' => 'failed']], 'data' => $recusa], 402),
+            'api.mercadopago.com/v1/orders/ORDMODALIDADE' => Http::response($recusa),
+        ]);
+        $this->postJson($this->url(), $this->cartao())->assertAccepted();
+        $pagamento = PedidoPagamento::sole();
+        app(MercadoPagoService::class)->processar($pagamento->id);
+        $this->getJson($this->url())->assertOk()->assertJsonPath('data.status', 'failed')
+            ->assertJsonPath('data.order_id', 'ORDMODALIDADE')->assertJsonPath('data.processamento', 'concluido');
+        $this->assertNull($pagamento->fresh()->dados_envio);
+        $this->assertSame(StatusPedido::AguardandoPagamento, $this->pedido->fresh()->status);
+        app(MercadoPagoService::class)->processar($pagamento->id);
+        Http::assertSentCount(2);
+    }
+
+    public function test_recusa_402_com_falha_na_consulta_retoma_get_sem_reenviar_token(): void
+    {
+        $recusa = $this->order(['status' => 'failed', 'status_detail' => 'failed']);
+        Http::fake([
+            'api.mercadopago.com/v1/orders' => Http::response(['data' => $recusa], 402),
+            'api.mercadopago.com/v1/orders/ORDMODALIDADE' => Http::sequence()->pushFailedConnection()->push($recusa),
+        ]);
+        $this->postJson($this->url(), $this->cartao())->assertAccepted();
+        $pagamento = PedidoPagamento::sole();
+        try {
+            app(MercadoPagoService::class)->processar($pagamento->id);
+            $this->fail('A consulta deve falhar.');
+        } catch (HttpException $e) { $this->assertSame(503, $e->getStatusCode()); }
+        $this->assertSame('ORDMODALIDADE', $pagamento->fresh()->order_id);
+        $this->assertNull($pagamento->fresh()->dados_envio);
+        app(MercadoPagoService::class)->processar($pagamento->id);
+        $this->assertSame('concluido', $pagamento->fresh()->processamento);
+        $this->assertCount(1, Http::recorded(fn ($r) => $r->method() === 'POST'));
+    }
+
+    public function test_402_sem_order_valida_continua_incerto_e_nao_confirma_pagamento(): void
+    {
+        Http::fake(['*' => Http::response(['data' => ['id' => '../invalido', 'status' => 'failed']], 402)]);
+        $this->postJson($this->url(), $this->cartao())->assertAccepted();
+        $pagamento = PedidoPagamento::sole();
+        try {
+            app(MercadoPagoService::class)->processar($pagamento->id);
+            $this->fail('Resposta inválida deve ser rejeitada.');
+        } catch (HttpException $e) { $this->assertSame(502, $e->getStatusCode()); }
+        $this->assertNull($pagamento->fresh()->order_id);
+        $this->assertNotNull($pagamento->fresh()->dados_envio);
+        $this->assertSame(StatusPedido::AguardandoPagamento, $this->pedido->fresh()->status);
+        $this->postJson($this->url(), [...$this->cartao(), 'token' => 'outro'])->assertConflict();
+        Http::assertSentCount(1);
     }
 
     public function test_timeout_no_debito_repete_o_mesmo_snapshot_e_chave(): void

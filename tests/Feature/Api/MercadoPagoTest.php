@@ -62,6 +62,15 @@ class MercadoPagoTest extends TestCase
             && $r['external_reference'] === (string) $this->pedido->id && $r->hasHeader('X-Idempotency-Key'));
     }
 
+    public function test_cobranca_inclui_frete_no_total(): void
+    {
+        $this->pedido->update(['custo_frete' => '25.80']);
+        $this->postJson('/api/pedidos/'.$this->pedido->id.'/pagamento', ['meio' => 'pix'])->assertStatus(202);
+        $dados = PedidoPagamento::firstOrFail()->dados_envio;
+        $this->assertSame('50.80', $dados['total_amount']);
+        $this->assertSame('50.80', $dados['transactions']['payments'][0]['amount']);
+    }
+
     public function test_timeout_reutiliza_chave_e_nao_libera_cancelamento(): void
     {
         Http::fake(['*' => Http::failedConnection()]);
@@ -114,7 +123,39 @@ class MercadoPagoTest extends TestCase
 
     public function test_assinatura_invalida_nao_consulta_provedor(): void
     {
-        $this->postJson('/api/webhooks/mercado-pago?data.id=ORD123', ['type' => 'order'])->assertForbidden();
+        $this->postJson('/api/webhooks/mercado-pago?data.id=ORD123', ['type' => 'order'])->assertUnauthorized();
+        Http::assertNothingSent();
+    }
+
+    public function test_assinatura_normaliza_espacos_e_chaves_do_header_sem_alterar_id(): void
+    {
+        $this->pagamento();
+        Http::fake(['*' => Http::response($this->order())]);
+        $assinatura = hash_hmac('sha256', 'id:ORD123;request-id:req123;ts:1742505638683;', 'webhook-secret');
+        $this->withHeaders(['x-request-id' => ' req123 ', 'x-signature' => ' TS = 1742505638683 , V1 = '.$assinatura.' '])
+            ->postJson('/api/webhooks/mercado-pago?data.id=%20ORD123%20', ['type' => 'order'])->assertOk();
+        $this->assertSame(StatusPedido::Pago, $this->pedido->fresh()->status);
+        Http::assertSent(fn ($r) => $r->url() === 'https://api.mercadopago.com/v1/orders/ORD123');
+    }
+
+    public function test_assinatura_malformada_ou_hash_errado_retorna_401_sem_consulta(): void
+    {
+        foreach (['ts=abc,v1=falso', 'ts=1742505638683,v1=', 'ts=1742505638683,v1='.str_repeat('0', 64)] as $assinatura) {
+            $this->withHeaders(['x-request-id' => 'req123', 'x-signature' => $assinatura])
+                ->postJson('/api/webhooks/mercado-pago?data.id=ORD123', ['type' => 'order'])->assertUnauthorized();
+        }
+        Http::assertNothingSent();
+    }
+
+    public function test_webhook_exige_id_e_request_id_mesmo_quando_sdk_aceitaria_omissao(): void
+    {
+        $ts = '1742505638683';
+        $semRequestId = hash_hmac('sha256', "id:ORD123;ts:$ts;", 'webhook-secret');
+        $this->withHeaders(['x-signature' => "ts=$ts,v1=$semRequestId"])
+            ->postJson('/api/webhooks/mercado-pago?data.id=ORD123', ['type' => 'order'])->assertUnauthorized();
+        $semId = hash_hmac('sha256', "request-id:req123;ts:$ts;", 'webhook-secret');
+        $this->withHeaders(['x-request-id' => 'req123', 'x-signature' => "ts=$ts,v1=$semId"])
+            ->postJson('/api/webhooks/mercado-pago', ['type' => 'order'])->assertUnauthorized();
         Http::assertNothingSent();
     }
 
@@ -317,6 +358,54 @@ class MercadoPagoTest extends TestCase
         $this->assertSame((string) $this->pedido->id, $pagamento->dados_envio['external_reference']);
         $this->assertSame(StatusPedido::AguardandoPagamento, $this->pedido->fresh()->status);
         Http::assertNothingSent();
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('modalidadesEmail')]
+    public function test_confirmacao_enfileira_email_uma_vez_por_pedido(string $codigo): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+        $this->pedido->formaPagamento->update(['codigo' => $codigo]);
+        $this->pagamento();
+        Http::fake(['*' => Http::response($this->order())]);
+        $service = app(MercadoPagoService::class);
+        $service->sincronizar('ORD123');
+        $service->sincronizar('ORD123');
+        $usuario = $this->pedido->cliente->usuario;
+        \Illuminate\Support\Facades\Notification::assertSentToTimes($usuario, \App\Notifications\PagamentoConfirmadoNotification::class, 1);
+        \Illuminate\Support\Facades\Notification::assertSentTo($usuario, \App\Notifications\PagamentoConfirmadoNotification::class,
+            fn ($notification) => $notification->pedidoId === $this->pedido->id
+                && $notification->connection === 'redis' && $notification->queue === 'emails'
+                && $notification->afterCommit === true
+                && $notification instanceof \Illuminate\Contracts\Queue\ShouldBeEncrypted);
+    }
+
+    public static function modalidadesEmail(): array
+    {
+        return array_map(fn ($codigo) => [$codigo], ['pix', 'boleto', 'cartao_credito', 'cartao_debito']);
+    }
+
+    public function test_pendencia_e_recusa_nao_enviam_email_de_confirmacao(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+        $this->pagamento();
+        foreach (['action_required', 'failed'] as $status) {
+            Http::fake(['*' => Http::response(array_replace($this->order(), ['status' => $status, 'total_paid_amount' => '0.00']))]);
+            app(MercadoPagoService::class)->sincronizar('ORD123');
+        }
+        \Illuminate\Support\Facades\Notification::assertNothingSent();
+    }
+
+    public function test_email_de_confirmacao_descarta_conta_excluida_e_inclui_link_do_pedido(): void
+    {
+        $usuario = $this->pedido->cliente->usuario;
+        $this->pedido->update(['status' => StatusPedido::Pago]);
+        $notification = new \App\Notifications\PagamentoConfirmadoNotification($this->pedido->id);
+        $this->assertTrue($notification->shouldSend($usuario, 'mail'));
+        $mail = $notification->toMail($usuario);
+        $this->assertSame(url('/pedidos/'.$this->pedido->id), $mail->actionUrl);
+        $this->assertStringContainsString('Pagamento confirmado', $mail->subject);
+        $usuario->delete();
+        $this->assertFalse($notification->shouldSend($usuario, 'mail'));
     }
 
     private function pagamento(): void

@@ -84,6 +84,7 @@ export const api = {
     recuperarSenha: (body) => requisitar('/api/senha/recuperar', { method: 'POST', body }),
     redefinirSenha: (body) => requisitar('/api/senha/redefinir', { method: 'POST', body }),
     formasPagamento: () => requisitar('/api/formas-pagamento'),
+    cotarFrete: (cep) => requisitar('/api/pedidos/frete', { method: 'POST', body: { cep } }),
     pedidos: () => requisitar('/api/pedidos'),
     pedido: (id) => requisitar(`/api/pedidos/${id}`),
     comprar: (body, chave) => requisitar('/api/pedidos', { method: 'POST', body, headers: { 'Idempotency-Key': chave } }),

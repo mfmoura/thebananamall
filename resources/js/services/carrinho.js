@@ -9,12 +9,12 @@ export const carrinhoApi = {
             throw erro;
         }
     },
-    async adicionar(codigo, quantidade = 1) {
+    async adicionar(codigo, quantidade = 1, tamanho = null) {
         await chamar('', 'POST');
-        return chamar('/itens', 'POST', { codigo, quantidade });
+        return chamar('/itens', 'POST', { codigo, quantidade, tamanho });
     },
-    alterar: (codigo, quantidade) => chamar(`/itens/${codigo}`, 'PATCH', { quantidade }),
-    excluir: (codigo) => chamar(`/itens/${codigo}`, 'DELETE'),
+    alterar: (codigo, quantidade, tamanho = null) => chamar(`/itens/${codigo}`, 'PATCH', { quantidade, tamanho }),
+    excluir: (codigo, tamanho = null) => chamar(`/itens/${codigo}${tamanho === null ? '' : `?${new URLSearchParams({ tamanho })}`}`, 'DELETE'),
     limpar: () => chamar('', 'DELETE'),
     mesclar: () => chamar('/mesclar', 'POST', {}),
 };

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Webservices;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;

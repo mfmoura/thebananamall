@@ -16,6 +16,9 @@ const preco = (produto) => produto.preco;
 function Produto({ produto, detalhe = false }) {
     const { executarCarrinho, carrinhoOcupado } = useLoja();
     const [quantidade, setQuantidade] = useState(1);
+    const [tamanho, setTamanho] = useState('');
+    const temGrade = Boolean(produto.grade?.length);
+    const saldo = temGrade ? produto.estoque_por_tamanho?.find((item) => item.tamanho === tamanho)?.estoque ?? 0 : produto.estoque;
     const [quantidadeValida, setQuantidadeValida] = useState(true);
     const [erro, setErro] = useState(null);
     const [ocupado, setOcupado] = useState(false);
@@ -27,16 +30,19 @@ function Produto({ produto, detalhe = false }) {
         <h2><Link to={`/produtos/${produto.id}`}>{produto.nome}</Link></h2>
         {detalhe && produto.descricao && <div className="produto-descricao"><h3>Descrição</h3><p>{produto.descricao}</p></div>}
         <strong>{preco(produto) == null ? 'Preço indisponível' : dinheiro(preco(produto))}</strong>
-        {detalhe && <p>Disponível: {Number(produto.estoque).toLocaleString('pt-BR')}</p>}
+        {detalhe && <div className="produto-compra">
+        <div className="produto-opcoes">
+        <label className={!temGrade ? 'campo-reservado' : undefined} inert={!temGrade || undefined} aria-hidden={!temGrade || undefined}>Tamanho<select value={tamanho} onChange={(evento) => { setTamanho(evento.target.value); setQuantidade(1); }} disabled={!temGrade || ocupado || carrinhoOcupado} required={temGrade}><option value="">Selecione um tamanho</option>{produto.estoque_por_tamanho?.map((item) => <option key={item.tamanho} value={item.tamanho} disabled={item.estoque <= 0}>{item.tamanho}{item.estoque <= 0 ? ' — Esgotado' : ''}</option>)}</select></label>
+        <ControleQuantidade valor={quantidade} alterar={setQuantidade} validadeAlterada={setQuantidadeValida} inteiro={temGrade} produto={produto.nome} desabilitado={ocupado || carrinhoOcupado || !(saldo > 0)} />
+        </div>
+        <p className="produto-disponibilidade" aria-live="polite">{!temGrade || tamanho ? `Disponível: ${Number(saldo).toLocaleString('pt-BR')}` : 'Selecione o tamanho para consultar o estoque.'}</p>
         <MensagemErro erro={erro} />{mensagem && <p role="status">{mensagem}</p>}
-        {detalhe && <>
-        <ControleQuantidade valor={quantidade} alterar={setQuantidade} validadeAlterada={setQuantidadeValida} produto={produto.nome} desabilitado={ocupado || carrinhoOcupado || !(produto.estoque > 0)} />
-        <button className="botao-principal" disabled={!quantidadeValida || ocupado || carrinhoOcupado || !(produto.estoque > 0) || preco(produto) == null} onClick={async () => {
+        <button className="botao-principal" disabled={!quantidadeValida || (temGrade && !Number.isInteger(Number(quantidade))) || ocupado || carrinhoOcupado || !(saldo > 0) || preco(produto) == null} onClick={async () => {
             setOcupado(true); setErro(null); setMensagem('');
-            try { await executarCarrinho(() => carrinhoApi.adicionar(produto.id, quantidade)); setMensagem('Quantidade adicionada ao carrinho.'); }
+            try { await executarCarrinho(() => carrinhoApi.adicionar(produto.id, quantidade, temGrade ? tamanho : null)); setMensagem('Quantidade adicionada ao carrinho.'); }
             catch (e) { setErro(e); } finally { setOcupado(false); }
         }}>{ocupado ? 'Adicionando…' : 'Adicionar ao carrinho'}</button>
-        </>}
+        </div>}
     </article>;
 }
 

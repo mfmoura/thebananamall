@@ -24,7 +24,10 @@ class EmailVerificationService
     public function reenviarConfirmacao(string $email): void
     {
         $usuario = Usuario::query()->where('email', $email)->where('email_validado', false)
-            ->where('email_confirmation_expires_at', '>', now())->latest('id')->first();
+            ->where(fn ($query) => $query->where('email_confirmation_expires_at', '>', now())
+                ->orWhere('login', Usuario::LOGIN_ADMINISTRADOR_PRINCIPAL)
+                ->orWhereHas('administrador'))
+            ->latest('id')->first();
 
         if ($usuario !== null && ! $usuario->email_validado) {
             $this->enviarToken($usuario, $usuario->email, 'confirmar');
@@ -54,7 +57,7 @@ class EmailVerificationService
         $this->enviarToken($usuario, $novoEmail, 'trocar');
     }
 
-    public function confirmar(string $token, ?string $novaSenha = null): Usuario
+    public function confirmar(string $token, ?string $novaSenha = null, bool $administrativo = false): Usuario
     {
         $tokenHash = hash('sha256', $token);
         $chaveToken = $this->chaveToken($tokenHash);
@@ -117,7 +120,7 @@ class EmailVerificationService
             ]);
         }
 
-        DB::transaction(function () use (&$usuario, $dados, $novaSenha, $chaveToken): void {
+        DB::transaction(function () use (&$usuario, $dados, $novaSenha, $chaveToken, $administrativo): void {
             // Serializa confirmações do mesmo e-mail, inclusive de contas distintas.
             if (DB::getDriverName() === 'pgsql') {
                 DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', [$dados['email']]);
@@ -125,6 +128,9 @@ class EmailVerificationService
             $usuario = Usuario::query()->lockForUpdate()->find($usuario->id);
             if ($usuario === null || ! Redis::exists($chaveToken)) {
                 throw ValidationException::withMessages(['token' => 'O link de confirmação é inválido ou expirou.']);
+            }
+            if ($usuario->administrador()->exists() !== $administrativo) {
+                throw ValidationException::withMessages(['token' => 'Use a página de confirmação correspondente à sua conta. Administradores devem confirmar pelo painel administrativo.']);
             }
             if (Usuario::query()->where('email', $dados['email'])->where('email_validado', true)
                 ->where('id', '<>', $usuario->id)->exists()) {
@@ -163,7 +169,9 @@ class EmailVerificationService
             $permitido = DB::transaction(function () use ($usuario, $expiresAt): bool {
                 $conta = Usuario::query()->lockForUpdate()->find($usuario->id);
                 if ($conta === null || $conta->email_validado
-                    || ($conta->email_confirmation_expires_at !== null && $conta->email_confirmation_expires_at->isPast())) {
+                    || ($conta->login !== Usuario::LOGIN_ADMINISTRADOR_PRINCIPAL
+                        && ! $conta->administrador()->exists()
+                        && $conta->email_confirmation_expires_at !== null && $conta->email_confirmation_expires_at->isPast())) {
                     return false;
                 }
                 $conta->forceFill(['email_confirmation_expires_at' => $expiresAt])->save();
@@ -195,7 +203,8 @@ class EmailVerificationService
             'token' => $token,
             'requires_password' => $acao === 'trocar' ? '1' : '0',
         ]);
-        $url = rtrim((string) config('services.frontend.url'), '/').'/email/verify?'.$query;
+        $pagina = $usuario->administrador()->exists() ? '/dashboard/email/verify' : '/email/verify';
+        $url = rtrim((string) config('services.frontend.url'), '/').$pagina.'?'.$query;
 
         Notification::route('mail', $email)->notify(new ConfirmarEmailNotification(
             $url,

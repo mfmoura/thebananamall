@@ -13,6 +13,7 @@ class ProdutoMovimentacao extends Model
     protected $table = 'produto_movimentacoes';
 
     protected $fillable = [
+        'tamanho',
         'direcao',
         'produto_id',
         'nota_id',

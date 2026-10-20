@@ -12,6 +12,7 @@
         "laravel/passport": "^13.10",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
+        "mercadopago/dx-php": "^3.16",
         "nfephp-org/sped-da": "^1.1"
     },
     "require-dev": {

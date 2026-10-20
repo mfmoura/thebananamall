@@ -35,6 +35,8 @@ export default function Checkout() {
     const { dados: formas, erro, carregando } = useDados(api.formasPagamento, 'formas');
     const chave = useRef(sessionStorage.getItem('lcb.checkout-key') || crypto.randomUUID());
     const [processandoPedido, setProcessandoPedido] = useState(false);
+    const [cotacao, setCotacao] = useState(null);
+    const [servicoFrete, setServicoFrete] = useState('');
     const navigate = useNavigate();
     const dadosSalvos = usuario?.cliente?.dados_fiscais || null;
     const enderecoSalvo = usuario?.enderecos?.[0]
@@ -43,15 +45,15 @@ export default function Checkout() {
     if (!usuario?.cliente) return <section className="tela"><h1>Checkout</h1><p>Somente uma conta Cliente pode finalizar a compra.</p></section>;
     if (!carrinho.itens?.length) return <section className="tela"><h1>Checkout</h1><p>Seu carrinho está vazio.</p><Link to="/produtos">Ver produtos</Link></section>;
     return <section className="tela tela-form checkout"><h1>Finalizar compra</h1>
-        <div aria-busy={carrinhoOcupado}>{carrinho.itens.map((item) => <ItemCarrinho key={item.codigo} item={item} />)}</div>
+        <div aria-busy={carrinhoOcupado}>{carrinho.itens.map((item) => <ItemCarrinho key={`${item.codigo}:${item.tamanho ?? ''}`} item={item} />)}</div>
         <h2>Total dos produtos: {dinheiro(carrinho.itens.reduce((soma, item) => soma + Math.round(Number(item.preco_atual ?? item.preco ?? 0) * 100 * item.quantidade), 0) / 100)}</h2>
         {carrinho.itens.some((item) => item.modificado) && <p className="mensagem" role="alert">Há produtos cujo preço mudou. Confira os valores atualizados no <Link to="/carrinho">carrinho</Link> antes de confirmar.</p>}
         <p>Seus dados serão processados. A nota será emitida após a confirmação do pagamento.</p>
         <p>Depois de confirmar os dados, você seguirá para o pagamento por Pix, boleto ou cartão com Mercado Pago.</p>
-        <MensagemErro erro={erro} />{carregando ? <p>Carregando opções…</p> : formas?.length > 0 && <Formulario desabilitado={carrinhoOcupado} campos={[
+        <MensagemErro erro={erro} />{carregando ? <p>Carregando opções…</p> : formas?.length > 0 && <Formulario aoAlterarCampo={(nome) => { if (nome !== 'frete_servico') { setCotacao(null); setServicoFrete(''); } }} desabilitado={carrinhoOcupado} campos={[
             ...(dadosSalvos ? [] : identificacao),
             ...(enderecoSalvo ? [{ nome: 'endereco_confirmado', label: dadosSalvos ? 'Confirmo os dados de identificação e o endereço salvos abaixo.' : 'Confirmo o endereço salvo abaixo.', tipo: 'checkbox' }] : enderecoCompleto),
-        ]} valores={{ email: dadosSalvos?.email || usuario.email, ...(enderecoSalvo || {}) }} botao="Confirmar pedido" textoOcupado="Confirmar pedido" enviar={async (dados) => {
+        ]} valores={{ email: dadosSalvos?.email || usuario.email, ...(enderecoSalvo || {}) }} botao={cotacao ? 'Confirmar pedido com frete' : 'Calcular frete'} textoOcupado="Consultando, aguarde…" enviar={async (dados) => {
             setProcessandoPedido(true);
             try {
                 sessionStorage.setItem('lcb.checkout-key', chave.current);
@@ -64,17 +66,37 @@ export default function Checkout() {
                 if (!bairro) throw new Error('O ViaCEP não retornou o bairro. Atualize o endereço da sua conta antes de continuar.');
                 endereco.bairro = bairro;
                 endereco.codigo_municipio = cep.codigo_municipio;
+                const resumo = JSON.stringify({ endereco, itens: carrinho.itens });
+                if (!cotacao || cotacao.resumo !== resumo || cotacao.expira_em * 1000 <= Date.now()) {
+                    const resposta = await api.cotarFrete(String(endereco.cep).replace(/\D/g, ''));
+                    setCotacao({ ...resposta, resumo });
+                    setServicoFrete('');
+                    return;
+                }
+                if (!servicoFrete) throw new Error('Selecione uma opção de entrega.');
                 let pedido;
                 await executarCarrinho(async () => {
-                    pedido = await api.comprar({ forma_pagamento_id: Number(dados.forma_pagamento_id), dados_fiscais: { nome: dados.nome || dadosSalvos?.nome, documento: dados.documento || dadosSalvos?.documento, email: dados.email || dadosSalvos?.email || usuario.email, indicador_ie: 9, endereco } }, chave.current);
+                    try {
+                        pedido = await api.comprar({ frete_cotacao_id: cotacao.cotacao_id, frete_servico: servicoFrete, forma_pagamento_id: Number(dados.forma_pagamento_id), dados_fiscais: { nome: dados.nome || dadosSalvos?.nome, documento: dados.documento || dadosSalvos?.documento, email: dados.email || dadosSalvos?.email || usuario.email, indicador_ie: 9, endereco } }, chave.current);
+                    } catch (falha) {
+                        if (falha.status === 422) { setCotacao(null); setServicoFrete(''); }
+                        throw falha;
+                    }
                     sessionStorage.removeItem('lcb.checkout-key');
                 });
                 navigate(`/checkout/pagamento/${pedido.id}`, { replace: true });
             } finally { setProcessandoPedido(false); }
         }}>
             {enderecoSalvo && <article className="produto-card"><h2>Dados salvos</h2>{dadosSalvos && <p>{dadosSalvos.nome} · {mascararDocumento(dadosSalvos.documento)} · {dadosSalvos.email}</p>}<p>{enderecoSalvo.logradouro}, {enderecoSalvo.numero}{enderecoSalvo.complemento ? `, ${enderecoSalvo.complemento}` : ''}</p><p>{enderecoSalvo.cidade}/{enderecoSalvo.estado} · CEP {String(enderecoSalvo.cep).replace(/^(\d{5})(\d{3})$/, '$1-$2')}</p><Link to="/conta">Alterar endereço</Link></article>}
-            <label>Forma de pagamento<select name="forma_pagamento_id" required><option value="">Selecione</option>{formas.filter((forma) => ['pix', 'cartao_credito', 'cartao_debito'].includes(forma.codigo)).map((forma) => <option key={forma.id} value={forma.id}>{forma.nome}</option>)}</select></label>
+            <label>Forma de pagamento<select name="forma_pagamento_id" required><option value="">Selecione</option>{formas.filter((forma) => ['pix', 'boleto', 'cartao_credito', 'cartao_debito'].includes(forma.codigo)).map((forma) => <option key={forma.id} value={forma.id}>{forma.nome}</option>)}</select></label>
             <p>Consumidor final não contribuinte de ICMS. Para outros enquadramentos, entre em contato.</p>
+            {cotacao && <fieldset><legend>Escolha a entrega</legend>
+                {cotacao.opcoes.map((opcao) => <label key={opcao.codigo} className="campo-checkbox"><input type="radio" name="frete_servico" value={opcao.codigo} checked={servicoFrete === opcao.codigo} onChange={() => setServicoFrete(opcao.codigo)} required />{opcao.nome} · {dinheiro(opcao.valor)} · {opcao.prazo}</label>)}
+                {cotacao.pacote.estimado && <p>Peso e medidas dos produtos ainda são estimados.</p>}
+                <p>Cotação válida até {new Date(cotacao.expira_em * 1000).toLocaleTimeString('pt-BR')}.</p>
+                {servicoFrete && <p><strong>Total com frete: {dinheiro(carrinho.itens.reduce((soma, item) => soma + Math.round(Number(item.preco_atual ?? item.preco ?? 0) * 100 * item.quantidade), 0) / 100 + Number(cotacao.opcoes.find((opcao) => opcao.codigo === servicoFrete).valor))}</strong></p>}
+                <button type="button" onClick={() => { setCotacao(null); setServicoFrete(''); }}>Calcular novamente</button>
+            </fieldset>}
         </Formulario>}
         {!carregando && formas?.length === 0 && <p>Nenhuma forma de pagamento disponível.</p>}
         {processandoPedido && <BloqueioAutenticacao rotulo="Processando pedido" />}

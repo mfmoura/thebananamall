@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
-export default function ControleQuantidade({ valor, alterar, desabilitado = false, produto = 'produto', validadeAlterada }) {
+export default function ControleQuantidade({ valor, alterar, desabilitado = false, produto = 'produto', validadeAlterada, inteiro = false }) {
     const id = useId();
     const [texto, setTexto] = useState(String(valor));
     const [erro, setErro] = useState('');
@@ -12,6 +12,9 @@ export default function ControleQuantidade({ valor, alterar, desabilitado = fals
         const numero = Number(entrada);
         if (!String(entrada).trim() || !Number.isFinite(numero) || numero < 0.001) {
             setErro('Informe uma quantidade maior que zero.'); validadeAlterada?.(false); return;
+        }
+        if (inteiro && !Number.isInteger(numero)) {
+            setErro('Informe uma quantidade inteira para este tamanho.'); validadeAlterada?.(false); return;
         }
         const proximo = Math.round(numero * 1000) / 1000;
         setTexto(String(proximo)); setErro(''); validadeAlterada?.(true);
@@ -26,10 +29,10 @@ export default function ControleQuantidade({ valor, alterar, desabilitado = fals
         <label htmlFor={id}>Quantidade</label>
         <div className="quantidade-controle">
             <button type="button" aria-label={`Diminuir quantidade de ${produto}`} disabled={desabilitado || atual <= 1} onPointerDown={(event) => event.preventDefault()} onClick={() => confirmar(atual - 1)}><i className="fa-solid fa-minus" aria-hidden="true" /></button>
-            <input id={id} aria-label={`Quantidade de ${produto}`} aria-invalid={Boolean(erro)} aria-describedby={erro ? `${id}-erro` : undefined} type="number" min="0.001" step="0.001" value={texto} disabled={desabilitado} onChange={(event) => {
+            <input id={id} aria-label={`Quantidade de ${produto}`} aria-invalid={Boolean(erro)} aria-describedby={erro ? `${id}-erro` : undefined} type="number" min={inteiro ? '1' : '0.001'} step={inteiro ? '1' : '0.001'} value={texto} disabled={desabilitado} onChange={(event) => {
                 const entrada = event.target.value;
                 setTexto(entrada);
-                validadeAlterada?.(entrada.trim() !== '' && Number.isFinite(Number(entrada)) && Number(entrada) >= 0.001);
+                validadeAlterada?.(entrada.trim() !== '' && Number.isFinite(Number(entrada)) && Number(entrada) >= (inteiro ? 1 : 0.001) && (!inteiro || Number.isInteger(Number(entrada))));
             }} onBlur={() => confirmar(texto)} onKeyDown={(event) => {
                 if (event.key === 'Enter') { event.preventDefault(); confirmar(texto); }
                 if (event.key === 'Escape') { setTexto(String(valor)); setErro(''); validadeAlterada?.(true); }

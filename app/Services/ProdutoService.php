@@ -33,6 +33,8 @@ class ProdutoService
     public function __construct(
         private readonly ProdutoMovimentacaoService $movimentacaoService,
         private readonly CarrinhoService $carrinhoService,
+        private readonly GradeProdutoService $grades,
+        private readonly ReservaEstoqueService $reservas,
     ) {}
 
     public function listar(?int $porPagina = null, int $pagina = 1, array $filtros = []): Collection|\Illuminate\Pagination\LengthAwarePaginator
@@ -60,6 +62,7 @@ class ProdutoService
             }
             $produtos = $consulta->get();
             $produtos->each(function (Produto $produto): void {
+                $this->comEstoquePorTamanho($produto);
                 $estoqueContado = (float) $produto->quantidade_entrada - (float) $produto->quantidade_saida;
                 $produto->setAttribute('estoque_contado', round($estoqueContado, 3));
                 $produto->setAttribute(
@@ -98,7 +101,7 @@ class ProdutoService
         return $this->carrinhoService->comBloqueioDeEstoque(function () use ($produto): Produto {
             $estoqueContado = $this->contarEstoque($produto);
 
-            return $produto->load(['imagens', 'precoAtual', 'categoriaCadastro'])
+            return $this->comEstoquePorTamanho($produto->load(['imagens', 'precoAtual', 'categoriaCadastro']))
                 ->setAttribute('estoque_contado', $estoqueContado)
                 ->setAttribute('estoque', round($estoqueContado - $this->movimentacaoService->contarReservado($produto->id), 3));
         });
@@ -124,13 +127,19 @@ class ProdutoService
     public function atualizar(Produto $produto, array $dados): Produto
     {
         unset($dados['preco']);
-        $produto->update($dados);
+        return $this->carrinhoService->comBloqueioDeEstoque(fn () => DB::transaction(function () use ($produto, $dados): Produto {
+            $produto = Produto::query()->lockForUpdate()->findOrFail($produto->id);
+            if (array_key_exists('grade', $dados)) {
+                $this->grades->validarAlteracao($produto, $dados['grade']);
+            }
+            $produto->update($dados);
 
-        $estoqueContado = $this->contarEstoque($produto);
+            $estoqueContado = $this->contarEstoque($produto);
 
-        return $produto->refresh()->load(['imagens', 'precoAtual', 'categoriaCadastro'])
-            ->setAttribute('estoque_contado', $estoqueContado)
-            ->setAttribute('estoque', round($estoqueContado - $this->movimentacaoService->contarReservado($produto->id), 3));
+            return $this->comEstoquePorTamanho($produto->refresh()->load(['imagens', 'precoAtual', 'categoriaCadastro']))
+                ->setAttribute('estoque_contado', $estoqueContado)
+                ->setAttribute('estoque', round($estoqueContado - $this->movimentacaoService->contarReservado($produto->id), 3));
+        }));
     }
 
     /** Desativação preserva referências históricas de pedidos e movimentações. */
@@ -152,9 +161,30 @@ class ProdutoService
         return $this->movimentacaoService->contarDisponivel($produto);
     }
 
+    public function consultarLogistica(Produto $produto): Produto
+    {
+        return $this->carrinhoService->comBloqueioDeEstoque(function () use ($produto): Produto {
+            $contado = $this->contarEstoque($produto);
+            return $this->comEstoquePorTamanho($produto)->setAttribute('estoque_contado', $contado)
+                ->setAttribute('estoque', round($contado - $this->movimentacaoService->contarReservado($produto->id), 3));
+        });
+    }
+
+    public function historicoEstoque(array $dados): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        return ProdutoMovimentacao::query()->with(['nota', 'movimentoOriginal'])
+            ->where('produto_id', $dados['produto_id'])
+            ->orderByDesc('data')->orderByDesc('id')->paginate($dados['per_page'] ?? 10);
+    }
+
     public function movimentacoes(): Collection
     {
         return ProdutoMovimentacao::query()->with(['produto', 'nota', 'movimentoOriginal'])
             ->latest('data')->get();
+    }
+
+    private function comEstoquePorTamanho(Produto $produto): Produto
+    {
+        return $produto->setAttribute('estoque_por_tamanho', $this->reservas->resumoPorTamanho($produto));
     }
 }

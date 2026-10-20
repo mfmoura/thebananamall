@@ -8,6 +8,10 @@ use App\Http\Controllers\Web\BffController;
 
 Route::prefix('dashboard')->withoutMiddleware(\App\Http\Middleware\EnsureUsuarioLiberado::class)->group(function (): void {
     Route::view('/login', 'dashboard')->name('dashboard.login');
+    Route::view('/email/verify', 'dashboard');
+    Route::view('/email/pendente', 'dashboard');
+    Route::view('/senha-obrigatoria', 'dashboard');
+    Route::post('/email/confirmar', [\App\Http\Controllers\Api\EmailVerificationController::class, 'verifyDashboard'])->middleware('throttle:10,1');
     Route::post('/login', [\App\Http\Controllers\Web\DashboardSessaoController::class, 'store'])->middleware('throttle:6,1')->block(30, 10);
     Route::post('/logout', [\App\Http\Controllers\Web\DashboardSessaoController::class, 'destroy'])->block(30, 10);
     Route::get('/session', [\App\Http\Controllers\Web\DashboardSessaoController::class, 'show'])->middleware(\App\Http\Middleware\RequireDashboard::class);
@@ -18,14 +22,19 @@ Route::prefix('dashboard')->withoutMiddleware(\App\Http\Middleware\EnsureUsuario
         Route::get('/callback', [\App\Http\Controllers\Web\DashboardSessaoController::class, 'callback'])->block(30, 10);
         Route::match(['GET', 'POST', 'PATCH', 'DELETE'], '/api/{path}', \App\Http\Controllers\Web\DashboardProxyController::class)
             ->where('path', '[a-z0-9/-]+')->block(60, 15);
+        Route::view('/logistica', 'dashboard')->middleware('pagina-admin:estoque,manutencao,contabilidade');
+        Route::view('/logistica/{produto}', 'dashboard')->whereNumber('produto')->middleware('pagina-admin:estoque,manutencao,contabilidade');
         Route::view('/produtos', 'dashboard')->middleware('pagina-admin:estoque');
         Route::view('/produtos/novo', 'dashboard')->middleware('pagina-admin:estoque');
         Route::view('/produtos/{produto}/editar', 'dashboard')->whereNumber('produto')->middleware('pagina-admin:estoque');
+        Route::view('/expedicao', 'dashboard')->middleware('pagina-admin:pedidos');
+        Route::view('/expedicao/{pedido}', 'dashboard')->whereNumber('pedido')->middleware('pagina-admin:pedidos');
         Route::view('/pedidos', 'dashboard')->middleware('pagina-admin:pedidos');
         Route::view('/pedidos/{pedido}', 'dashboard')->whereNumber('pedido')->middleware('pagina-admin:pedidos');
-        Route::view('/usuarios', 'dashboard')->middleware('pagina-admin:usuarios');
-        Route::view('/usuarios/novo', 'dashboard')->middleware('pagina-admin:usuarios');
-        Route::view('/usuarios/{usuario}/editar', 'dashboard')->whereNumber('usuario')->middleware('pagina-admin:usuarios');
+        Route::view('/usuarios', 'dashboard')->middleware('pagina-admin:usuarios,manutencao,estoque,contabilidade,pedidos');
+        Route::view('/usuarios/novo', 'dashboard')->middleware('pagina-admin:usuarios,manutencao,estoque,contabilidade,pedidos');
+        Route::view('/usuarios/{usuario}/visualizar', 'dashboard')->whereNumber('usuario')->middleware('pagina-admin:usuarios,manutencao,estoque,contabilidade,pedidos');
+        Route::view('/usuarios/{usuario}/editar', 'dashboard')->whereNumber('usuario')->middleware('pagina-admin:usuarios,manutencao,estoque,contabilidade,pedidos');
     });
 });
 

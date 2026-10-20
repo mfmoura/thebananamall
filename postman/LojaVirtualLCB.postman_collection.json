@@ -2,16 +2,38 @@
     "info":  {
                  "_postman_id":  "3e3a0dbc-bfd6-49c5-9c88-1965fd473460",
                  "name":  "Loja Virtual LCB API",
-                 "description":  "ColeÃƒÂ§ÃƒÂ£o de API: autenticaÃƒÂ§ÃƒÂ£o, clientes, catÃƒÂ¡logo de produtos, estoque, carrinhos Redis, pedidos PostgreSQL e administraÃƒÂ§ÃƒÂ£o. Cadastre/login um cliente para os fluxos de compra; login administrativo para catÃƒÂ¡logo, imagens e estoque. Rode docker compose exec php php artisan migrate --seed para popular produtos LCB. Consulte postman/README.md. A disponibilidade de estoque desconta reservas ativas dos carrinhos, e itens acima do saldo disponível são rejeitados.\n\nExclusões de domínio são lógicas (deleted_at). Contas não confirmadas, expiradas e sem login são removidas pelo scheduler a cada minuto; após expiração, refaça o cadastro. Visitantes são isentos. Cadastros pendentes não reservam e-mail: apenas a primeira conta confirmada pode utilizá-lo como endereço confirmado. Reenvio seleciona o cadastro pendente mais recente ainda válido. Carrinhos: visitante 24h, Cliente 30 dias, reserva 15 minutos sem alterações efetivas. GET não renova TTL. A resposta inclui reserva_expira_em e reserva_ativa. Checkout revalida disponibilidade. Cadastro e troca de senha usam validações locais e histórico, sem consulta a Pwned Passwords. OAuth BFF requer chaves legíveis pelo PHP; clientes sem fluxo de consentimento manual recebem 403. Consulte docs/BFF.md. E-mails são enfileirados no Redis/Horizon (emails); sucesso HTTP aceita a solicitação e não garante entrega imediata. Links vencem a partir da solicitação.",
+                 "description":  "ColeÃƒÂ§ÃƒÂ£o de API: autenticaÃƒÂ§ÃƒÂ£o, clientes, catÃƒÂ¡logo de produtos, estoque, carrinhos Redis, pedidos PostgreSQL e administraÃƒÂ§ÃƒÂ£o. Cadastre/login um cliente para os fluxos de compra; login administrativo para catÃƒÂ¡logo, imagens e estoque. Rode docker compose exec php php artisan migrate --seed para popular produtos LCB. Consulte postman/README.md. A disponibilidade de estoque desconta reservas ativas dos carrinhos, e itens acima do saldo disponível são rejeitados.\n\nExclusões de domínio são lógicas (deleted_at). Contas não confirmadas, expiradas e sem login são removidas pelo scheduler a cada minuto; após expiração, refaça o cadastro. Visitantes são isentos. Cadastros pendentes não reservam e-mail: apenas a primeira conta confirmada pode utilizá-lo como endereço confirmado. Reenvio seleciona o cadastro pendente mais recente ainda válido. Carrinhos: visitante 24h, Cliente 30 dias, reserva 15 minutos sem alterações efetivas. GET não renova TTL. A resposta inclui reserva_expira_em e reserva_ativa. Checkout revalida disponibilidade. Cadastro e troca de senha usam validações locais e histórico, sem consulta a Pwned Passwords. OAuth BFF requer chaves legíveis pelo PHP; clientes sem fluxo de consentimento manual recebem 403. Consulte docs/BFF.md. E-mails são enfileirados no Redis/Horizon (emails); sucesso HTTP aceita a solicitação e não garante entrega imediata. Links vencem a partir da solicitação.\nCRUD /api/admin/usuarios: GET disponível aos perfis administrativos. POST, PATCH, DELETE e troca de e-mail de usuários não administradores exigem manutencao. Criar e editar administradores: manutencao permite conceder quaisquer permissoes e editar perfis com outras permissoes; usuarios permanece limitado as proprias permissoes. Excluir administradores exige usuarios e permissoes compativeis.",
                  "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
              },
     "variable":  [
-                     { "key": "usuarioAdminId", "value": "", "type": "string" },
-                     { "key": "dashboardAuthorizationUrl", "value": "", "type": "string" },
+        {"key":"produtoGradeId","value":"","type":"string"},
+        {"key":"tamanhoGrade","value":"M","type":"string"},
+        { "key": "emailVerificationToken", "value": "", "type": "string" },
+{"key":"categoriaId","value":"","type":"string"},
                      {
-                         "key": "webUrl",
-                         "value": "http://localhost",
-                         "type": "string"
+                         "key":  "freteCotacaoId",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "freteServico",
+                         "value":  "04510",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "usuarioAdminId",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "dashboardAuthorizationUrl",
+                         "value":  "",
+                         "type":  "string"
+                     },
+                     {
+                         "key":  "webUrl",
+                         "value":  "http://localhost",
+                         "type":  "string"
                      },
                      {
                          "key":  "bffUrl",
@@ -180,94 +202,1605 @@
                      }
                  ],
     "item":  [
-        {"name":"Boleto - criar cobranca assincrona","request":{"method":"POST","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Content-Type","value":"application/json"},{"key":"Accept","value":"application/json"}],"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento","body":{"mode":"raw","raw":"{\"meio\":\"boleto\"}","options":{"raw":{"language":"json"}}},"description":"Pedido da forma boleto com snapshot fiscal completo. Retorna 202. Consultar GET no mesmo caminho para linha digitavel, codigo de barras e ticket_url. Requer orders:write. Nao confirma pagamento na geracao."}},
 {
-  "name": "Dashboard - Pedidos (consulta e acoes)",
-  "description": "Bearer administrativo com admin:manage e permissao pedidos. Sem criacao, edicao ou exclusao. Cancelamento somente sem cobranca criada. Etiqueta de destinatario nao equivale a postagem.",
-  "auth": {"type":"bearer","bearer":[{"key":"token","value":"{{adminToken}}","type":"string"}]},
-  "item":  [
-    {"name":"Listar e filtrar pedidos","request":{"method":"GET","url":"{{baseUrl}}/admin/pedidos?page=1&per_page=10&status=aguardando_pagamento","header":[]}},
-    {"name":"Consultar pedido","request":{"method":"GET","url":"{{baseUrl}}/admin/pedidos/{{pedidoId}}","header":[]}},
-    {"name":"Cancelar pedido","request":{"method":"POST","url":"{{baseUrl}}/admin/pedidos/{{pedidoId}}/cancelar","header":[],"description":"Sem payload; retorna 409 se houver cobranca ou status incompativel."}},
-    {"name":"Baixar DANFE","request":{"method":"GET","url":"{{baseUrl}}/admin/pedidos/{{pedidoId}}/danfe","header":[],"description":"PDF somente quando processamento fiscal concluido."}},
-    {"name":"Dados para etiqueta de destinatario","request":{"method":"GET","url":"{{baseUrl}}/admin/pedidos/{{pedidoId}}/etiqueta","header":[],"description":"Snapshot do endereco fiscal do pedido pago; sem documento do destinatario."}}
-  ]
+    "name":  "Grade de tamanhos",
+    "description":  "Um produto com preço comum e saldo por tamanho. Administrador com admin:manage e página estoque configura grade e registra movimentações. Cliente usa cart:read/cart:write. Execute o cadastro, entradas por tamanho, criação do carrinho e inclusão. Tamanho obrigatório para produtos com grade; quantidades inteiras; repita entradas para os demais tamanhos. O checkout e o cancelamento existentes preservam os tamanhos. Produtos sem grade continuam sem tamanho.",
+    "item":  [
+                 {
+                     "name":  "Cadastrar produto com grade",
+                     "request":  {
+                                     "method":  "POST",
+                                     "url":  "{{baseUrl}}/admin/produtos",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "auth":  {
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "type":  "string",
+                                                                     "value":  "{{adminToken}}"
+                                                                 }
+                                                             ],
+                                                  "type":  "bearer"
+                                              },
+                                     "body":  {
+                                                  "raw":  "{\"codigo\":\"CAM-GRADE-001\",\"nome\":\"Camiseta com grade\",\"categoria\":\"camiseta\",\"preco\":\"59.90\",\"grade\":[\"P\",\"M\",\"G\",\"GG\"]}",
+                                                  "options":  {
+                                                                  "raw":  {
+                                                                              "language":  "json"
+                                                                          }
+                                                              },
+                                                  "mode":  "raw"
+                                              }
+                                 },
+                     "event":  [
+                                   {
+                                       "script":  {
+                                                      "exec":  [
+                                                                   "if (pm.response.code === 201) pm.collectionVariables.set(\"produtoGradeId\", pm.response.json().data.id);"
+                                                               ],
+                                                      "type":  "text/javascript"
+                                                  },
+                                       "listen":  "test"
+                                   }
+                               ]
+                 },
+                 {
+                     "name":  "Acrescentar tamanho à grade",
+                     "request":  {
+                                     "method":  "PATCH",
+                                     "url":  "{{baseUrl}}/admin/produtos/{{produtoGradeId}}",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "auth":  {
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "type":  "string",
+                                                                     "value":  "{{adminToken}}"
+                                                                 }
+                                                             ],
+                                                  "type":  "bearer"
+                                              },
+                                     "body":  {
+                                                  "raw":  "{\"grade\":[\"P\",\"M\",\"G\",\"GG\",\"XG\"]}",
+                                                  "options":  {
+                                                                  "raw":  {
+                                                                              "language":  "json"
+                                                                          }
+                                                              },
+                                                  "mode":  "raw"
+                                              }
+                                 }
+                 },
+                 {
+                     "name":  "Entrada no tamanho selecionado",
+                     "request":  {
+                                     "method":  "POST",
+                                     "url":  "{{baseUrl}}/admin/estoque/movimentacoes",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "auth":  {
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "type":  "string",
+                                                                     "value":  "{{adminToken}}"
+                                                                 }
+                                                             ],
+                                                  "type":  "bearer"
+                                              },
+                                     "body":  {
+                                                  "raw":  "{\"produto_id\":{{produtoGradeId}},\"tamanho\":\"{{tamanhoGrade}}\",\"direcao\":\"entrada\",\"quantidade\":10}",
+                                                  "options":  {
+                                                                  "raw":  {
+                                                                              "language":  "json"
+                                                                          }
+                                                              },
+                                                  "mode":  "raw"
+                                              }
+                                 }
+                 },
+                 {
+                     "name":  "Consultar saldos por tamanho",
+                     "request":  {
+                                     "method":  "GET",
+                                     "url":  "{{baseUrl}}/produtos/{{produtoGradeId}}",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    }
+                                                ]
+                                 }
+                 },
+                 {
+                     "name":  "Criar carrinho do cliente",
+                     "request":  {
+                                     "method":  "POST",
+                                     "url":  "{{baseUrl}}/carrinho",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "auth":  {
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "type":  "string",
+                                                                     "value":  "{{clienteToken}}"
+                                                                 }
+                                                             ],
+                                                  "type":  "bearer"
+                                              },
+                                     "body":  {
+                                                  "raw":  "{}",
+                                                  "options":  {
+                                                                  "raw":  {
+                                                                              "language":  "json"
+                                                                          }
+                                                              },
+                                                  "mode":  "raw"
+                                              }
+                                 }
+                 },
+                 {
+                     "name":  "Adicionar tamanho ao carrinho",
+                     "request":  {
+                                     "method":  "POST",
+                                     "url":  "{{baseUrl}}/carrinho/itens",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "auth":  {
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "type":  "string",
+                                                                     "value":  "{{clienteToken}}"
+                                                                 }
+                                                             ],
+                                                  "type":  "bearer"
+                                              },
+                                     "body":  {
+                                                  "raw":  "{\"codigo\":{{produtoGradeId}},\"tamanho\":\"{{tamanhoGrade}}\",\"quantidade\":1}",
+                                                  "options":  {
+                                                                  "raw":  {
+                                                                              "language":  "json"
+                                                                          }
+                                                              },
+                                                  "mode":  "raw"
+                                              }
+                                 }
+                 },
+                 {
+                     "name":  "Atualizar quantidade do tamanho",
+                     "request":  {
+                                     "method":  "PATCH",
+                                     "url":  "{{baseUrl}}/carrinho/itens/{{produtoGradeId}}",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "auth":  {
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "type":  "string",
+                                                                     "value":  "{{clienteToken}}"
+                                                                 }
+                                                             ],
+                                                  "type":  "bearer"
+                                              },
+                                     "body":  {
+                                                  "raw":  "{\"tamanho\":\"{{tamanhoGrade}}\",\"quantidade\":2}",
+                                                  "options":  {
+                                                                  "raw":  {
+                                                                              "language":  "json"
+                                                                          }
+                                                              },
+                                                  "mode":  "raw"
+                                              }
+                                 }
+                 },
+                 {
+                     "name":  "Substituir carrinho com dois tamanhos",
+                     "request":  {
+                                     "method":  "PUT",
+                                     "url":  "{{baseUrl}}/carrinho",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "auth":  {
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "type":  "string",
+                                                                     "value":  "{{clienteToken}}"
+                                                                 }
+                                                             ],
+                                                  "type":  "bearer"
+                                              },
+                                     "body":  {
+                                                  "raw":  "{\"itens\":[{\"codigo\":{{produtoGradeId}},\"tamanho\":\"P\",\"quantidade\":1},{\"codigo\":{{produtoGradeId}},\"tamanho\":\"M\",\"quantidade\":1}]}",
+                                                  "options":  {
+                                                                  "raw":  {
+                                                                              "language":  "json"
+                                                                          }
+                                                              },
+                                                  "mode":  "raw"
+                                              }
+                                 }
+                 },
+                 {
+                     "name":  "Remover somente o tamanho selecionado",
+                     "request":  {
+                                     "method":  "DELETE",
+                                     "url":  "{{baseUrl}}/carrinho/itens/{{produtoGradeId}}?tamanho={{tamanhoGrade}}",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "auth":  {
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "type":  "string",
+                                                                     "value":  "{{clienteToken}}"
+                                                                 }
+                                                             ],
+                                                  "type":  "bearer"
+                                              }
+                                 }
+                 }
+             ]
 },
-
         {
-            "name": "Dashboard - usuários",
-            "description": "CRUD administrativo exige admin:manage e página usuarios. Pelo navegador, use /dashboard/api/admin/usuarios com cookie, CSRF e autorização PKCE. Não altere o e-mail por PATCH; use solicitação de troca com confirmação. As contas novas precisam confirmar e-mail. Perfis de visitante e dados financeiros não são expostos.",
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
-            "item": [
-                { "name": "Listar usuários", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios?per_page=10&page=1&busca=" } },
-                { "name": "Consultar usuário", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}" } },
-                { "name": "Cadastrar cliente", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios", "body": { "mode": "raw", "raw": "{\n  \"tipo\": \"cliente\",\n  \"login\": \"usuario-painel\",\n  \"email\": \"usuario-painel@example.test\",\n  \"password\": \"V3rde!Azul27\",\n  \"password_confirmation\": \"V3rde!Azul27\"\n}", "options": { "raw": { "language": "json" } } } }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) pm.collectionVariables.set('usuarioAdminId', pm.response.json().data.id);"] } }] },
-                { "name": "Cadastrar administrador", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios", "body": { "mode": "raw", "raw": "{\n  \"tipo\": \"administrador\",\n  \"login\": \"admin-painel\",\n  \"email\": \"admin-painel@example.test\",\n  \"password\": \"V3rde!Azul27\",\n  \"password_confirmation\": \"V3rde!Azul27\",\n  \"paginas\": [\"usuarios\"]\n}", "options": { "raw": { "language": "json" } } } } },
-                { "name": "Cadastrar logística", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios", "body": { "mode": "raw", "raw": "{\n  \"tipo\": \"logistica\",\n  \"login\": \"entregas-painel\",\n  \"email\": \"entregas-painel@example.test\",\n  \"password\": \"V3rde!Azul27\",\n  \"password_confirmation\": \"V3rde!Azul27\",\n  \"nome\": \"Entregas\",\n  \"webhook\": \"https://example.test/eventos\"\n}", "options": { "raw": { "language": "json" } } } } },
-                { "name": "Editar login", "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}", "body": { "mode": "raw", "raw": "{\n  \"login\": \"usuario-editado\"\n}", "options": { "raw": { "language": "json" } } } } },
-                { "name": "Alterar senha", "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}", "body": { "mode": "raw", "raw": "{\n  \"password\": \"N0va!Roxa28\",\n  \"password_confirmation\": \"N0va!Roxa28\"\n}", "options": { "raw": { "language": "json" } } } } },
-                { "name": "Solicitar troca de e-mail", "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}/email", "body": { "mode": "raw", "raw": "{\n  \"email\": \"novo-endereco@example.test\"\n}", "options": { "raw": { "language": "json" } } } } },
-                { "name": "Excluir usuário logicamente", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}" } },
-                { "name": "Listar usuários pelo dashboard", "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{webUrl}}/dashboard/api/admin/usuarios?per_page=10&page=1" } }
-            ]
+            "name": "Confirmar e-mail administrativo (dashboard)",
+            "request": {
+                "auth": { "type": "noauth" },
+                "method": "POST",
+                "header": [
+                    { "key": "Accept", "value": "application/json" },
+                    { "key": "Content-Type", "value": "application/json" },
+                    { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{emailVerificationToken}}\"\n}" },
+                "url": "{{webUrl}}/dashboard/email/confirmar",
+                "description": "Obtenha csrfToken em GET /oauth/csrf e preserve o cookie de sessão. Use o token do link /dashboard/email/verify recebido por e-mail. Para troca de e-mail, inclua password e password_confirmation. Retorna requires_password_change; se true, continue em /dashboard/senha-obrigatoria. O endpoint da loja /api/email/confirmar rejeita administradores."
+            }
         },
-        {
-            "name": "Dashboard - catálogo administrativo",
-            "description": "GET administrativos exigem admin:manage e página estoque. Para o BFF, entre na pasta de sessão, autorize e mantenha os cookies; tokens ficam no servidor. Fotos são URLs públicas.",
-            "item": [
-                { "name": "Upload de foto pelo painel", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }], "url": "{{webUrl}}/dashboard/api/admin/produtos/{{produtoId}}/imagens/upload", "body": { "mode": "formdata", "formdata": [{ "key": "arquivo", "type": "file", "src": [], "description": "Selecione JPEG, PNG ou WebP de até 5 MB e 6000x6000 pixels." }, { "key": "principal", "type": "text", "value": "1" }] }, "description": "Requer login e autorização PKCE do dashboard. Mantenha cookie jar e obtenha CSRF antes da escrita. Não defina Content-Type manualmente." } },
-                { "name": "Upload de foto (API administrativa)", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/produtos/{{produtoId}}/imagens/upload", "body": { "mode": "formdata", "formdata": [{ "key": "arquivo", "type": "file", "src": [] }, { "key": "principal", "type": "text", "value": "0" }] }, "description": "Multipart: arquivo obrigatório (JPEG, PNG ou WebP, até 5 MB e 6000x6000); principal opcional (0/1). Requer admin:manage e página estoque. Retorna 201 com foto e URL pública; erros de validação retornam 422. Arquivos permanecem após exclusão lógica." } },
-                { "name": "Autorizar API do painel", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }], "url": "{{webUrl}}/dashboard/authorize" }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) pm.collectionVariables.set('dashboardAuthorizationUrl', pm.response.json().authorization_url);"] } }] },
-                { "name": "Concluir autorização PKCE", "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "text/html" }], "url": "{{dashboardAuthorizationUrl}}" } },
-                { "name": "Listar produtos (API administrativa)", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/produtos?per_page=10&page=1&busca=" } },
-                { "name": "Consultar produto inativo (API administrativa)", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/produtos/{{produtoId}}" } },
-                { "name": "Listar produtos pelo painel", "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{webUrl}}/dashboard/api/admin/produtos?per_page=10&page=1" } },
-                { "name": "Cadastrar produto pelo painel", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }], "url": "{{webUrl}}/dashboard/api/admin/produtos", "body": { "mode": "raw", "raw": "{\n  \"codigo\": \"PAINEL-001\",\n  \"nome\": \"Produto do painel\",\n  \"categoria\": \"camiseta\",\n  \"preco\": \"49.90\",\n  \"ativo\": true\n}", "options": { "raw": { "language": "json" } } } } },
-                { "name": "Adicionar foto pelo painel", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }], "url": "{{webUrl}}/dashboard/api/admin/produtos/{{produtoId}}/imagens", "body": { "mode": "raw", "raw": "{\n  \"path\": \"https://example.com/foto.jpg\",\n  \"principal\": true\n}", "options": { "raw": { "language": "json" } } } } }
-            ]
-        },
-        {
-            "name": "Dashboard - sessão administrativa",
-            "description": "Sessão por cookie HttpOnly, independente do guard cliente. Execute CSRF antes das escritas; mantenha o cookie jar habilitado. Não há cadastro nem retorno de tokens.",
-            "item": [
-                {
-                    "name": "1. Obter CSRF",
-                    "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{webUrl}}/oauth/csrf" },
-                    "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('csrfToken', pm.response.json().csrf_token);"] } }]
-                },
-                {
-                    "name": "2. Entrar no painel",
-                    "request": {
-                        "auth": { "type": "noauth" }, "method": "POST", "url": "{{webUrl}}/dashboard/login",
-                        "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }],
-                        "body": { "mode": "raw", "raw": "{\n  \"login\": \"{{adminLogin}}\",\n  \"password\": \"{{adminPassword}}\"\n}", "options": { "raw": { "language": "json" } } }
-                    }
-                },
-                {
-                    "name": "3. Consultar sessão do painel",
-                    "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{webUrl}}/dashboard/session" }
-                },
-                {
-                    "name": "4. Sair do painel",
-                    "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrfToken}}" }], "url": "{{webUrl}}/dashboard/logout" }
-                }
-            ]
-        },
-        {"name":"Listar categorias","request":{"method":"GET","auth":{"type":"noauth"},"url":"{{baseUrl}}/categorias","description":"Lista categorias ativas: id, nome_codigo (filtros e cadastro de produtos), nome (exibição nos fronts). Produtos incluem categoria_cadastro."}},
 {
- "name": "Mercado Pago (Orders)",
- "description": "Configure somente no .env o Access Token e o segredo do webhook. Ver docs/MERCADO-PAGO.md. Cliente com orders:write e pedido da forma correspondente. Nunca enviar PAN/CVV.",
- "item": [
-  {"name":"Configuração pública do checkout", "request":{"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Accept","value":"application/json"}],"description":"Exige Cliente e orders:write. Retorna somente Public Key e parcelas=1; no-store. Ausência de Access Token ou Public Key retorna 503. Não retorna credenciais privadas.","url":"{{baseUrl}}/pagamentos/configuracao"}},
-  {"name":"Configuração pública pelo BFF", "request":{"method":"GET","auth":{"type":"noauth"},"header":[{"key":"Accept","value":"application/json"}],"description":"Requer sessão web e autorização PKCE da loja, com cookie jar habilitado. O navegador usa esta rota antes de carregar MercadoPago.js.","url":"{{bffUrl}}/api/pagamentos/configuracao"}},
-  {"name":"Criar Pix", "request":{"description":"Retorna 202 Accepted sem aguardar o provedor. Processamento Redis pagamentos; consulte o GET local até obter instruções Pix ou confirmação. Repetir com os mesmos dados preserva a tentativa.","method":"POST","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\"meio\":\"pix\"}"},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
-  {"name":"Criar pagamento com cartão tokenizado", "request":{"method":"POST","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Content-Type","value":"application/json"}],"description":"Retorna 202 Accepted; processamento na fila pagamentos. O token fica temporariamente cifrado no servidor, oculto nas respostas, e é removido após obter a Order. Substitua TOKEN_GERADO_NO_MERCADOPAGO_JS por token efêmero. O pedido deve usar cartao_credito; débito usa debit_card e uma parcela. Não salvar token na coleção.","body":{"mode":"raw","raw":"{\"meio\":\"credit_card\",\"payment_method_id\":\"master\",\"token\":\"TOKEN_GERADO_NO_MERCADOPAGO_JS\",\"parcelas\":1}"},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
-  {"name":"Consultar processamento da cobrança", "request":{"description":"Consulta somente o estado local, sem chamada ao provedor. processamento: pendente, processando, aguardando, concluido ou verificacao_necessaria. O scheduler e o worker conciliam em segundo plano. Não iniciar outra cobrança em caso de resultado incerto.","method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"url":"{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"}},
-  {"name":"Webhook assinado (simular pelo painel)", "request":{"method":"POST","auth":{"type":"noauth"},"description":"Sem assinatura válida retorna 403. Use o simulador do painel Mercado Pago com ID real de Order. Segredo fica somente no .env; assinatura HMAC deve corresponder ao ID, request-id e ts. Substitua os placeholders pelos cabeçalhos de uma notificação assinada.","header":[{"key":"Content-Type","value":"application/json"},{"key":"x-request-id","value":"SUBSTITUIR_REQUEST_ID"},{"key":"x-signature","value":"ts=SUBSTITUIR_TIMESTAMP,v1=SUBSTITUIR_ASSINATURA"}],"body":{"mode":"raw","raw":"{\"type\":\"order\"}"},"url":"{{baseUrl}}/webhooks/mercado-pago?data.id=SUBSTITUIR_ORDER_ID"}}
- ]
+    "name":  "Cadastro de categorias",
+    "item":  [
+                 {
+                     "name":  "Cadastrar categoria",
+                     "request":  {
+                                     "url":  "{{baseUrl}}/admin/categorias",
+                                     "description":  "Requer admin:manage e página estoque. Código imutável e único, inclusive após exclusão lógica. Use o id retornado no cadastro como categoriaId.",
+                                     "method":  "POST",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "body":  {
+                                                  "raw":  "{\"nome_codigo\":\"acessorios\",\"nome\":\"Acessórios\"}",
+                                                  "options":  {
+                                                                  "raw":  {
+                                                                              "language":  "json"
+                                                                          }
+                                                              },
+                                                  "mode":  "raw"
+                                              },
+                                     "auth":  {
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "type":  "string",
+                                                                     "value":  "{{adminToken}}"
+                                                                 }
+                                                             ],
+                                                  "type":  "bearer"
+                                              }
+                                 }
+                 },
+                 {
+                     "name":  "Renomear categoria",
+                     "request":  {
+                                     "url":  "{{baseUrl}}/admin/categorias/{{categoriaId}}",
+                                     "description":  "Requer admin:manage e página estoque. Código imutável e único, inclusive após exclusão lógica. Use o id retornado no cadastro como categoriaId.",
+                                     "method":  "PATCH",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "body":  {
+                                                  "raw":  "{\"nome\":\"Acessórios LCB\"}",
+                                                  "options":  {
+                                                                  "raw":  {
+                                                                              "language":  "json"
+                                                                          }
+                                                              },
+                                                  "mode":  "raw"
+                                              },
+                                     "auth":  {
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "type":  "string",
+                                                                     "value":  "{{adminToken}}"
+                                                                 }
+                                                             ],
+                                                  "type":  "bearer"
+                                              }
+                                 }
+                 },
+                 {
+                     "name":  "Excluir categoria logicamente",
+                     "request":  {
+                                     "method":  "DELETE",
+                                     "url":  "{{baseUrl}}/admin/categorias/{{categoriaId}}",
+                                     "description":  "Requer admin:manage e página estoque. Código imutável e único, inclusive após exclusão lógica. Use o id retornado no cadastro como categoriaId.",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "auth":  {
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "type":  "string",
+                                                                     "value":  "{{adminToken}}"
+                                                                 }
+                                                             ],
+                                                  "type":  "bearer"
+                                              }
+                                 }
+                 }
+             ]
 },
+                 {
+                     "name":  "Reenviar confirmação de e-mail",
+                     "request":  {
+                                     "body":  {
+                                                  "raw":  "{\n  \"email\": \"{{email}}\"\n}",
+                                                  "options":  {
+                                                                  "raw":  {
+                                                                              "language":  "json"
+                                                                          }
+                                                              },
+                                                  "mode":  "raw"
+                                              },
+                                     "description":  "Aceita a solicitação com HTTP 202 sem revelar existência da conta. Contas pendentes válidas recebem novo link pela fila Redis emails. Administradores podem solicitar novo link mesmo após vencer o prazo anterior; contas comuns expiradas exigem novo cadastro. O login da loja não envia e-mail automaticamente. O login do painel solicita confirmação para administrador pendente após validar suas credenciais.",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "method":  "POST",
+                                     "auth":  {
+                                                  "type":  "noauth"
+                                              },
+                                     "url":  "{{baseUrl}}/email/reenviar-confirmacao"
+                                 }
+                 },
+                 {
+                     "name":  "Logística por produto",
+                     "item":  [
+                                  {
+                                      "name":  "Listar produtos de logística",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  "{{baseUrl}}/admin/logistica/produtos?busca=\u0026page=1\u0026per_page=10",
+                                                      "description":  "Exige admin:manage e página estoque, manutencao ou contabilidade.",
+                                                      "auth":  {
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "type":  "string",
+                                                                                      "value":  "{{adminToken}}"
+                                                                                  }
+                                                                              ],
+                                                                   "type":  "bearer"
+                                                               }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Consultar saldo do produto",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  "{{baseUrl}}/admin/logistica/produtos/{{produtoId}}",
+                                                      "description":  "Exige admin:manage e página estoque, manutencao ou contabilidade.",
+                                                      "auth":  {
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "type":  "string",
+                                                                                      "value":  "{{adminToken}}"
+                                                                                  }
+                                                                              ],
+                                                                   "type":  "bearer"
+                                                               }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Histórico paginado do produto",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  "{{baseUrl}}/admin/logistica/movimentacoes?produto_id={{produtoId}}\u0026page=1\u0026per_page=10",
+                                                      "description":  "Exige admin:manage e página estoque, manutencao ou contabilidade.",
+                                                      "auth":  {
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "type":  "string",
+                                                                                      "value":  "{{adminToken}}"
+                                                                                  }
+                                                                              ],
+                                                                   "type":  "bearer"
+                                                               }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Ajuste de entrada",
+                                      "request":  {
+                                                      "body":  {
+                                                                   "raw":  "{\r\n    \"observacao\":  \"Registro pela logística\",\r\n    \"produto_id\":  {{produtoId}},\r\n    \"direcao\":  \"entrada\",\r\n    \"tipo\":  \"ajuste\",\r\n    \"quantidade\":  1\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               },
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "description":  "Ajuste: Estoque ou Manutenção; status Ajuste de Estoque. Nota: Contabilidade, somente entrada e nota obrigatória; status Nota a verificar, sem integração externa. Saída respeita estoque disponível e reservas.",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "type":  "string",
+                                                                                      "value":  "{{adminToken}}"
+                                                                                  }
+                                                                              ],
+                                                                   "type":  "bearer"
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/estoque/movimentacoes"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Ajuste de saída",
+                                      "request":  {
+                                                      "body":  {
+                                                                   "raw":  "{\r\n    \"observacao\":  \"Registro pela logística\",\r\n    \"produto_id\":  {{produtoId}},\r\n    \"direcao\":  \"saida\",\r\n    \"tipo\":  \"ajuste\",\r\n    \"quantidade\":  1\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               },
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "description":  "Ajuste: Estoque ou Manutenção; status Ajuste de Estoque. Nota: Contabilidade, somente entrada e nota obrigatória; status Nota a verificar, sem integração externa. Saída respeita estoque disponível e reservas.",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "type":  "string",
+                                                                                      "value":  "{{adminToken}}"
+                                                                                  }
+                                                                              ],
+                                                                   "type":  "bearer"
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/estoque/movimentacoes"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Entrada com nota fictícia (Contabilidade)",
+                                      "request":  {
+                                                      "body":  {
+                                                                   "raw":  "{\r\n    \"tipo\":  \"nota\",\r\n    \"observacao\":  \"Registro pela logística\",\r\n    \"direcao\":  \"entrada\",\r\n    \"quantidade\":  1,\r\n    \"produto_id\":  {{produtoId}},\r\n    \"nota\":  \"NF-FICTICIA-001\"\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               },
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "description":  "Ajuste: Estoque ou Manutenção; status Ajuste de Estoque. Nota: Contabilidade, somente entrada e nota obrigatória; status Nota a verificar, sem integração externa. Saída respeita estoque disponível e reservas.",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "type":  "string",
+                                                                                      "value":  "{{adminToken}}"
+                                                                                  }
+                                                                              ],
+                                                                   "type":  "bearer"
+                                                               },
+                                                      "url":  "{{baseUrl}}/admin/estoque/movimentacoes"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Cotar frete Hub (Cliente)",
+                     "event":  [
+                                   {
+                                       "listen":  "test",
+                                       "script":  {
+                                                      "type":  "text/javascript",
+                                                      "exec":  [
+                                                                   "if (pm.response.code === 200) { const d = pm.response.json().data; pm.collectionVariables.set(\u0027freteCotacaoId\u0027, d.cotacao_id); pm.collectionVariables.set(\u0027freteServico\u0027, d.opcoes[0].codigo); }"
+                                                               ]
+                                                  }
+                                   }
+                               ],
+                     "request":  {
+                                     "auth":  {
+                                                  "type":  "bearer",
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "value":  "{{clienteToken}}",
+                                                                     "type":  "string"
+                                                                 }
+                                                             ]
+                                              },
+                                     "method":  "POST",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "url":  "{{baseUrl}}/pedidos/frete",
+                                     "body":  {
+                                                  "mode":  "raw",
+                                                  "raw":  "{\n  \"cep\": \"01001000\"\n}"
+                                              },
+                                     "description":  "Cliente com orders:write e carrinho não vazio. Usa peso e medidas cadastrados nos produtos e token somente no servidor. Retorna opcoes PAC/SEDEX, pacote e cotacao_id válido por 5 minutos para este Cliente, CEP e carrinho. Salva freteCotacaoId e freteServico para POST /pedidos. Altere freteServico para outro código retornado se desejar. Falha de cotação não vira frete grátis. Via BFF: POST /bff/api/pedidos/frete com cookie e CSRF. Sem criação de etiqueta ou pedido nesta consulta."
+                                 }
+                 },
+                 {
+                     "name":  "Configurar embalagem do produto (Admin)",
+                     "request":  {
+                                     "auth":  {
+                                                  "type":  "bearer",
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "value":  "{{adminToken}}",
+                                                                     "type":  "string"
+                                                                 }
+                                                             ]
+                                              },
+                                     "method":  "PATCH",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}",
+                                     "body":  {
+                                                  "mode":  "raw",
+                                                  "raw":  "{\n  \"peso_gramas\": 300,\n  \"altura_cm\": 4,\n  \"largura_cm\": 25,\n  \"comprimento_cm\": 30,\n  \"embalagem_estimada\": true\n}"
+                                              },
+                                     "description":  "admin:manage e página estoque. Peso em gramas com embalagem, medidas unitárias em centímetros. Envie os quatro campos juntos; estimativas devem ser marcadas. Campos também aceitos no cadastro de produto. Valores deste exemplo são apenas de demonstração."
+                                 }
+                 },
+                 {
+                     "name":  "Expedição - pedidos pagos aguardando entrega",
+                     "request":  {
+                                     "auth":  {
+                                                  "type":  "bearer",
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "value":  "{{adminToken}}",
+                                                                     "type":  "string"
+                                                                 }
+                                                             ]
+                                              },
+                                     "method":  "GET",
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "url":  "{{baseUrl}}/admin/pedidos?expedicao=1\u0026per_page=10\u0026page=1",
+                                     "description":  "Exige admin:manage e página pedidos. Lista pago e em_processamento com processamento fiscal concluído e nota vinculada autorizada; exclui enviados, entregues, cancelados e excluídos. Filtros opcionais pedido_id e status restringem a seleção. Detalhe, DANFE e etiqueta nos endpoints administrativos existentes."
+                                 }
+                 },
+                 {
+                     "name":  "Boleto - criar cobranca assincrona",
+                     "request":  {
+                                     "method":  "POST",
+                                     "auth":  {
+                                                  "type":  "bearer",
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "value":  "{{clienteToken}}",
+                                                                     "type":  "string"
+                                                                 }
+                                                             ]
+                                              },
+                                     "header":  [
+                                                    {
+                                                        "key":  "Content-Type",
+                                                        "value":  "application/json"
+                                                    },
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "url":  "{{baseUrl}}/pedidos/{{pedidoId}}/pagamento",
+                                     "body":  {
+                                                  "mode":  "raw",
+                                                  "raw":  "{\"meio\":\"boleto\"}",
+                                                  "options":  {
+                                                                  "raw":  {
+                                                                              "language":  "json"
+                                                                          }
+                                                              }
+                                              },
+                                     "description":  "Pedido da forma boleto com snapshot fiscal completo. Retorna 202. Consultar GET no mesmo caminho para linha digitavel, codigo de barras e ticket_url. Requer orders:write. Nao confirma pagamento na geracao."
+                                 }
+                 },
+                 {
+                     "name":  "Dashboard - Pedidos (consulta e acoes)",
+                     "description":  "Bearer administrativo com admin:manage e permissao pedidos. Sem criacao, edicao ou exclusao. Cancelamento somente sem cobranca criada. Etiqueta de destinatario nao equivale a postagem.",
+                     "auth":  {
+                                  "type":  "bearer",
+                                  "bearer":  [
+                                                 {
+                                                     "key":  "token",
+                                                     "value":  "{{adminToken}}",
+                                                     "type":  "string"
+                                                 }
+                                             ]
+                              },
+                     "item":  [
+                                  {
+                                      "name":  "Listar e filtrar pedidos",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  "{{baseUrl}}/admin/pedidos?page=1\u0026per_page=10\u0026status=aguardando_pagamento",
+                                                      "header":  [
 
-{"name":"Consultar CEP para autocomplete","request":{"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{clienteToken}}","type":"string"}]},"header":[{"key":"Accept","value":"application/json"}],"url":"{{baseUrl}}/enderecos/cep/01001000","description":"Exige conta autenticada com e-mail confirmado. CEP com oito dígitos. Retorna cep, logradouro, bairro, cidade, estado, codigo_municipio (IBGE) e pais. Limite de 30 consultas/minuto. Pelo BFF: GET {{bffUrl}}/api/enderecos/cep/01001000 com cookie de sessão, sem bearer no navegador. Não salva o endereço. CEP inválido/inexistente: 422; ViaCEP indisponível: 503."}},
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Consultar pedido",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  "{{baseUrl}}/admin/pedidos/{{pedidoId}}",
+                                                      "header":  [
+
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Cancelar pedido",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "url":  "{{baseUrl}}/admin/pedidos/{{pedidoId}}/cancelar",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "description":  "Sem payload; retorna 409 se houver cobranca ou status incompativel."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Baixar DANFE",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  "{{baseUrl}}/admin/pedidos/{{pedidoId}}/danfe",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "description":  "PDF somente quando processamento fiscal concluido."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Dados para etiqueta de destinatario",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  "{{baseUrl}}/admin/pedidos/{{pedidoId}}/etiqueta",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "description":  "Snapshot do endereco fiscal do pedido pago; sem documento do destinatario."
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Dashboard - usuários",
+                     "description":  "CRUD administrativo exige admin:manage e página usuarios. Pelo navegador, use /dashboard/api/admin/usuarios com cookie, CSRF e autorização PKCE. Não altere o e-mail por PATCH; use solicitação de troca com confirmação. As contas novas precisam confirmar e-mail. Perfis de visitante e dados financeiros não são expostos.",
+                     "auth":  {
+                                  "type":  "bearer",
+                                  "bearer":  [
+                                                 {
+                                                     "key":  "token",
+                                                     "value":  "{{adminToken}}",
+                                                     "type":  "string"
+                                                 }
+                                             ]
+                              },
+                     "item":  [
+                                  {
+                                      "name":  "Listar usuários",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/usuarios?per_page=10\u0026page=1\u0026busca="
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Consultar usuário",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Cadastrar cliente",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/usuarios",
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"tipo\": \"cliente\",\n  \"login\": \"usuario-painel\",\n  \"email\": \"usuario-painel@example.test\",\n  \"password\": \"V3rde!Azul27\",\n  \"password_confirmation\": \"V3rde!Azul27\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "if (pm.response.code === 201) pm.collectionVariables.set(\u0027usuarioAdminId\u0027, pm.response.json().data.id);"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Cadastrar administrador",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/usuarios",
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"tipo\": \"administrador\",\n  \"login\": \"admin-painel\",\n  \"email\": \"admin-painel@example.test\",\n  \"password\": \"V3rde!Azul27\",\n  \"password_confirmation\": \"V3rde!Azul27\",\n  \"paginas\": [\"usuarios\"]\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Cadastrar logística",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/usuarios",
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"tipo\": \"logistica\",\n  \"login\": \"entregas-painel\",\n  \"email\": \"entregas-painel@example.test\",\n  \"password\": \"V3rde!Azul27\",\n  \"password_confirmation\": \"V3rde!Azul27\",\n  \"nome\": \"Entregas\",\n  \"webhook\": \"https://example.test/eventos\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Editar login",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}",
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"login\": \"usuario-editado\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Alterar senha",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}",
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"password\": \"N0va!Roxa28\",\n  \"password_confirmation\": \"N0va!Roxa28\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Solicitar troca de e-mail",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}/email",
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"novo-endereco@example.test\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Excluir usuário logicamente",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Listar usuários pelo dashboard",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{webUrl}}/dashboard/api/admin/usuarios?per_page=10\u0026page=1"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Dashboard - catálogo administrativo",
+                     "description":  "GET administrativos exigem admin:manage e página estoque. Para o BFF, entre na pasta de sessão, autorize e mantenha os cookies; tokens ficam no servidor. Fotos são URLs públicas.",
+                     "item":  [
+                                  {
+                                      "name":  "Upload de foto pelo painel",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{webUrl}}/dashboard/api/admin/produtos/{{produtoId}}/imagens/upload",
+                                                      "body":  {
+                                                                   "mode":  "formdata",
+                                                                   "formdata":  [
+                                                                                    {
+                                                                                        "key":  "arquivo",
+                                                                                        "type":  "file",
+                                                                                        "src":  [
+
+                                                                                                ],
+                                                                                        "description":  "Selecione JPEG, PNG ou WebP de até 5 MB e 6000x6000 pixels."
+                                                                                    },
+                                                                                    {
+                                                                                        "key":  "principal",
+                                                                                        "type":  "text",
+                                                                                        "value":  "1"
+                                                                                    }
+                                                                                ]
+                                                               },
+                                                      "description":  "Requer login e autorização PKCE do dashboard. Mantenha cookie jar e obtenha CSRF antes da escrita. Não defina Content-Type manualmente."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Upload de foto (API administrativa)",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}/imagens/upload",
+                                                      "body":  {
+                                                                   "mode":  "formdata",
+                                                                   "formdata":  [
+                                                                                    {
+                                                                                        "key":  "arquivo",
+                                                                                        "type":  "file",
+                                                                                        "src":  [
+
+                                                                                                ]
+                                                                                    },
+                                                                                    {
+                                                                                        "key":  "principal",
+                                                                                        "type":  "text",
+                                                                                        "value":  "0"
+                                                                                    }
+                                                                                ]
+                                                               },
+                                                      "description":  "Multipart: arquivo obrigatório (JPEG, PNG ou WebP, até 5 MB e 6000x6000); principal opcional (0/1). Requer admin:manage e página estoque. Retorna 201 com foto e URL pública; erros de validação retornam 422. Arquivos permanecem após exclusão lógica."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Autorizar API do painel",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{webUrl}}/dashboard/authorize"
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "if (pm.response.code === 200) pm.collectionVariables.set(\u0027dashboardAuthorizationUrl\u0027, pm.response.json().authorization_url);"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "Concluir autorização PKCE",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "text/html"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{dashboardAuthorizationUrl}}"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Listar produtos (API administrativa)",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/produtos?per_page=10\u0026page=1\u0026busca="
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Consultar produto inativo (API administrativa)",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{adminToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{baseUrl}}/admin/produtos/{{produtoId}}"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Listar produtos pelo painel",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{webUrl}}/dashboard/api/admin/produtos?per_page=10\u0026page=1"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Cadastrar produto pelo painel",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{webUrl}}/dashboard/api/admin/produtos",
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"codigo\": \"PAINEL-001\",\n  \"nome\": \"Produto do painel\",\n  \"categoria\": \"camiseta\",\n  \"preco\": \"49.90\",\n  \"ativo\": true\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Adicionar foto pelo painel",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{webUrl}}/dashboard/api/admin/produtos/{{produtoId}}/imagens",
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"path\": \"https://example.com/foto.jpg\",\n  \"principal\": true\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Dashboard - sessão administrativa",
+                     "description":  "Sessão por cookie HttpOnly, independente do guard cliente. Execute CSRF antes das escritas; mantenha o cookie jar habilitado. Não há cadastro nem retorno de tokens.",
+                     "item":  [
+                                  {
+                                      "name":  "1. Obter CSRF",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{webUrl}}/oauth/csrf"
+                                                  },
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.collectionVariables.set(\u0027csrfToken\u0027, pm.response.json().csrf_token);"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  },
+                                  {
+                                      "name":  "2. Entrar no painel",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "url":  "{{webUrl}}/dashboard/login",
+                                                      "description":  "Credenciais corretas de administrador com e-mail pendente solicitam automaticamente confirmação pela fila Redis emails, no máximo uma vez por minuto por conta. Retorna 403 informando aceitação do envio, sem autenticar nem garantir entrega. Senha incorreta ou perfil não administrativo não disparam e-mail.",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"login\": \"{{adminLogin}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "3. Consultar sessão do painel",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{webUrl}}/dashboard/session"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "4. Sair do painel",
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-CSRF-TOKEN",
+                                                                         "value":  "{{csrfToken}}"
+                                                                     }
+                                                                 ],
+                                                      "url":  "{{webUrl}}/dashboard/logout"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Listar categorias",
+                     "request":  {
+                                     "method":  "GET",
+                                     "auth":  {
+                                                  "type":  "noauth"
+                                              },
+                                     "url":  "{{baseUrl}}/categorias",
+                                     "description":  "Lista categorias ativas: id, nome_codigo (filtros e cadastro de produtos), nome (exibição nos fronts). Produtos incluem categoria_cadastro."
+                                 }
+                 },
+                 {
+                     "name":  "Mercado Pago (Orders)",
+                     "description":  "Configure somente no .env o Access Token e o segredo do webhook. Ver docs/MERCADO-PAGO.md. Cliente com orders:write e pedido da forma correspondente. Nunca enviar PAN/CVV.",
+                     "item":  [
+                                  {
+                                      "name":  "Configuração pública do checkout",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "description":  "Exige Cliente e orders:write. Retorna somente Public Key e parcelas=1; no-store. Ausência de Access Token ou Public Key retorna 503. Não retorna credenciais privadas.",
+                                                      "url":  "{{baseUrl}}/pagamentos/configuracao"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Configuração pública pelo BFF",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "description":  "Requer sessão web e autorização PKCE da loja, com cookie jar habilitado. O navegador usa esta rota antes de carregar MercadoPago.js.",
+                                                      "url":  "{{bffUrl}}/api/pagamentos/configuracao"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Criar Pix",
+                                      "request":  {
+                                                      "description":  "Retorna 202 Accepted sem aguardar o provedor. Processamento Redis pagamentos; consulte o GET local até obter instruções Pix ou confirmação. Repetir com os mesmos dados preserva a tentativa.",
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\"meio\":\"pix\"}"
+                                                               },
+                                                      "url":  "{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Criar pagamento com cartão tokenizado",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "description":  "Retorna 202 Accepted; processamento na fila pagamentos. O token fica temporariamente cifrado no servidor, oculto nas respostas, e é removido após obter a Order. Substitua TOKEN_GERADO_NO_MERCADOPAGO_JS por token efêmero. O pedido deve usar cartao_credito; débito usa debit_card e uma parcela. Não salvar token na coleção.",
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\"meio\":\"credit_card\",\"payment_method_id\":\"master\",\"token\":\"TOKEN_GERADO_NO_MERCADOPAGO_JS\",\"parcelas\":1}"
+                                                               },
+                                                      "url":  "{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Consultar processamento da cobrança",
+                                      "request":  {
+                                                      "description":  "Consulta somente o estado local, sem chamada ao provedor. instrucoes.criado_em e instrucoes.expira_em sao datas ISO 8601 do provedor, quando disponiveis, para cronometro e barra regressiva. A contagem nao confirma nem cancela pagamentos. processamento: pendente, processando, aguardando, concluido ou verificacao_necessaria. O scheduler e o worker conciliam em segundo plano. A primeira confirmacao verificada enfileira e-mail ao Cliente em Redis/emails apos commit, para qualquer modalidade; eventos repetidos nao reenfileiram a confirmacao. Horizon deve estar ativo. Recusa HTTP 402 do provedor com Order válida preserva data.id e é confirmada por GET; status failed com processamento concluido indica recusa terminal. Não iniciar outra cobrança em caso de resultado incerto.",
+                                                      "method":  "GET",
+                                                      "auth":  {
+                                                                   "type":  "bearer",
+                                                                   "bearer":  [
+                                                                                  {
+                                                                                      "key":  "token",
+                                                                                      "value":  "{{clienteToken}}",
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ]
+                                                               },
+                                                      "url":  "{{baseUrl}}/pedidos/{{pedidoId}}/pagamento"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Webhook assinado (simular pelo painel)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "description":  "Sem assinatura válida retorna 401. Validação pelo WebhookSignatureValidator do SDK oficial Mercado Pago. Use o simulador do painel Mercado Pago com ID real de Order. Segredo fica somente no .env; assinatura HMAC deve corresponder ao ID, request-id e ts. Substitua os placeholders pelos cabeçalhos de uma notificação assinada.",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "x-request-id",
+                                                                         "value":  "SUBSTITUIR_REQUEST_ID"
+                                                                     },
+                                                                     {
+                                                                         "key":  "x-signature",
+                                                                         "value":  "ts=SUBSTITUIR_TIMESTAMP,v1=SUBSTITUIR_ASSINATURA"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\"type\":\"order\"}"
+                                                               },
+                                                      "url":  "{{baseUrl}}/webhooks/mercado-pago?data.id=SUBSTITUIR_ORDER_ID"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Consultar CEP para autocomplete",
+                     "request":  {
+                                     "method":  "GET",
+                                     "auth":  {
+                                                  "type":  "bearer",
+                                                  "bearer":  [
+                                                                 {
+                                                                     "key":  "token",
+                                                                     "value":  "{{clienteToken}}",
+                                                                     "type":  "string"
+                                                                 }
+                                                             ]
+                                              },
+                                     "header":  [
+                                                    {
+                                                        "key":  "Accept",
+                                                        "value":  "application/json"
+                                                    }
+                                                ],
+                                     "url":  "{{baseUrl}}/enderecos/cep/01001000",
+                                     "description":  "Exige conta autenticada com e-mail confirmado. CEP com oito dígitos. Retorna cep, logradouro, bairro, cidade, estado, codigo_municipio (IBGE) e pais. Limite de 30 consultas/minuto. Pelo BFF: GET {{bffUrl}}/api/enderecos/cep/01001000 com cookie de sessão, sem bearer no navegador. Não salva o endereço. CEP inválido/inexistente: 422; ViaCEP indisponível: 503."
+                                 }
+                 },
                  {
                      "name":  "Cadastro - senha de 8 a 15 caracteres",
                      "request":  {
@@ -291,7 +1824,7 @@
                  },
                  {
                      "name":  "Descricao de produtos",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "Atualizar descricao do produto",
                                       "request":  {
@@ -335,7 +1868,7 @@
                  {
                      "name":  "BFF - sessao HttpOnly",
                      "description":  "Preserve os cookies no Postman. Obtenha o CSRF em /oauth/csrf e copie csrf_token para csrfToken. Login usa /oauth/login; a autorizacao e callback acontecem pelo navegador. Tokens OAuth nunca sao retornados pelo BFF.",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "Consultar sessao BFF",
                                       "request":  {
@@ -472,7 +2005,7 @@
                  },
                  {
                      "name":  "Catalogo paginado e galeria",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "Primeiros cinco produtos com filtros opcionais",
                                       "request":  {
@@ -510,7 +2043,7 @@
                  },
                  {
                      "name":  "Frontend React - sessao e checkout",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "Consultar minha conta autenticada",
                                       "request":  {
@@ -588,7 +2121,7 @@
                  },
                  {
                      "name":  "AutenticaÃƒÂ§ÃƒÂ£o e Cliente",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "1. Cadastrar Cliente com endereÃƒÂ§o",
                                       "event":  [
@@ -834,7 +2367,7 @@
                  {
                      "name":  "Carrinho Redis (somente Cliente autenticado)",
                      "description":  "Carrinho temporÃƒÂ¡rio no Redis. O campo codigo neste fluxo ÃƒÂ© o ID numÃƒÂ©rico do produto; o catÃƒÂ¡logo tambÃƒÂ©m expÃƒÂµe seu cÃƒÂ³digo SKU textual. O TTL padrÃƒÂ£o ÃƒÂ© sete dias, configurÃƒÂ¡vel por CARRINHO_TTL.",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "1. Criar ou obter carrinho",
                                       "event":  [
@@ -1045,7 +2578,7 @@
                  {
                      "name":  "Produtos e Estoque",
                      "description":  "Leitura do catÃƒÂ¡logo ÃƒÂ© pÃƒÂºblica. AlteraÃƒÂ§ÃƒÂµes, imagens e movimentaÃƒÂ§ÃƒÂµes exigem adminToken. O estoque ÃƒÂ© a soma das entradas menos as saÃƒÂ­das; exclusÃƒÂ£o de movimentaÃƒÂ§ÃƒÂ£o cria um estorno auditÃƒÂ¡vel.",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "1. Listar catÃƒÂ¡logo pÃƒÂºblico",
                                       "request":  {
@@ -1514,7 +3047,7 @@
                  {
                      "name":  "Pedidos (checkout PostgreSQL)",
                      "description":  "O checkout copia os itens e o preÃƒÂ§o vigente do catÃƒÂ¡logo para o pedido em uma transaÃƒÂ§ÃƒÂ£o. Idempotency-Key evita pedidos duplicados. O pedido permanece no PostgreSQL mesmo apÃƒÂ³s cancelado.",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "1. Comprar (converter carrinho em pedido)",
                                       "event":  [
@@ -1563,7 +3096,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\r\n    \"forma_pagamento_id\":  {{formaPagamentoId}},\r\n    \"dados_fiscais\":  {\r\n                          \"nome\":  \"NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL\",\r\n                          \"documento\":  \"12345678909\",\r\n                          \"indicador_ie\":  9,\r\n                          \"endereco\":  {\r\n                                           \"logradouro\":  \"Rua de Teste\",\r\n                                           \"numero\":  \"2\",\r\n                                           \"bairro\":  \"Centro\",\r\n                                           \"cidade\":  \"Sao Paulo\",\r\n                                           \"codigo_municipio\":  \"3550308\",\r\n                                           \"estado\":  \"SP\",\r\n                                           \"cep\":  \"01001000\"\r\n                                       }\r\n                      }\r\n}",
+                                                                   "raw":  "{\r\n    \"forma_pagamento_id\":  {{formaPagamentoId}},\r\n    \"frete_cotacao_id\": \"{{freteCotacaoId}}\",\r\n    \"frete_servico\": \"{{freteServico}}\",\r\n    \"dados_fiscais\":  {\r\n                          \"nome\":  \"NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL\",\r\n                          \"documento\":  \"12345678909\",\r\n                          \"indicador_ie\":  9,\r\n                          \"endereco\":  {\r\n                                           \"logradouro\":  \"Rua de Teste\",\r\n                                           \"numero\":  \"2\",\r\n                                           \"bairro\":  \"Centro\",\r\n                                           \"cidade\":  \"Sao Paulo\",\r\n                                           \"codigo_municipio\":  \"3550308\",\r\n                                           \"estado\":  \"SP\",\r\n                                           \"cep\":  \"01001000\"\r\n                                       }\r\n                      }\r\n}",
                                                                    "options":  {
                                                                                    "raw":  {
                                                                                                "language":  "json"
@@ -1661,7 +3194,7 @@
                  {
                      "name":  "OperaÃƒÂ§ÃƒÂµes administrativas (requer adminToken)",
                      "description":  "Use a requisiÃƒÂ§ÃƒÂ£o de login com superadmin-teste / Senha@12345. Veja postman/README.md.",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "Login de Administrador",
                                       "event":  [
@@ -1856,7 +3389,7 @@
                  },
                  {
                      "name":  "RecuperaÃ§Ã£o de senha",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "1. Solicitar link de recuperaÃ§Ã£o",
                                       "request":  {
@@ -1930,7 +3463,7 @@
                  {
                      "name":  "Fiscal Contora (homologacao)",
                      "description":  "Configure token e CNPJ no .env do backend. Admin Contabilidade com admin:manage; Logistica com logistics:manage. Reutilize a chave em retentativas. Somente homologacao, sem movimentar estoque real. Downloads retornam arquivos.",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "1. Emitir NF-e de homologacao",
                                       "request":  {
@@ -2094,7 +3627,7 @@
                  },
                  {
                      "name":  "Filas (Horizon)",
-                     "item": [
+                     "item":  [
                                   {
                                       "name":  "Consultar estatisticas (Manutencao)",
                                       "request":  {

@@ -36,6 +36,7 @@ class StoreNotaFiscalRequest extends AdministradorRequest
             'total_desconto' => ['sometimes', 'numeric', 'gte:0', 'decimal:0,2'],
             'total_impostos' => ['sometimes', 'numeric', 'gte:0', 'decimal:0,2'],
             'itens' => ['required', 'array', 'min:1'],
+            'itens.*.tamanho' => ['sometimes', 'nullable', 'string', 'max:30'],
             'itens.*.produto_id' => ['required', 'integer', 'exists:produtos,id,deleted_at,NULL'],
             'itens.*.codigo_produto' => ['sometimes', 'string', 'max:80'],
             'itens.*.descricao' => ['sometimes', 'string', 'max:255'],

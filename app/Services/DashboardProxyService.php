@@ -8,8 +8,8 @@ use Symfony\Component\HttpFoundation\Response;
 class DashboardProxyService
 {
     private const ROTAS = [
-        'GET' => ['admin/pedidos', 'admin/pedidos/\d+', 'admin/pedidos/\d+/danfe', 'admin/pedidos/\d+/etiqueta', 'categorias', 'admin/produtos', 'admin/produtos/\d+', 'admin/usuarios', 'admin/usuarios/\d+'],
-        'POST' => ['admin/pedidos/\d+/cancelar', 'admin/produtos', 'admin/produtos/\d+/imagens', 'admin/produtos/\d+/imagens/upload', 'admin/produtos/\d+/precos', 'admin/usuarios', 'admin/usuarios/\d+/email'],
+        'GET' => ['admin/logistica/produtos', 'admin/logistica/produtos/\d+', 'admin/logistica/movimentacoes', 'admin/pedidos', 'admin/pedidos/\d+', 'admin/pedidos/\d+/danfe', 'admin/pedidos/\d+/etiqueta', 'categorias', 'admin/produtos', 'admin/produtos/\d+', 'admin/usuarios', 'admin/usuarios/\d+'],
+        'POST' => ['admin/estoque/movimentacoes', 'admin/pedidos/\d+/cancelar', 'admin/produtos', 'admin/produtos/\d+/imagens', 'admin/produtos/\d+/imagens/upload', 'admin/produtos/\d+/precos', 'admin/usuarios', 'admin/usuarios/\d+/email'],
         'PATCH' => ['admin/produtos/\d+', 'admin/produtos/\d+/imagens/\d+', 'admin/usuarios/\d+'],
         'DELETE' => ['admin/produtos/\d+', 'admin/produtos/\d+/imagens/\d+', 'admin/usuarios/\d+'],
     ];
@@ -21,7 +21,11 @@ class DashboardProxyService
         $permitidas = self::ROTAS[$request->method()] ?? [];
         abort_unless($permitidas && preg_match('~^(?:'.implode('|', $permitidas).')$~D', $path), 404);
         $pagina = str_starts_with($path, 'admin/pedidos') ? 'pedidos' : (preg_match('~^admin/usuarios(?:/|$)~', $path) ? 'usuarios' : 'estoque');
-        abort_unless($request->user('dashboard')?->administrador?->acessaPagina($pagina), 403);
+        $admin = $request->user('dashboard')?->administrador;
+        $logistica = str_starts_with($path, 'admin/logistica/') || $path === 'admin/estoque/movimentacoes';
+        abort_unless($logistica
+            ? ($admin?->acessaPagina('estoque') || $admin?->acessaPagina('manutencao') || $admin?->acessaPagina('contabilidade'))
+            : ($pagina === 'usuarios' ? $admin !== null : $admin?->acessaPagina($pagina)), 403);
         $token = $this->oauth->token($request);
         abort_unless($token, 401, 'Entre novamente no painel.');
         $query = $request->query();

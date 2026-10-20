@@ -11,6 +11,13 @@ class StoreUsuarioAdminRequest extends AdministradorRequest
 {
     use ValidaPaginasUsuarioAdmin;
 
+    public function authorize(): bool
+    {
+        return parent::authorize() && ($this->input('tipo') === 'administrador'
+            ? ($this->user()->administrador->acessaPagina('usuarios') || $this->user()->administrador->acessaPagina('manutencao'))
+            : $this->user()->administrador->acessaPagina('manutencao'));
+    }
+
     public function rules(): array
     {
         return [

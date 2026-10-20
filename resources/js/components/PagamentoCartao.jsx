@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { MensagemErro } from './Formulario';
+import BloqueioAutenticacao from './BloqueioAutenticacao';
 import useCartaoMercadoPago from '../hooks/useCartaoMercadoPago';
 import { formatosDocumentoCartao, formatarDocumentoCartao, normalizarDocumentoCartao } from '../services/documentoCartao';
 
 const iconesBandeiras = { visa: 'fa-cc-visa', master: 'fa-cc-mastercard', amex: 'fa-cc-amex', diners: 'fa-cc-diners-club', discover: 'fa-cc-discover', jcb: 'fa-cc-jcb' };
 
 export default function PagamentoCartao({ publicKey, pedido, email, enviar, ocupado }) {
-    const { pronto, erro, tokenizando, exigeEmissor, bandeira } = useCartaoMercadoPago({ publicKey, total: pedido.total, email, aoTokenizar: enviar });
+    const { pronto, erro, tokenizando, exigeEmissor, bandeira, falhaCarregamento, recarregar } = useCartaoMercadoPago({ publicKey, total: pedido.total, email, aoTokenizar: enviar });
     const [tipoDocumento, setTipoDocumento] = useState('');
     const [documento, setDocumento] = useState('');
     useEffect(() => {
@@ -16,7 +17,9 @@ export default function PagamentoCartao({ publicKey, pedido, email, enviar, ocup
     const formatoDocumento = formatosDocumentoCartao[tipoDocumento];
     const iconeBandeira = iconesBandeiras[bandeira?.id];
     return <section className="pagamento-cartao"><h2>Dados do cartão</h2>
+        {tokenizando && <BloqueioAutenticacao rotulo="Enviando dados do cartão" />}
         <MensagemErro erro={erro} />
+        {falhaCarregamento && <button type="button" disabled={ocupado || tokenizando} onClick={recarregar}>Carregar campos seguros novamente</button>}
         {!pronto && !erro && <p role="status">Carregando campos seguros…</p>}
         <form id="mp-cartao" className="formulario" data-mp-public-key-source="runtime-endpoint" data-mp-payer-email-source="application" data-mp-payer-identification-source="form" aria-busy={ocupado || tokenizando} onSubmit={(event) => event.preventDefault()}>
             <div data-mp-field="cardNumber" role="group" aria-labelledby="mp-numero-label"><label id="mp-numero-label">Número do cartão</label><div className="cartao-numero-linha">
@@ -33,7 +36,7 @@ export default function PagamentoCartao({ publicKey, pedido, email, enviar, ocup
             {/* O SDK recebe o documento sem a pontuação da máscara. */}
             <input id="mp-documento" type="hidden" value={documento} readOnly />
             <input id="mp-email" type="hidden" value={email} readOnly />
-            <label htmlFor="mp-emissor" hidden={!exigeEmissor}>Banco emissor<select id="mp-emissor" data-mp-sdk-required-field="issuer" /></label>
+            <label htmlFor="mp-emissor" className={!exigeEmissor ? 'campo-reservado' : undefined} inert={!exigeEmissor || undefined} aria-hidden={!exigeEmissor || undefined}>Banco emissor<select id="mp-emissor" data-mp-sdk-required-field="issuer" /></label>
             <select id="mp-parcelas" data-mp-sdk-required-field="installments" hidden aria-hidden="true" tabIndex={-1} />
             <label data-mp-field="identificationType" htmlFor="mp-documento-tipo">Tipo de documento do titular<select id="mp-documento-tipo" data-mp-sdk-required-field="identificationType" onChange={(event) => { setTipoDocumento(event.target.value); setDocumento(''); }} /></label>
             <p>Pagamento à vista. Seus dados do cartão são enviados diretamente ao Mercado Pago.</p>

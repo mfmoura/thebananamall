@@ -12,7 +12,7 @@ class NotaEstoque extends Model
 
     protected $table = 'notas_estoque';
 
-    protected $fillable = ['pedido_id', 'nota_fiscal_id', 'usuario_id', 'referencia', 'observacao'];
+    protected $fillable = ['pedido_id', 'nota_fiscal_id', 'usuario_id', 'referencia', 'observacao', 'status'];
 
     public function pedido(): BelongsTo
     {

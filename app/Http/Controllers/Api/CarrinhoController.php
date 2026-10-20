@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\CarrinhoRequest;
+use App\Http\Requests\Api\DeleteCarrinhoItemRequest;
 use App\Http\Requests\Api\MergeCarrinhoRequest;
 use App\Http\Requests\Api\StoreCarrinhoItemRequest;
 use App\Http\Requests\Api\UpdateCarrinhoItemRequest;
@@ -69,6 +70,7 @@ class CarrinhoController extends Controller
             $request->dono($this->identidadeService),
             (int) $dados['codigo'],
             (float) ($dados['quantidade'] ?? 1),
+            $dados['tamanho'] ?? null,
         ));
     }
 
@@ -78,6 +80,7 @@ class CarrinhoController extends Controller
             $request->dono($this->identidadeService),
             $codigo,
             (float) $request->validated('quantidade'),
+            $request->validated('tamanho'),
         );
 
         if ($carrinho === null) {
@@ -87,9 +90,9 @@ class CarrinhoController extends Controller
         return response()->json($carrinho);
     }
 
-    public function excluirItem(CarrinhoRequest $request, int $codigo): Response|JsonResponse
+    public function excluirItem(DeleteCarrinhoItemRequest $request, int $codigo): Response|JsonResponse
     {
-        if (! $this->carrinhoService->excluirItem($request->dono($this->identidadeService), $codigo)) {
+        if (! $this->carrinhoService->excluirItem($request->dono($this->identidadeService), $codigo, $request->validated('tamanho'))) {
             return response()->json(['message' => 'Item não encontrado no carrinho.'], 404);
         }
 

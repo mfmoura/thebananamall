@@ -49,6 +49,9 @@ class ContoraPayloadService
                     ],
                 ], static fn ($valor): bool => $valor !== null),
                 'items' => $itens,
+                ...(isset($dados['modalidade_frete']) ? ['shipping' => [
+                    'modality' => (int) $dados['modalidade_frete'], 'freight_amount' => (float) $nota->total_frete,
+                ]] : []),
                 'payments' => array_map(static fn (array $pagamento): array => [
                     'method' => $pagamento['meio'], 'amount' => (float) $pagamento['valor'],
                 ], $dados['pagamentos']),

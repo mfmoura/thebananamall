@@ -28,6 +28,19 @@ class DashboardProdutosTest extends TestCase
         return Produto::create(['codigo' => fake()->unique()->bothify('SKU-####??'), 'nome' => 'Produto teste', 'categoria' => 'camiseta', 'ativo' => $ativo]);
     }
 
+    public function test_cadastra_peso_medidas_e_marcacao_de_estimativa(): void
+    {
+        $produto = $this->produto();
+        Passport::actingAs($this->administrador(), ['admin:manage']);
+        $url = '/api/admin/produtos/'.$produto->id;
+        $this->patchJson($url, ['peso_gramas' => 300])->assertUnprocessable();
+        $this->patchJson($url, ['peso_gramas' => 300, 'altura_cm' => 4, 'largura_cm' => 25,
+            'comprimento_cm' => 30, 'embalagem_estimada' => true])->assertOk()
+            ->assertJsonPath('data.peso_gramas', 300)->assertJsonPath('data.altura_cm', '4.00')
+            ->assertJsonPath('data.embalagem_estimada', true);
+        $this->patchJson($url, ['peso_gramas' => -1])->assertUnprocessable();
+    }
+
     public function test_listagem_administrativa_paginada_inclui_inativos_sem_estoque(): void
     {
         $ativo = $this->produto();

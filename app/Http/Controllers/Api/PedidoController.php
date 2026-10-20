@@ -28,6 +28,8 @@ class PedidoController extends Controller
             (int) $dados['forma_pagamento_id'],
             $dados['idempotency_key'],
             $dados['dados_fiscais'],
+            $dados['frete_cotacao_id'],
+            $dados['frete_servico'],
         );
 
         return response()->json($pedido, 201);
@@ -36,6 +38,11 @@ class PedidoController extends Controller
     public function show(ShowPedidoRequest $request, Pedido $pedido, PedidoService $pedidoService): JsonResponse
     {
         return response()->json($pedidoService->buscar($request->cliente(), $pedido));
+    }
+
+    public function frete(\App\Http\Requests\Api\CotarFreteRequest $request, \App\Services\FreteService $service): JsonResponse
+    {
+        return response()->json($service->cotar($request->cliente(), $request->validated()['cep']));
     }
 
     public function danfe(ShowPedidoRequest $request, Pedido $pedido, PedidoFiscalService $service): StreamedResponse

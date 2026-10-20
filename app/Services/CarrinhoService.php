@@ -53,22 +53,22 @@ class CarrinhoService
         });
     }
 
-    public function adicionarProduto(Cliente|Visitante $dono, int $codigo, float $quantidade = 1): Carrinho
+    public function adicionarProduto(Cliente|Visitante $dono, int $codigo, float $quantidade = 1, ?string $tamanho = null): Carrinho
     {
         $preco = Produto::query()->whereKey($codigo)->first()?->preco;
 
-        return $this->comLock($dono, function () use ($dono, $codigo, $quantidade, $preco): Carrinho {
+        return $this->comLock($dono, function () use ($dono, $codigo, $quantidade, $preco, $tamanho): Carrinho {
             $carrinho = $this->consultar($dono) ?? $this->novo($dono);
 
-            return $this->salvar($dono, $carrinho->adicionarProduto($codigo, $quantidade, $preco));
+            return $this->salvar($dono, $carrinho->adicionarProduto($codigo, $quantidade, $preco, $tamanho));
         });
     }
 
-    public function atualizarItem(Cliente|Visitante $dono, int $codigo, float $quantidade): ?Carrinho
+    public function atualizarItem(Cliente|Visitante $dono, int $codigo, float $quantidade, ?string $tamanho = null): ?Carrinho
     {
-        return $this->comLock($dono, function () use ($dono, $codigo, $quantidade): ?Carrinho {
+        return $this->comLock($dono, function () use ($dono, $codigo, $quantidade, $tamanho): ?Carrinho {
             $carrinho = $this->consultar($dono);
-            $carrinhoAtualizado = $carrinho?->alterarQuantidade($codigo, $quantidade);
+            $carrinhoAtualizado = $carrinho?->alterarQuantidade($codigo, $quantidade, $tamanho);
 
             if ($carrinhoAtualizado === null) {
                 return null;
@@ -78,11 +78,11 @@ class CarrinhoService
         });
     }
 
-    public function excluirItem(Cliente|Visitante $dono, int $codigo): bool
+    public function excluirItem(Cliente|Visitante $dono, int $codigo, ?string $tamanho = null): bool
     {
-        return $this->comLock($dono, function () use ($dono, $codigo): bool {
+        return $this->comLock($dono, function () use ($dono, $codigo, $tamanho): bool {
             $carrinho = $this->consultar($dono);
-            $carrinhoAtualizado = $carrinho?->excluirItem($codigo);
+            $carrinhoAtualizado = $carrinho?->excluirItem($codigo, $tamanho);
 
             if ($carrinhoAtualizado === null) {
                 return false;
@@ -178,6 +178,10 @@ class CarrinhoService
     /** @param array<int, string> $ignorarReservas */
     private function salvar(Cliente|Visitante $dono, Carrinho $carrinho, array $ignorarReservas = []): Carrinho
     {
+        $chaves = array_map(static fn ($item) => $item->chave(), $carrinho->itens);
+        if (count($chaves) !== count(array_unique($chaves))) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['itens' => 'Não repita o mesmo produto e tamanho.']);
+        }
         $chave = $this->chave($dono);
         $jsonAnterior = Redis::get($chave);
         $carrinhoAnterior = is_string($jsonAnterior)
@@ -186,7 +190,7 @@ class CarrinhoService
         $assinatura = static function (Carrinho $valor): array {
             $itens = [];
             foreach ($valor->itens as $item) {
-                $itens[$item->codigo] = $item->quantidade();
+                $itens[$item->chave()] = $item->quantidade();
             }
             ksort($itens);
 
