@@ -10,6 +10,7 @@ Consolidado em 19/10/2026 a partir do TODO, dos diffs locais, da documentação 
 
 ## Grade de tamanhos — 20/10/2026
 
+- [x] Aprovada pelo responsável em 20/10/2026, sem necessidade de novas modificações por enquanto. Item retirado das pendências conforme esse aceite; não representa uma nova conferência de estoque físico.
 - [x] Grade configurável por produto, preço comum e estoque separado por tamanho, com configuração no Dashboard e escolha na loja.
 - [x] Carrinho com tamanhos distintos do mesmo produto, reservas por tamanho, revalidação no checkout e estornos no tamanho original. Pedidos e itens fiscais preservam o tamanho.
 - [x] Migration aditiva, índices por produto e tamanho, proteção do histórico e exemplos na pasta **Grade de tamanhos** do Postman. Operação descrita em [Grades de tamanhos](docs/GRADES.md).
@@ -111,3 +112,7 @@ Os testes automatizados com respostas/SDK/DOM controlados não substituem navega
 - Alterações ainda locais: `git diff` e `git status --short`, incluindo arquivos não rastreados.
 - [Homologação Mercado Pago](docs/MERCADO-PAGO-HOMOLOGACAO.md), [revisão](docs/MERCADO-PAGO-REVISAO.md) e [PCI DSS](docs/PCI-DSS.md).
 - [Operação Mercado Pago](docs/MERCADO-PAGO.md), [Fiscal Contora](docs/FISCAL-CONTORA.md), [Dashboard](docs/DASHBOARD.md) e [Postman](postman/README.md).
+
+## Administrador inicial — aceite em 20/10/2026
+
+- [x] Provisionamento pelo seeder testado e considerado validado pelo responsável. Login inicial `admin`, com possibilidade de alteração posterior pela edição da conta. Confirmação de e-mail e troca da senha inicial continuam obrigatórias.

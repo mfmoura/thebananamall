@@ -8,14 +8,14 @@ use App\Http\Requests\Api\ConsultarNotaFiscalRequest;
 use App\Http\Requests\Api\EmitirNotaFiscalRequest;
 use App\Http\Requests\Api\StoreNotaFiscalRequest;
 use App\Models\NotaFiscal;
-use App\Services\ContoraNotaFiscalService;
+use App\Services\NfeIoNotaFiscalService;
 use App\Services\NotaFiscalService;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class NotaFiscalController extends Controller
 {
-    public function emitir(EmitirNotaFiscalRequest $request, ContoraNotaFiscalService $service): JsonResponse
+    public function emitir(EmitirNotaFiscalRequest $request, NfeIoNotaFiscalService $service): JsonResponse
     {
         return response()->json($service->emitir($request->user(), $request->validated()), 202);
     }
@@ -25,17 +25,17 @@ class NotaFiscalController extends Controller
         return response()->json($notaFiscal->load('itens'));
     }
 
-    public function sincronizar(ConsultarNotaFiscalRequest $request, NotaFiscal $notaFiscal, ContoraNotaFiscalService $service): JsonResponse
+    public function sincronizar(ConsultarNotaFiscalRequest $request, NotaFiscal $notaFiscal, NfeIoNotaFiscalService $service): JsonResponse
     {
         return response()->json($service->sincronizar($notaFiscal));
     }
 
-    public function xml(ConsultarNotaFiscalRequest $request, NotaFiscal $notaFiscal, ContoraNotaFiscalService $service): StreamedResponse
+    public function xml(ConsultarNotaFiscalRequest $request, NotaFiscal $notaFiscal, NfeIoNotaFiscalService $service): StreamedResponse
     {
         return $service->baixar($notaFiscal, 'xml');
     }
 
-    public function danfe(BaixarNotaFiscalRequest $request, NotaFiscal $notaFiscal, ContoraNotaFiscalService $service): StreamedResponse
+    public function danfe(BaixarNotaFiscalRequest $request, NotaFiscal $notaFiscal, NfeIoNotaFiscalService $service): StreamedResponse
     {
         return $service->baixar($notaFiscal, 'danfe');
     }

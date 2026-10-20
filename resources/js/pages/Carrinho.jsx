@@ -6,8 +6,10 @@ import { dinheiro } from './Catalogo';
 import { MensagemErro } from '../components/Formulario';
 import ItemCarrinho from '../components/ItemCarrinho';
 import AvisoReservaCarrinho from '../components/AvisoReservaCarrinho';
+import useAtualizacaoCarrinho from '../hooks/useAtualizacaoCarrinho';
 
 export default function Carrinho() {
+    const erroAtualizacao = useAtualizacaoCarrinho();
     const { carrinho, executarCarrinho, carrinhoOcupado, usuario } = useLoja();
     const [erro, setErro] = useState(null);
     const [ocupado, setOcupado] = useState(false);
@@ -18,6 +20,7 @@ export default function Carrinho() {
     const itens = carrinho.itens || [];
     const total = itens.reduce((soma, item) => soma + Math.round(Number(item.preco_atual ?? item.preco ?? 0) * 100 * item.quantidade), 0);
     return <section className="tela"><h1>Meu carrinho</h1><MensagemErro erro={erro} />
+        <MensagemErro erro={erroAtualizacao} />
         <AvisoReservaCarrinho />
         {!itens.length ? <p>Seu carrinho está vazio. <Link to="/produtos">Conheça nossos produtos</Link>.</p> : <>
             {itens.map((item) => <ItemCarrinho key={`${item.codigo}:${item.tamanho ?? ''}`} item={item} />)}

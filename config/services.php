@@ -1,17 +1,19 @@
 <?php
 
 return [
-    'fiscal_contora' => [
-        'serie' => (int) env('FISCAL_CONTORA_SERIE', 1),
-        'uf_emitente' => env('FISCAL_CONTORA_UF_EMITENTE'),
-        'token' => env('FISCAL_CONTORA_TOKEN'),
-        'cnpj' => env('FISCAL_CONTORA_CNPJ'),
-        'ambiente' => env('FISCAL_CONTORA_AMBIENTE', 'homologacao'),
-        'timeout' => (int) env('FISCAL_CONTORA_TIMEOUT', 20),
+    'nfe_io' => [
+        'token' => env('NFE_IO_TOKEN'),
+        'company_id' => env('NFE_IO_COMPANY_ID'),
+        'state_tax_id' => env('NFE_IO_STATE_TAX_ID'),
+        'cnpj' => env('NFE_IO_CNPJ'),
+        'uf_emitente' => env('NFE_IO_UF_EMITENTE'),
+        'serie' => (int) env('NFE_IO_SERIE', 1),
+        'ambiente' => env('NFE_IO_AMBIENTE', 'homologacao'),
+        'timeout' => (int) env('NFE_IO_TIMEOUT', 20),
+        'download_hosts' => array_filter(explode(',', env('NFE_IO_DOWNLOAD_HOSTS', ''))),
     ],
 
     'password_pepper' => env('PASSWORD_PEPPER', env('APP_KEY')),
-
 
     'frontend' => [
         'url' => env('FRONTEND_URL', 'http://localhost'),

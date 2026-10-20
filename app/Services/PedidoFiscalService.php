@@ -20,7 +20,7 @@ class PedidoFiscalService
 {
     public const PAGOS = ['pago', 'em_processamento', 'enviado', 'entregue'];
 
-    public function __construct(private readonly ContoraNotaFiscalService $contora, private readonly ViaCepService $viaCep) {}
+    public function __construct(private readonly NfeIoNotaFiscalService $emissao, private readonly ViaCepService $viaCep) {}
 
     public function acompanhar(Pedido $pedido, array $destinatario): PedidoProcessamentoFiscal
     {
@@ -74,7 +74,7 @@ class PedidoFiscalService
             throw new HttpException(409, 'Seus dados estão sendo processados.');
         }
 
-        return $this->contora->baixar($processamento->notaFiscal, 'danfe');
+        return $this->emissao->baixar($processamento->notaFiscal, 'danfe');
     }
 
     /** Retorna o atraso de nova consulta, ou null quando este job pode terminar. */
@@ -106,9 +106,9 @@ class PedidoFiscalService
             }
             $nota = $processamento->nota_fiscal_id
                 ? NotaFiscal::query()->findOrFail($processamento->nota_fiscal_id)
-                : $this->contora->emitir($pedido->cliente->usuario, $processamento->dados_emissao);
+                : $this->emissao->emitir($pedido->cliente->usuario, $processamento->dados_emissao);
             $processamento->update(['nota_fiscal_id' => $nota->id]);
-            $nota = $this->contora->sincronizar($nota);
+            $nota = $this->emissao->sincronizar($nota);
             if ($nota->estaAutorizada() && $nota->caminho_danfe) {
                 $processamento->update(['etapa' => 'concluido', 'ultimo_erro' => null]);
 
@@ -139,9 +139,10 @@ class PedidoFiscalService
     private function montarDados(PedidoProcessamentoFiscal $processamento): ?array
     {
         $pedido = $processamento->pedido;
-        $uf = (string) config('services.fiscal_contora.uf_emitente');
-        $cnpj = (string) config('services.fiscal_contora.cnpj');
-        if (! $processamento->dados_cliente || ! preg_match('/^[A-Z]{2}$/', $uf) || ! preg_match('/^\d{14}$/', $cnpj)) {
+        $uf = (string) config('services.nfe_io.uf_emitente');
+        $cnpj = (string) config('services.nfe_io.cnpj');
+        if (! $processamento->dados_cliente || ! preg_match('/^[A-Z]{2}$/', $uf) || ! preg_match('/^\d{14}$/', $cnpj)
+            || ! config('services.nfe_io.token') || ! config('services.nfe_io.company_id') || ! config('services.nfe_io.state_tax_id')) {
             $this->aguardarConfiguracao($processamento, 'Configure o emitente fiscal e os dados de faturamento do pedido.');
 
             return null;
@@ -176,7 +177,7 @@ class PedidoFiscalService
 
         return [
             'idempotency_key' => $processamento->chave, 'pedido_id' => $pedido->id, 'natureza_operacao' => 'venda',
-            'numero' => $this->proximoNumero($cnpj), 'serie' => (int) config('services.fiscal_contora.serie', 1),
+            'numero' => $this->proximoNumero($cnpj), 'serie' => (int) config('services.nfe_io.serie', 1),
             'consumidor_final' => true, 'finalidade' => 1, 'destinatario' => $processamento->dados_cliente,
             'pagamentos' => [['meio' => $meio, 'valor' => (float) $pedido->total]], 'itens' => $itens,
             'total_frete' => (float) $pedido->custo_frete,
@@ -186,8 +187,8 @@ class PedidoFiscalService
 
     private function proximoNumero(string $cnpj): int
     {
-        $serie = (int) config('services.fiscal_contora.serie', 1);
-        if ($serie < 1 || $serie > 889 || config('services.fiscal_contora.ambiente') !== 'homologacao') {
+        $serie = (int) config('services.nfe_io.serie', 1);
+        if ($serie < 1 || $serie > 889 || config('services.nfe_io.ambiente') !== 'homologacao') {
             throw new HttpException(503, 'Configure série e ambiente de homologação.');
         }
 
@@ -195,7 +196,7 @@ class PedidoFiscalService
             $identidade = ['cnpj' => $cnpj, 'ambiente' => 'homologacao', 'serie' => $serie];
             DB::table('sequencias_fiscais')->insertOrIgnore([...$identidade, 'ultimo_numero' => 0]);
             $sequencia = DB::table('sequencias_fiscais')->where($identidade)->lockForUpdate()->first();
-            $existente = NotaFiscal::query()->where('provedor', 'contora')->where('emitente_documento', $cnpj)
+            $existente = NotaFiscal::withTrashed()->where('emitente_documento', $cnpj)
                 ->where('ambiente', 'homologacao')->where('serie', (string) $serie)->max(DB::raw('CAST(numero AS BIGINT)'));
             $numero = max((int) $sequencia->ultimo_numero, (int) $existente) + 1;
             DB::table('sequencias_fiscais')->where('id', $sequencia->id)->update(['ultimo_numero' => $numero]);

@@ -42,7 +42,7 @@ class UsuarioTesteSeeder extends Seeder
 
         $emailAdmin = (string) config('services.initial_admin.email');
         $senhaInicial = (string) (config('services.initial_admin.password') ?: self::SENHA);
-        $administrador = Usuario::query()->firstOrNew(['login' => 'admin-teste']);
+        $administrador = Usuario::query()->firstOrNew(['login' => Usuario::LOGIN_ADMINISTRADOR_PRINCIPAL]);
 
         if (! $administrador->exists || $administrador->email !== $emailAdmin) {
             $administrador->email = $emailAdmin;

@@ -12,7 +12,8 @@ use App\Models\Produto;
 use App\Models\ProdutoMovimentacao;
 use App\Models\Usuario;
 use App\Services\CarrinhoService;
-use App\Services\ContoraNotaFiscalService;
+use App\Services\FreteService;
+use App\Services\NfeIoNotaFiscalService;
 use App\Services\PedidoFiscalService;
 use App\Services\PedidoService;
 use App\Services\ProdutoMovimentacaoService;
@@ -21,6 +22,7 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 use Laravel\Passport\Passport;
@@ -40,9 +42,9 @@ class PedidoFiscalFilaTest extends TestCase
     {
         parent::setUp();
         Queue::fake();
-        $this->mock(\App\Services\FreteService::class)->shouldReceive('confirmar')->andReturn(['valor' => '0.00', 'nome' => 'Teste', 'modalidade_fiscal' => 0]);
+        $this->mock(FreteService::class)->shouldReceive('confirmar')->andReturn(['valor' => '0.00', 'nome' => 'Teste', 'modalidade_fiscal' => 0]);
         Http::preventStrayRequests();
-        config(['services.fiscal_contora.cnpj' => '12345678000199', 'services.fiscal_contora.uf_emitente' => 'SP', 'services.fiscal_contora.serie' => 1, 'services.fiscal_contora.ambiente' => 'homologacao']);
+        config(['services.nfe_io.cnpj' => '12345678000199', 'services.nfe_io.uf_emitente' => 'SP', 'services.nfe_io.serie' => 1, 'services.nfe_io.ambiente' => 'homologacao', 'services.nfe_io.token' => 'token-ficticio', 'services.nfe_io.company_id' => 'empresa1234567890', 'services.nfe_io.state_tax_id' => 'inscricao12345678']);
         $this->usuario = Usuario::factory()->create(['email_validado' => true]);
         $cliente = $this->usuario->cliente()->create();
         Passport::actingAs($this->usuario, ['orders:write']);
@@ -64,7 +66,7 @@ class PedidoFiscalFilaTest extends TestCase
             $mock->shouldReceive('estornarSaidasDoPedido')->andReturnNull();
         });
         $this->mock(ViaCepService::class)->shouldReceive('confirmarEndereco')->andReturnNull();
-        $this->mock(ContoraNotaFiscalService::class);
+        $this->mock(NfeIoNotaFiscalService::class);
     }
 
     public function test_compra_retorna_processando_sem_chamar_provedor_ou_emitir_antes_do_pagamento(): void
@@ -107,14 +109,14 @@ class PedidoFiscalFilaTest extends TestCase
         $pedido->update(['status' => StatusPedido::Pago]);
         $this->produto->precos()->create(['preco' => 99, 'data' => now()->addSecond()]);
         $this->produto->update(['configuracao_fiscal' => null]);
-        $this->mock(ContoraNotaFiscalService::class, function ($mock) use ($pedido): void {
+        $this->mock(NfeIoNotaFiscalService::class, function ($mock) use ($pedido): void {
             $mock->shouldReceive('emitir')->once()->andReturnUsing(function ($usuario, $dados) use ($pedido) {
                 $this->assertSame(25.0, (float) $dados['itens'][0]['valor_unitario']);
                 $this->assertSame('63079090', $dados['itens'][0]['ncm']);
                 $this->assertSame('5102', $dados['itens'][0]['cfop']);
                 $this->assertSame('17', $dados['pagamentos'][0]['meio']);
 
-                return NotaFiscal::query()->create(['pedido_id' => $pedido->id, 'provedor' => 'contora', 'numero' => '1', 'serie' => '1', 'status' => 'autorizada', 'tipo_operacao' => 'saida', 'natureza_operacao' => 'venda', 'caminho_danfe' => 'fiscal/teste.pdf']);
+                return NotaFiscal::query()->create(['pedido_id' => $pedido->id, 'provedor' => 'nfe_io', 'numero' => '1', 'serie' => '1', 'status' => 'autorizada', 'tipo_operacao' => 'saida', 'natureza_operacao' => 'venda', 'caminho_danfe' => 'fiscal/teste.pdf']);
             });
             $mock->shouldReceive('sincronizar')->once()->andReturnUsing(fn ($nota) => $nota);
         });
@@ -135,6 +137,17 @@ class PedidoFiscalFilaTest extends TestCase
         app(PedidoFiscalService::class)->processar($pedido->processamentoFiscal->id);
         $this->assertSame('aguardando_configuracao', $pedido->processamentoFiscal->fresh()->etapa);
         $this->assertDatabaseCount('notas_fiscais', 0);
+    }
+
+    public function test_sem_inscricao_nfeio_aguarda_configuracao_sem_emitir(): void
+    {
+        config(['services.nfe_io.state_tax_id' => null]);
+        $pedido = $this->pedido();
+        $pedido->update(['status' => StatusPedido::Pago]);
+        app(PedidoFiscalService::class)->processar($pedido->processamentoFiscal->id);
+        $this->assertSame('aguardando_configuracao', $pedido->processamentoFiscal->fresh()->etapa);
+        $this->assertDatabaseCount('notas_fiscais', 0);
+        Http::assertNothingSent();
     }
 
     public function test_cancelamento_antes_de_pagar_impede_emissao(): void
@@ -159,7 +172,7 @@ class PedidoFiscalFilaTest extends TestCase
     public function test_falha_ao_publicar_na_fila_nao_perde_pagamento_e_outbox_recupera(): void
     {
         // Isola a falha da fila fiscal; a confirmação também agenda uma notificação por e-mail.
-        \Illuminate\Support\Facades\Notification::fake();
+        Notification::fake();
         $pedido = $this->pedido();
         Bus::shouldReceive('dispatch')->once()->andThrow(new \RuntimeException('Redis temporariamente indisponível'));
         $this->assertTrue(app(PedidoService::class)->registrarPagamentoConfirmado($pedido));
@@ -176,7 +189,7 @@ class PedidoFiscalFilaTest extends TestCase
 
     private function checkout(): TestResponse
     {
-        $exemplo = json_decode(file_get_contents(base_path('docs/exemplos/contora-emissao.json')), true);
+        $exemplo = json_decode(file_get_contents(base_path('docs/exemplos/nfeio-emissao.json')), true);
 
         return $this->withHeader('Idempotency-Key', '33333333-3333-4333-8333-333333333333')
             ->postJson('/api/pedidos', ['frete_cotacao_id' => '44444444-4444-4444-8444-444444444444', 'frete_servico' => '04510', 'forma_pagamento_id' => $this->pagamento, 'dados_fiscais' => $exemplo['destinatario']]);

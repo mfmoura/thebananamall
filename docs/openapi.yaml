@@ -714,14 +714,14 @@ paths:
   /admin/notas-fiscais/emitir:
     post:
       tags: [Administração]
-      summary: Solicitar NF-e ao Fiscal Contora em homologação
-      description: Requer Contabilidade. Idempotency_key UUID deve ser mantida ao repetir o mesmo payload. Resposta 202 não garante autorização. Homologação não movimenta estoque. Tributação e destinatário devem ser informados; código e descrição vêm do catálogo.
+      summary: Solicitar NF-e à NFE.io em homologação
+      description: Requer Contabilidade. Idempotency_key UUID deduplica a solicitação local. A NFE.io não deduplica POST de emissão; timeout sem referência remota bloqueia reenvio com 409 e exige reconciliação no painel. Resposta 202 não garante autorização. Somente IE NF-e Test; homologação não movimenta estoque. Tributação e destinatário devem ser informados; código e descrição vêm do catálogo. Este adaptador suporta finalidade normal/complementar e um recorte de tributação sem ST, DIFAL ou IPI; veja docs/FISCAL-NFE-IO.md.
       security: [{OAuth2: [admin:manage]}]
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/ContoraEmissao'}
+            schema: {$ref: '#/components/schemas/NfeIoEmissao'}
       responses:
         '202': {$ref: '#/components/responses/Success'}
         '403': {$ref: '#/components/responses/Error'}
@@ -943,7 +943,7 @@ paths:
               required: [forma_pagamento_id, dados_fiscais]
               properties:
                 forma_pagamento_id: {type: integer}
-                dados_fiscais: {$ref: '#/components/schemas/ContoraEmissao/properties/destinatario'}
+                dados_fiscais: {$ref: '#/components/schemas/NfeIoEmissao/properties/destinatario'}
       responses:
         '201': {$ref: '#/components/responses/Created'}
         '401': {$ref: '#/components/responses/Error'}
@@ -1153,7 +1153,7 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   schemas:
-    ContoraEmissao:
+    NfeIoEmissao:
       type: object
       required: [idempotency_key, natureza_operacao, numero, serie, consumidor_final, finalidade, destinatario, pagamentos, itens]
       properties:
@@ -1163,7 +1163,9 @@ components:
         numero: {type: integer, minimum: 1, maximum: 999999999}
         serie: {type: integer, minimum: 1, maximum: 889}
         consumidor_final: {type: boolean}
-        finalidade: {type: integer, enum: [1, 2, 3, 4]}
+        finalidade: {type: integer, enum: [1, 2], description: Emissão normal ou complementar no adaptador NFE.io atual.}
+        total_frete: {type: number, minimum: 0, description: Valor rateado entre os itens; exige modalidade_frete.}
+        modalidade_frete: {type: integer, enum: [0, 1, 2, 3, 4, 9]}
         chaves_referenciadas:
           type: array
           description: Obrigatório para finalidades 2 e 4.
@@ -1222,10 +1224,10 @@ components:
                       code: {type: string, pattern: '^\d{2,3}$'}
                       origin: {type: integer, minimum: 0, maximum: 8}
                       aliquot: {type: number, minimum: 0, maximum: 100}
-                  pis: {$ref: '#/components/schemas/ContoraTributo'}
-                  cofins: {$ref: '#/components/schemas/ContoraTributo'}
-                  ipi: {$ref: '#/components/schemas/ContoraTributo'}
-    ContoraTributo:
+                  pis: {$ref: '#/components/schemas/NfeIoTributo'}
+                  cofins: {$ref: '#/components/schemas/NfeIoTributo'}
+                  ipi: {$ref: '#/components/schemas/NfeIoTributo'}
+    NfeIoTributo:
       type: object
       required: [code]
       properties:
@@ -1371,7 +1373,7 @@ components:
         cfop_interno: {type: string, pattern: '^5\d{3}$'}
         cfop_interestadual: {type: string, pattern: '^6\d{3}$'}
         unidade: {type: string, maxLength: 6}
-        tributos: {$ref: '#/components/schemas/ContoraEmissao/properties/itens/items/properties/tributos'}
+        tributos: {$ref: '#/components/schemas/NfeIoEmissao/properties/itens/items/properties/tributos'}
     ImagemUpdate:
       type: object
       properties:

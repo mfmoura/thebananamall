@@ -14,7 +14,7 @@ use Laravel\Passport\HasApiTokens;
 
 class Usuario extends Authenticatable implements OAuthenticatable
 {
-    public const LOGIN_ADMINISTRADOR_PRINCIPAL = 'admin-teste';
+    public const LOGIN_ADMINISTRADOR_PRINCIPAL = 'admin';
 
     use \Illuminate\Database\Eloquent\SoftDeletes;
 

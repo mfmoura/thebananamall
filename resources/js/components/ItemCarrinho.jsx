@@ -29,7 +29,7 @@ export default function ItemCarrinho({ item }) {
                 try { await executarCarrinho(() => carrinhoApi.excluir(item.codigo, item.tamanho)); } catch (e) { setErro(e); }
             }}><i className="fa-solid fa-trash-can" aria-hidden="true" /><span>Remover</span></button>
         </div>
-        {item.modificado && <p role="alert" className="mensagem">O preço mudou. Confira o valor atualizado antes de finalizar.</p>}
+        {item.modificado && <p role="alert" className="mensagem">O preço por unidade mudou de {moeda(item.preco)} para {moeda(item.preco_atual)}. Confira antes de finalizar.</p>}
         <MensagemErro erro={erro} />
         </div>
     </article>;

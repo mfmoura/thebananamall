@@ -1,5 +1,7 @@
 # Fiscal Contora — homologação
 
+> Documento histórico. A integração Contora foi substituída por [NFE.io](FISCAL-NFE-IO.md) em 20/10/2026; as instruções abaixo não descrevem mais o fluxo operacional atual.
+
 Cadastro: https://fiscal.contora.com.br/register
 
 Esta integração implementa NF-e modelo 55 de teste: rascunho, transmissão assíncrona, consulta, armazenamento privado do XML e geração local do DANFE com NFePHP. Não habilita emissão em produção. Notas de homologação não movimentam estoque, mesmo quando autorizadas pela SEFAZ de testes.

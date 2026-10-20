@@ -32,7 +32,7 @@ O servidor mantém a cotação temporária no cache por cinco minutos, vinculada
 
 O pedido persiste `custo_frete` e o snapshot `frete`: provedor, serviço, valor, prazo, CEPs, pacote e modalidade fiscal. `subtotal` soma os itens e `total` inclui o frete. Pedido, pagamento e dashboard mostram essa separação. Pedidos anteriores permanecem com frete zero. Repetir uma compra com a mesma chave de idempotência retorna o pedido já criado, mesmo após expiração da cotação, sem cobrar novamente ou recalcular seu frete.
 
-O payload de pagamento Mercado Pago e a conciliação usam o total persistido do pedido. O processamento fiscal preserva `total_frete`, informa o pagamento com frete e envia `shipping.freight_amount` à Contora para rateio entre itens; `modalidade_fiscal=0` representa transporte por conta do emitente e deve refletir a contratação da loja. Retentativas preservam o mesmo documento e snapshot. Referência: [contrato NF-e Contora](https://fiscal.contora.com.br/documentacao/nfe).
+O payload de pagamento Mercado Pago e a conciliação usam o total persistido do pedido. O processamento fiscal preserva `total_frete`, informa o pagamento com frete e rateia o valor em centavos nos campos `items[].freightAmount` enviados à NFE.io; `modalidade_fiscal=0` corresponde a `transport.freightModality=ByIssuer` e deve refletir a contratação da loja. Retentativas consultam o mesmo documento e snapshot; resultado incerto da criação exige reconciliação antes de outro envio. Referência: [integração NFE.io](FISCAL-NFE-IO.md).
 
 ## Limites da integração
 

@@ -181,12 +181,12 @@
                          "type":  "string"
                      },
                      {
-                         "key":  "contoraIdempotencyKey",
+                         "key":  "nfeIoIdempotencyKey",
                          "value":  "22222222-2222-4222-8222-222222222222",
                          "type":  "string"
                      },
                      {
-                         "key":  "notaFiscalContoraId",
+                         "key":  "notaFiscalNfeIoId",
                          "value":  "",
                          "type":  "string"
                      },
@@ -3461,8 +3461,8 @@
                               ]
                  },
                  {
-                     "name":  "Fiscal Contora (homologacao)",
-                     "description":  "Configure token e CNPJ no .env do backend. Admin Contabilidade com admin:manage; Logistica com logistics:manage. Reutilize a chave em retentativas. Somente homologacao, sem movimentar estoque real. Downloads retornam arquivos.",
+                     "name":  "NFE.io (homologacao)",
+                     "description":  "Configure NFE_IO_TOKEN, COMPANY_ID, STATE_TAX_ID, CNPJ, UF, serie e DOWNLOAD_HOSTS no .env do backend. Exige certificado A1 e IE NF-e Test. Admin Contabilidade com admin:manage; Logistica com logistics:manage. A chave deduplica localmente: timeout sem referencia remota exige reconciliacao e retorna 409, sem novo POST na NFE.io. Somente homologacao, sem movimentar estoque real. Downloads retornam arquivos. Guia: docs/FISCAL-NFE-IO.md.",
                      "item":  [
                                   {
                                       "name":  "1. Emitir NF-e de homologacao",
@@ -3487,7 +3487,7 @@
                                                       "url":  "{{baseUrl}}/admin/notas-fiscais/emitir",
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"idempotency_key\": \"{{contoraIdempotencyKey}}\",\n  \"natureza_operacao\": \"venda\",\n  \"numero\": 1,\n  \"serie\": 1,\n  \"consumidor_final\": true,\n  \"finalidade\": 1,\n  \"destinatario\": {\n    \"nome\": \"NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL\",\n    \"documento\": \"12345678909\",\n    \"indicador_ie\": 9,\n    \"endereco\": {\n      \"logradouro\": \"Rua de Teste\",\n      \"numero\": \"2\",\n      \"bairro\": \"Centro\",\n      \"cidade\": \"Sao Paulo\",\n      \"codigo_municipio\": \"3550308\",\n      \"estado\": \"SP\",\n      \"cep\": \"01001000\"\n    }\n  },\n  \"pagamentos\": [{\"meio\": \"17\", \"valor\": 25.00}],\n  \"itens\": [{\n    \"produto_id\": {{produtoId}},\n    \"ncm\": \"63079090\",\n    \"cfop\": \"5102\",\n    \"unidade_comercial\": \"UN\",\n    \"quantidade\": 1,\n    \"valor_unitario\": 25.00,\n    \"tributos\": {\"icms\": {\"code\": \"102\", \"origin\": 0}}\n  }]\n}\n",
+                                                                   "raw":  "{\n  \"idempotency_key\": \"{{nfeIoIdempotencyKey}}\",\n  \"natureza_operacao\": \"venda\",\n  \"numero\": 1,\n  \"serie\": 1,\n  \"consumidor_final\": true,\n  \"finalidade\": 1,\n  \"total_frete\": 0,\n  \"modalidade_frete\": 9,\n  \"destinatario\": {\n    \"nome\": \"NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL\",\n    \"documento\": \"12345678909\",\n    \"indicador_ie\": 9,\n    \"endereco\": {\n      \"logradouro\": \"Rua de Teste\",\n      \"numero\": \"2\",\n      \"bairro\": \"Centro\",\n      \"cidade\": \"Sao Paulo\",\n      \"codigo_municipio\": \"3550308\",\n      \"estado\": \"SP\",\n      \"cep\": \"01001000\"\n    }\n  },\n  \"pagamentos\": [{\"meio\": \"17\", \"valor\": 25.00}],\n  \"itens\": [{\n    \"produto_id\": {{produtoId}},\n    \"ncm\": \"63079090\",\n    \"cfop\": \"5102\",\n    \"unidade_comercial\": \"UN\",\n    \"quantidade\": 1,\n    \"valor_unitario\": 25.00,\n    \"tributos\": {\"icms\": {\"code\": \"102\", \"origin\": 0}}\n  }]\n}\n",
                                                                    "options":  {
                                                                                    "raw":  {
                                                                                                "language":  "json"
@@ -3502,7 +3502,7 @@
                                                                        "type":  "text/javascript",
                                                                        "exec":  [
                                                                                     "pm.test(\u0027Emissao aceita\u0027, () =\u003e pm.response.to.have.status(202));",
-                                                                                    "if (pm.response.code === 202) pm.collectionVariables.set(\u0027notaFiscalContoraId\u0027, String(pm.response.json().data.id));"
+                                                                                    "if (pm.response.code === 202) pm.collectionVariables.set(\u0027notaFiscalNfeIoId\u0027, String(pm.response.json().data.id));"
                                                                                 ]
                                                                    }
                                                     }
@@ -3528,7 +3528,7 @@
                                                                          "value":  "application/json"
                                                                      }
                                                                  ],
-                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalContoraId}}"
+                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalNfeIoId}}"
                                                   }
                                   },
                                   {
@@ -3551,7 +3551,7 @@
                                                                          "value":  "application/json"
                                                                      }
                                                                  ],
-                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalContoraId}}/sincronizar"
+                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalNfeIoId}}/sincronizar"
                                                   }
                                   },
                                   {
@@ -3574,7 +3574,7 @@
                                                                          "value":  "application/json"
                                                                      }
                                                                  ],
-                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalContoraId}}/xml"
+                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalNfeIoId}}/xml"
                                                   }
                                   },
                                   {
@@ -3597,7 +3597,7 @@
                                                                          "value":  "application/json"
                                                                      }
                                                                  ],
-                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalContoraId}}/danfe"
+                                                      "url":  "{{baseUrl}}/admin/notas-fiscais/{{notaFiscalNfeIoId}}/danfe"
                                                   }
                                   },
                                   {
@@ -3620,7 +3620,7 @@
                                                                          "value":  "application/json"
                                                                      }
                                                                  ],
-                                                      "url":  "{{baseUrl}}/logistica/notas-fiscais/{{notaFiscalContoraId}}/danfe"
+                                                      "url":  "{{baseUrl}}/logistica/notas-fiscais/{{notaFiscalNfeIoId}}/danfe"
                                                   }
                                   }
                               ]

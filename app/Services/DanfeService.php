@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\StatusNotaFiscal;
 use App\Models\NotaFiscal;
 use DOMDocument;
 use DOMXPath;
@@ -11,6 +12,35 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class DanfeService
 {
+    public function armazenarAutorizada(NotaFiscal $nota, string $xml, string $chave): void
+    {
+        if (! preg_match('/^\d{44}$/D', $chave) || trim($xml) === '' || strlen($xml) > 10_000_000 || str_contains(strtoupper($xml), '<!DOCTYPE')) {
+            throw new HttpException(502, 'Autorização NFE.io inválida.');
+        }
+        $documento = new DOMDocument;
+        $anterior = libxml_use_internal_errors(true);
+        try {
+            $carregado = $documento->loadXML($xml, LIBXML_NONET);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($anterior);
+        }
+        if (! $carregado) {
+            throw new HttpException(502, 'XML NFE.io inválido.');
+        }
+        $xpath = new DOMXPath($documento);
+        $xpath->registerNamespace('n', 'http://www.portalfiscal.inf.br/nfe');
+        $protocolo = $xpath->evaluate('string(/n:nfeProc/n:protNFe/n:infProt/n:nProt)');
+        $data = $xpath->evaluate('string(/n:nfeProc/n:protNFe/n:infProt/n:dhRecbto)');
+        if (! preg_match('/^\d{15}$/D', $protocolo) || ! $data) {
+            throw new HttpException(502, 'Protocolo NFE.io incompleto.');
+        }
+        // Não persistir autorização antes das verificações de identidade/ambiente em armazenar().
+        $nota->forceFill(['chave_acesso' => $chave, 'protocolo_autorizacao' => $protocolo, 'data_autorizacao' => $data]);
+        $this->armazenar($nota, $xml);
+        $nota->forceFill(['status' => StatusNotaFiscal::Autorizada])->save();
+    }
+
     public function armazenar(NotaFiscal $nota, string $xml): void
     {
         if (trim($xml) === '' || str_contains(strtoupper($xml), '<!DOCTYPE') || strlen($xml) > 10_000_000) {

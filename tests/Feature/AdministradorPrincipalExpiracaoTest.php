@@ -32,7 +32,7 @@ class AdministradorPrincipalExpiracaoTest extends TestCase
 
     public function test_limpeza_preserva_administradores_e_exclui_conta_comum_expirada(): void
     {
-        $principal = $this->pendente('admin-teste');
+        $principal = $this->pendente('admin');
         $principal->administrador()->create(['paginas' => ['usuarios']]);
         $outro = $this->pendente('outro-admin');
         $outro->administrador()->create(['paginas' => ['usuarios']]);
@@ -49,14 +49,14 @@ class AdministradorPrincipalExpiracaoTest extends TestCase
 
     public function test_revalidacao_sob_bloqueio_impede_exclusao_automatica_do_principal(): void
     {
-        $principal = $this->pendente('admin-teste');
+        $principal = $this->pendente('admin');
         $this->assertFalse($this->servico()->excluir($principal, somenteExpirado: true));
         $this->assertNotSoftDeleted('users', ['id' => $principal->id]);
     }
 
     public function test_excecao_nao_impede_exclusao_explicita_do_principal(): void
     {
-        $principal = $this->pendente('admin-teste');
+        $principal = $this->pendente('admin');
         $this->assertTrue($this->servico()->excluir($principal));
         $this->assertSoftDeleted('users', ['id' => $principal->id]);
     }
