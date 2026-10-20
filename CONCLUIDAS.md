@@ -2,6 +2,12 @@
 
 Consolidado em 19/10/2026 a partir do TODO, dos diffs locais, da documentação e do histórico Git. Implementação concluída não significa homologação externa ou liberação para produção. As etapas restantes estão em [TODO.md](TODO.md).
 
+## Pagamentos — aceite em 20/10/2026
+
+- [x] Homologação funcional aceita pelo responsável após a correção de assinatura local sem SDK. Mantidos HMAC obrigatório, registro durável, processamento em fila, recuperação e conciliação idempotente sem navegador.
+- Evidências: crédito Visa/Mastercard/Amex e Pix aprovados no provedor; boleto digital aceito pelo responsável; seis capturas do simulador autenticadas; replay local retornou 200 duas vezes, um evento persistido e conciliação concluída. O simulador assinava a Order com ID original em maiúsculas; o receptor aceita esse formato e o ID em minúsculas, ambos com HMAC válido.
+- Este aceite não declara liberação de produção nem comprova novas entregas automáticas públicas, aprovação de débito, compensação do boleto ou conformidade PCI. Pendências continuam em TODO.md; detalhes em [homologação](docs/MERCADO-PAGO-HOMOLOGACAO.md) e [diagnóstico HMAC](docs/MERCADO-PAGO-SUPORTE-HMAC.md).
+
 ## Grade de tamanhos — 20/10/2026
 
 - [x] Grade configurável por produto, preço comum e estoque separado por tamanho, com configuração no Dashboard e escolha na loja.

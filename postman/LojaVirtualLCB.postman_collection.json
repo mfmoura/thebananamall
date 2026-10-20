@@ -1753,7 +1753,7 @@
                                                       "auth":  {
                                                                    "type":  "noauth"
                                                                },
-                                                      "description":  "Sem assinatura válida retorna 401. Validação pelo WebhookSignatureValidator do SDK oficial Mercado Pago. Use o simulador do painel Mercado Pago com ID real de Order. Segredo fica somente no .env; assinatura HMAC deve corresponder ao ID, request-id e ts. Substitua os placeholders pelos cabeçalhos de uma notificação assinada.",
+                                                      "description":  "Sem assinatura válida retorna 401. Validação HMAC-SHA256 local com hash_hmac e comparação hash_equals, sem SDK. Use o simulador do painel Mercado Pago com ID real de Order. Segredo fica somente no .env; assinatura HMAC deve corresponder ao ID em minúsculas ou original no manifest (compatibilidade comprovada com o simulador), ao x-request-id recebido e ao ts extraído de x-signature. A URL preserva o ID original. Substitua os placeholders pelos cabeçalhos de uma notificação assinada. HTTP 200 confirma registro durável do evento; a conciliação ocorre depois na fila Redis pagamentos. Falha de assinatura retorna 401 sem registrar evento.",
                                                       "header":  [
                                                                      {
                                                                          "key":  "Content-Type",

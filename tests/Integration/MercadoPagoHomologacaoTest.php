@@ -108,7 +108,7 @@ class MercadoPagoHomologacaoTest extends TestCase
             // Chamada local assinada; não atesta entrega automática pelo Mercado Pago.
             $ts = (string) now()->getTimestampMs();
             $requestId = fake()->uuid();
-            $manifesto = 'id:'.$pagamento->order_id.';request-id:'.$requestId.';ts:'.$ts.';';
+            $manifesto = 'id:'.strtolower($pagamento->order_id).';request-id:'.$requestId.';ts:'.$ts.';';
             $assinatura = hash_hmac('sha256', $manifesto, config('mercadopago.webhook_secret'));
             $this->withHeaders(['x-request-id' => $requestId, 'x-signature' => "ts=$ts,v1=$assinatura"])
                 ->postJson('/api/webhooks/mercado-pago?data.id='.$pagamento->order_id, ['type' => 'order'])->assertOk();

@@ -76,9 +76,10 @@ class PixBoletoTest extends TestCase
         $this->assertStringNotContainsString('PIX-COPIA-COLA-FICTICIO', $pagamento->fresh()->getRawOriginal('instrucoes'));
         Http::assertSentCount(2);
         $ts = (string) now()->getTimestampMs();
-        $assinatura = hash_hmac('sha256', "id:ORDPIXTESTE;request-id:pix-teste;ts:$ts;", 'segredo-ficticio');
+        $assinatura = hash_hmac('sha256', "id:ordpixteste;request-id:pix-teste;ts:$ts;", 'segredo-ficticio');
         $this->withHeaders(['x-request-id' => 'pix-teste', 'x-signature' => "ts=$ts,v1=$assinatura"])
             ->postJson('/api/webhooks/mercado-pago?data.id=ORDPIXTESTE', ['type' => 'order'])->assertOk();
+        (new \App\Jobs\ProcessarMercadoPagoEvento(\App\Models\MercadoPagoEvento::sole()->id))->handle(app(MercadoPagoService::class));
         $this->getJson($url)->assertOk()->assertJsonPath('data.processamento', 'concluido')
             ->assertJsonPath('data.instrucoes.expira_em', '2026-10-20T18:00:00Z');
         $this->assertSame(StatusPedido::Pago, $pedido->fresh()->status);
@@ -130,9 +131,10 @@ class PixBoletoTest extends TestCase
             && $r['transactions']['payments'][0]['payment_method'] === ['id' => 'boleto', 'type' => 'ticket']
             && $r->hasHeader('X-Idempotency-Key', $pagamento->idempotency_key));
         $ts = (string) now()->getTimestampMs();
-        $assinatura = hash_hmac('sha256', "id:ORDBOLETO;request-id:boleto-teste;ts:$ts;", 'segredo-ficticio');
+        $assinatura = hash_hmac('sha256', "id:ordboleto;request-id:boleto-teste;ts:$ts;", 'segredo-ficticio');
         $this->withHeaders(['x-request-id' => 'boleto-teste', 'x-signature' => "ts=$ts,v1=$assinatura"])
             ->postJson('/api/webhooks/mercado-pago?data.id=ORDBOLETO', ['type' => 'order'])->assertOk();
+        (new \App\Jobs\ProcessarMercadoPagoEvento(\App\Models\MercadoPagoEvento::sole()->id))->handle(app(MercadoPagoService::class));
         $this->assertSame(StatusPedido::Pago, $pedido->fresh()->status);
         $this->getJson($url)->assertOk()->assertJsonPath('data.processamento', 'concluido');
         $this->assertDatabaseCount('pedido_pagamentos', 1);

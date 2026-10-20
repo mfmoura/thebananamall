@@ -127,15 +127,61 @@ class MercadoPagoTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_assinatura_normaliza_espacos_e_chaves_do_header_sem_alterar_id(): void
+    public function test_assinatura_usa_id_minusculo_no_manifest_e_preserva_id_na_consulta(): void
     {
         $this->pagamento();
         Http::fake(['*' => Http::response($this->order())]);
-        $assinatura = hash_hmac('sha256', 'id:ORD123;request-id:req123;ts:1742505638683;', 'webhook-secret');
+        $assinatura = hash_hmac('sha256', 'id:ord123;request-id:req123;ts:1742505638683;', 'webhook-secret');
         $this->withHeaders(['x-request-id' => ' req123 ', 'x-signature' => ' TS = 1742505638683 , V1 = '.$assinatura.' '])
             ->postJson('/api/webhooks/mercado-pago?data.id=%20ORD123%20', ['type' => 'order'])->assertOk();
+        Http::assertNothingSent();
+        $this->assertSame(StatusPedido::AguardandoPagamento, $this->pedido->fresh()->status);
+        (new \App\Jobs\ProcessarMercadoPagoEvento(\App\Models\MercadoPagoEvento::sole()->id))->handle(app(MercadoPagoService::class));
         $this->assertSame(StatusPedido::Pago, $this->pedido->fresh()->status);
         Http::assertSent(fn ($r) => $r->url() === 'https://api.mercadopago.com/v1/orders/ORD123');
+    }
+
+    public function test_assinatura_do_simulador_com_id_original_e_aceita_sem_consulta(): void
+    {
+        $assinatura = hash_hmac('sha256', 'id:ORD123;request-id:req123;ts:1742505638683;', 'webhook-secret');
+        $this->withHeaders(['x-request-id' => 'req123', 'x-signature' => 'ts=1742505638683,v1='.$assinatura])
+            ->postJson('/api/webhooks/mercado-pago?data.id=ORD123', ['type' => 'order'])->assertOk();
+        $this->assertSame('ORD123', \App\Models\MercadoPagoEvento::sole()->order_id);
+        Http::assertNothingSent();
+    }
+
+    public function test_evento_persiste_com_fila_indisponivel_e_scheduler_retoma(): void
+    {
+        \Illuminate\Support\Facades\Bus::shouldReceive('dispatch')->once()->andThrow(new \RuntimeException('Fila indisponível'));
+        $assinatura = hash_hmac('sha256', 'id:ord123;request-id:req123;ts:1742505638683;', 'webhook-secret');
+        $this->withHeaders(['x-request-id' => 'req123', 'x-signature' => 'ts=1742505638683,v1='.$assinatura])
+            ->postJson('/api/webhooks/mercado-pago?data.id=ORD123', ['type' => 'order'])->assertOk();
+        Http::assertNothingSent();
+        $evento = \App\Models\MercadoPagoEvento::sole();
+        $this->assertSame('pendente', $evento->status);
+        $this->assertDatabaseMissing('mercado_pago_eventos', ['chave' => $assinatura]);
+        $this->travel(3)->minutes();
+        \Illuminate\Support\Facades\Bus::fake();
+        $this->assertSame(1, app(\App\Services\MercadoPagoWebhookService::class)->retomarPendentes());
+        \Illuminate\Support\Facades\Bus::assertDispatched(\App\Jobs\ProcessarMercadoPagoEvento::class, fn ($job) => $job->eventoId === $evento->id);
+    }
+
+    public function test_falha_do_provedor_preserva_evento_para_retentativa(): void
+    {
+        $this->pagamento();
+        $evento = \App\Models\MercadoPagoEvento::create(['chave' => str_repeat('a', 64), 'order_id' => 'ORD123', 'request_id' => 'req123']);
+        Http::fake(['*' => Http::sequence()->pushResponse(Http::failedConnection())->push($this->order())]);
+        $job = new \App\Jobs\ProcessarMercadoPagoEvento($evento->id);
+        try {
+            $job->handle(app(MercadoPagoService::class));
+            $this->fail('Esperava falha na consulta.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(503, $e->getStatusCode());
+        }
+        $this->assertSame('pendente', $evento->fresh()->status);
+        $job->handle(app(MercadoPagoService::class));
+        $this->assertSame('concluido', $evento->fresh()->status);
+        $this->assertNotNull($evento->fresh()->processado_em);
     }
 
     public function test_assinatura_malformada_ou_hash_errado_retorna_401_sem_consulta(): void
@@ -150,7 +196,7 @@ class MercadoPagoTest extends TestCase
     public function test_webhook_exige_id_e_request_id_mesmo_quando_sdk_aceitaria_omissao(): void
     {
         $ts = '1742505638683';
-        $semRequestId = hash_hmac('sha256', "id:ORD123;ts:$ts;", 'webhook-secret');
+        $semRequestId = hash_hmac('sha256', "id:ord123;ts:$ts;", 'webhook-secret');
         $this->withHeaders(['x-signature' => "ts=$ts,v1=$semRequestId"])
             ->postJson('/api/webhooks/mercado-pago?data.id=ORD123', ['type' => 'order'])->assertUnauthorized();
         $semId = hash_hmac('sha256', "request-id:req123;ts:$ts;", 'webhook-secret');
@@ -163,12 +209,20 @@ class MercadoPagoTest extends TestCase
     {
         $this->pagamento();
         Http::fake(['*' => Http::response($this->order())]);
-        $assinatura = hash_hmac('sha256', 'id:ORD123;request-id:req123;ts:1742505638683;', 'webhook-secret');
+        $assinatura = hash_hmac('sha256', 'id:ord123;request-id:req123;ts:1742505638683;', 'webhook-secret');
         for ($i = 0; $i < 2; $i++) {
             $this->withHeaders(['x-request-id' => 'req123', 'x-signature' => 'ts=1742505638683,v1='.$assinatura])
                 ->postJson('/api/webhooks/mercado-pago?data.id=ORD123', ['type' => 'order', 'data' => ['id' => 'FORGED']])->assertOk();
         }
+        Http::assertNothingSent();
+        $evento = \App\Models\MercadoPagoEvento::sole();
+        Queue::assertPushed(\App\Jobs\ProcessarMercadoPagoEvento::class, fn ($job) => $job->eventoId === $evento->id && $job->queue === 'pagamentos');
+        $job = new \App\Jobs\ProcessarMercadoPagoEvento($evento->id);
+        $job->handle(app(MercadoPagoService::class));
+        $job->handle(app(MercadoPagoService::class));
+        $this->assertSame('concluido', $evento->fresh()->status);
         $this->assertSame(StatusPedido::Pago, $this->pedido->fresh()->status);
+        Http::assertSentCount(1);
         Http::assertSent(fn ($r) => $r->url() === 'https://api.mercadopago.com/v1/orders/ORD123');
     }
 

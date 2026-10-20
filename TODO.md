@@ -8,7 +8,7 @@ Atualizado em 20/10/2026. Entregas e validações já realizadas estão em [CONC
 
 ## Pagamentos — concluir antes de produção
 
-- [ ] Resolver com o suporte a divergência HMAC dos webhooks automáticos e comprovar HTTP 200, retentativas, registro de eventos e conciliação sem navegador. Aplicação vendedora de teste `1044824833239556`, principal `880483999981556`; número WCS ainda aguardado. Manter HMAC obrigatório e aguardar orientação antes de repetir cobranças de teste.
+- [ ] Confirmar novas entregas automáticas públicas e retentativas do Mercado Pago após a correção de caixa do ID. Homologação funcional aceita pelo responsável em 20/10/2026; seis capturas do simulador autenticadas e replay local com HTTP 200, deduplicação e conciliação em fila comprovados. Aplicação automática de teste `1044824833239556`, principal `880483999981556`; WCS ainda não informado. Ver `docs/MERCADO-PAGO-SUPORTE-HMAC.md`. Manter HMAC obrigatório e não repetir cobranças sem autorização.
 - [ ] Comprovar habilitação e aprovação financeira do débito online e das demais bandeiras necessárias. Confirmar prazo de recebimento do débito e vigência das condições comerciais da conta.
 - [ ] Validar compensação do boleto e completar o fluxo da loja em navegador: Pix e cartões, pendência, recusa, confirmação, retorno ao pedido e recarga sem duplicidade. Seguir a matriz do [relatório de homologação](docs/MERCADO-PAGO-HOMOLOGACAO.md); aceite do boleto digital e do formulário de débito já arquivados.
 - [ ] Avaliar e atender os requisitos PCI DSS/SAQ A aplicáveis, incluindo o ambiente de produção. O formulário 16400 já foi enviado declarando não conformidade; falta a adequação. Ver [PCI-DSS.md](docs/PCI-DSS.md).

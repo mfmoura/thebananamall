@@ -1,5 +1,27 @@
 # Homologação Mercado Pago
 
+## Aceite do responsável — 20/10/2026
+
+O responsável solicitou: “Homologa os pagamentos e commita e push”. Registrado o aceite funcional das entregas de pagamentos e do receptor corrigido, com base nos resultados abaixo. A assinatura local sem SDK autenticou seis capturas do simulador; replay pelo kernel HTTP Laravel retornou 200 duas vezes, persistiu um evento e concluiu a conciliação em fila. Pix e cartões de crédito possuem aprovações de homologação documentadas; boleto digital tem aceite anterior do responsável.
+
+O aceite não equivale a certificação externa ou liberação para produção. Nova entrega automática pública após a correção, retentativas do emissor, aprovação do débito, compensação do boleto, matriz restante em navegador e adequação PCI continuam nos respectivos acompanhamentos. Não foram criadas cobranças adicionais para registrar este aceite.
+
+Validação final anterior ao commit: `MercadoPagoAssinaturaTest|MercadoPagoTest|PixBoletoTest`, **54 testes aprovados, 254 assertions**. Execução isolada com SQLite em memória e provedor simulado, incluindo a compatibilidade do ID original do simulador, assinatura em minúsculas, rejeições, recuperação da fila, deduplicação e conciliação.
+
+Atualização de assinatura em 20/10/2026: implementada validação HMAC local sem SDK. Cinco simulações capturadas da aplicação principal assinam a Order com ID original em maiúsculas e falham somente na variante em minúsculas. Adicionada compatibilidade com os dois manifests, sempre com HMAC válido. Seis capturas passaram; replay local de uma delas retornou HTTP 200 duas vezes, um evento persistido e conciliado na fila. Isso esclarece a falha dessas simulações; aceite de novas entregas automáticas públicas continua pendente. Ver [MERCADO-PAGO-SUPORTE-HMAC.md](MERCADO-PAGO-SUPORTE-HMAC.md). Nenhuma cobrança criada nesta correção.
+
+Reteste adicional autorizado em 20/10/2026: Mastercard fictício oficial, titular `APRO`, R$ 50,00, pedido **23**, Order `ORDTST01M5DEC4MBR552X778HTQ9VBGN`, aprovado e conciliado pelo worker. Captura automática sem HTTP registrado no túnel e assinatura ainda `SignatureMismatch` no SDK com ID em minúsculas. O responsável esclareceu que a opção marcada era de PKCE/OAuth, sem comprovação de vínculo com o HMAC. Detalhes em [MERCADO-PAGO-SUPORTE-HMAC.md](MERCADO-PAGO-SUPORTE-HMAC.md). Nenhuma outra cobrança criada nesta tentativa.
+
+Atualização do receptor em 20/10/2026: eventos autenticados agora são persistidos e conciliados na fila `pagamentos`; HTTP 200 não aguarda consulta ao provedor. Migration local aplicada e Horizon recarregado. Os 35 cenários distintos das suítes direcionadas passaram entre a execução inicial e as reexecuções descritas em [MERCADO-PAGO-SUPORTE-HMAC.md](MERCADO-PAGO-SUPORTE-HMAC.md). Um novo Pix autorizado, pedido **22**, Order `ORDTST01M5DB1GQZVNGVVZVSBF89B5DG`, foi aprovado e conciliado pelo worker; webhook automático ainda retornou **401**, sem evento autenticado persistido. HMAC obrigatório preservado e problema de assinatura continua aberto.
+
+Reteste com cobrança nova após a correção de minúsculas, autorizado em 20/10/2026: Pix de R$ 50,00 com `APRO Teste`, pedido **21**, Order `ORDTST01M5D9VSWZFZ3S1AM6PXFQY6RQ`, aprovado e conciliado pelo worker. Webhook automático retornou **401**; duas capturas verificadas com ID em minúsculas e segredo atual continuam `SignatureMismatch`. Ambas contêm `data.id` e `x-request-id`. A regra de omissão de campos ausentes não explica esses casos. Evidências em [MERCADO-PAGO-SUPORTE-HMAC.md](MERCADO-PAGO-SUPORTE-HMAC.md).
+
+Correção posterior em 20/10/2026: o receptor agora converte `data.id` para minúsculas somente para validar o manifest, preservando o ID na consulta. O SDK instalado não fazia essa normalização, apesar de documentá-la em comentário; os controles sintéticos anteriores também usavam maiúsculas. Cinco capturas do pedido 20 continuam com `SignatureMismatch` usando minúsculas. Ver detalhamento e ressalvas em [MERCADO-PAGO-SUPORTE-HMAC.md](MERCADO-PAGO-SUPORTE-HMAC.md). Nenhuma cobrança adicional criada nesta correção.
+
+Retomada em 20/10/2026: evidências e texto para continuidade do chamado em [MERCADO-PAGO-SUPORTE-HMAC.md](MERCADO-PAGO-SUPORTE-HMAC.md). Histórico da vendedora bloqueado por propriedade OAuth no MCP; principal sem notificações retornadas. Novas capturas locais sem HTTP 200 automático comprovado. Horizon ativo; HMAC obrigatório e suspensão de novas cobranças preservados. WCS ainda não informado.
+
+Reteste expressamente autorizado após nova redefinição da assinatura: um Pix de R$ 50,00 com `APRO Teste`, pedido 20, Order `ORDTST01M5D7RE4XB6TC5CR4SQCTYE0Q`, aprovado e conciliado pelo worker. Notificação automática retornou 401 e três capturas falharam com `SignatureMismatch` no SDK oficial usando o segredo atual, confirmado igual ao `.env`. Detalhes no acompanhamento acima; HMAC continua obrigatório e nenhuma outra cobrança foi criada neste reteste.
+
 ## Levantamento de 18/10/2026
 
 Integração: Checkout Transparente, Orders API, Brasil, BRL, uma parcela.

@@ -3,8 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
-use MercadoPago\Exceptions\InvalidWebhookSignatureException;
-use MercadoPago\Webhook\WebhookSignatureValidator;
+use App\Services\MercadoPagoAssinaturaService;
 
 class MercadoPagoWebhookRequest extends FormRequest
 {
@@ -19,13 +18,7 @@ class MercadoPagoWebhookRequest extends FormRequest
         if (! is_string($id) || ! preg_match('/^[a-zA-Z0-9]+$/D', $id) || ! $requestId) {
             return false;
         }
-        try {
-            WebhookSignatureValidator::validate($signature, $requestId, $id, $secret);
-        } catch (InvalidWebhookSignatureException) {
-            return false;
-        }
-
-        return true;
+        return app(MercadoPagoAssinaturaService::class)->validar($signature, $requestId, $id, $secret);
     }
 
     public function rules(): array

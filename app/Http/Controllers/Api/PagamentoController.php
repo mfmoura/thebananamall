@@ -8,6 +8,7 @@ use App\Http\Requests\Api\MercadoPagoWebhookRequest;
 use App\Http\Requests\Api\ShowPedidoRequest;
 use App\Models\Pedido;
 use App\Services\MercadoPagoService;
+use App\Services\MercadoPagoWebhookService;
 use Illuminate\Http\JsonResponse;
 
 class PagamentoController extends Controller
@@ -27,9 +28,10 @@ class PagamentoController extends Controller
         return response()->json($service->consultar($pedido))->header('Cache-Control', 'no-store, private');
     }
 
-    public function webhook(MercadoPagoWebhookRequest $request, MercadoPagoService $service): JsonResponse
+    public function webhook(MercadoPagoWebhookRequest $request, MercadoPagoWebhookService $service): JsonResponse
     {
-        $service->sincronizar($request->orderId());
+        $request->validated();
+        $service->receber($request->orderId(), trim((string) $request->header('x-request-id')), trim((string) $request->header('x-signature')));
 
         return response()->json(['recebido' => true]);
     }

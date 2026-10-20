@@ -10,6 +10,12 @@ Artisan::command('pagamentos:retomar', function (): void {
 })->purpose('Recuperar envio e conciliação de pagamentos após indisponibilidade da fila');
 Schedule::command('pagamentos:retomar')->everyMinute()->withoutOverlapping();
 
+Artisan::command('webhooks:retomar', function (): void {
+    $total = app(\App\Services\MercadoPagoWebhookService::class)->retomarPendentes();
+    $this->info("Eventos elegíveis: {$total}");
+})->purpose('Recuperar eventos autenticados após indisponibilidade da fila');
+Schedule::command('webhooks:retomar')->everyMinute()->withoutOverlapping();
+
 Artisan::command('fiscal:retomar', function (): void {
     $total = app(\App\Services\PedidoFiscalService::class)->retomarPendentes();
     $this->info("Processamentos fiscais elegíveis: {$total}");
