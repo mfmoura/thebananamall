@@ -7,10 +7,16 @@ marque `vX.Y.Z` no commit da `main` e integre a release de volta em `develop`.
 Correções urgentes usam `hotfix/nome`, partindo de `main`, e voltam para ambas.
 Não reescreva o histórico dessas branches.
 
-O check obrigatório é **Testes e build**, do workflow **Pipeline**. Ele executa
+O check para aprovação é **Testes e build**, do workflow **Pipeline**. Ele executa
 PHPUnit em SQLite em memória, testes de frontend, build Vite e verificações dos
 scripts de publicação. Não executa a homologação financeira em `tests/Integration`.
 Testes em SQLite não substituem validação de migrations e concorrência em PostgreSQL.
+
+A proteção de `main` e `develop` deve exigir PR, esse check aprovado, branch
+atualizada e impedir force push/exclusão. A configuração automática foi recusada
+pelo plano atual do repositório privado (HTTP 403, exige GitHub Pro ou equivalente).
+Até habilitá-la, essas regras são convenções da equipe; o GitHub não impede bypass
+por quem tem permissão de escrita. O pipeline só publica após seus próprios checks.
 
 ## Ambientes GitHub
 

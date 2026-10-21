@@ -19,7 +19,7 @@ test ! -e "$release"
 cd "$incoming"
 sha256sum -c release.tar.gz.sha256
 # O artefato é produzido pelo workflow de branches autorizadas.
-if tar -tzf release.tar.gz | grep -E '(^/|(^|/)\.\.(/|$)|^\.env($|/)|^storage/|^\.docker/)'; then
+if tar -tzf release.tar.gz | sed 's#^\./##' | grep -E '(^/|(^|/)\.\.(/|$)|^\.env($|/)|^storage/|^\.docker/)'; then
     echo 'Pacote contém caminhos reservados.' >&2
     exit 1
 fi
