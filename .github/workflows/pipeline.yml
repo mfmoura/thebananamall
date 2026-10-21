@@ -1,0 +1,131 @@
+name: Pipeline
+
+on:
+  push:
+    branches: [main, develop, 'feature/**', 'release/**', 'hotfix/**']
+  pull_request:
+    branches: [main, develop, 'release/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    name: Testes e build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      PASSWORD_PEPPER: pipeline-sem-credenciais-reais
+      REDIS_HOST: 127.0.0.1
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ':memory:'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar fluxo de release
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          SOURCE_BRANCH: ${{ github.head_ref }}
+        run: '[[ "$SOURCE_BRANCH" == release/* || "$SOURCE_BRANCH" == hotfix/* ]]'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo_sqlite, pdo_pgsql, redis, gd, zip, soap, bcmath, sodium
+          coverage: none
+          tools: composer:v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: composer install --no-interaction --prefer-dist
+      - name: Gerar chaves OAuth exclusivas dos testes
+        run: php artisan passport:keys
+      - run: npm ci
+      - run: node --test tests/Frontend/*.test.mjs
+      - run: npm run build
+      - run: vendor/bin/phpunit
+      - name: Verificar scripts de publicação
+        run: |
+          for script in scripts/deploy/*.sh; do bash -n "$script"; done
+          bash tests/Deploy/health.test.sh
+          bash tests/Deploy/ssh-entrypoint.test.sh
+          bash tests/Deploy/apply.test.sh
+      - name: Preparar pacote de execução
+        if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop')
+        run: |
+          composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+          rm -f bootstrap/cache/*.php
+          printf '%s\n' "$GITHUB_SHA" > REVISION
+          tar -czf release.tar.gz app bootstrap config database lang public resources routes vendor artisan composer.json composer.lock scripts/deploy REVISION
+          sha256sum release.tar.gz > release.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop')
+        with:
+          name: release-${{ github.sha }}
+          path: |
+            release.tar.gz
+            release.tar.gz.sha256
+          retention-days: 7
+
+  publicar:
+    name: Publicar
+    needs: validar
+    if: >-
+      github.event_name != 'pull_request' &&
+      ((github.ref_name == 'develop' && vars.STAGING_DEPLOY_ENABLED == 'true') ||
+       (github.ref_name == 'main' && vars.PRODUCTION_DEPLOY_ENABLED == 'true'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    concurrency:
+      group: deploy-${{ github.ref_name }}
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+    steps:
+      - name: Conferir commit atual da branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          head=$(curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" | jq -er .object.sha)
+          [[ "$head" == "$GITHUB_SHA" ]] || { echo 'Commit superado por uma atualização mais recente; publicação interrompida.'; exit 1; }
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ github.sha }}
+      - name: Configurar SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "${DEPLOY_PORT:-22}" =~ ^[0-9]+$ ]]
+          [[ "$DEPLOY_PATH" =~ ^/[a-zA-Z0-9_./-]+$ && "$DEPLOY_PATH" != / ]]
+      - name: Transferir pacote validado
+        run: |
+          sha256sum -c release.tar.gz.sha256
+          destination="$DEPLOY_USER@$DEPLOY_HOST"
+          checksum=$(cut -d ' ' -f 1 release.tar.gz.sha256)
+          ssh -p "${DEPLOY_PORT:-22}" "$destination" "upload $GITHUB_SHA $checksum" < release.tar.gz
+      - name: Ativar versão
+        run: |
+          ssh -p "${DEPLOY_PORT:-22}" "$DEPLOY_USER@$DEPLOY_HOST" "deploy $GITHUB_SHA"
+      - name: Remover chave do runner
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519

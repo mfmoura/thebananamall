@@ -2,175 +2,98 @@
 
 namespace Tests\Feature\Api;
 
-use App\Enums\NivelAcesso;
-use App\Models\Administrador;
 use App\Models\Usuario;
+use App\Services\EmailVerificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Sanctum\Sanctum;
+use Illuminate\Support\Facades\Http;
+use Laravel\Passport\Passport;
 use Tests\TestCase;
 
 class UsuarioProfilesTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_public_registration_creates_customer_and_optional_address(): void
+    protected function setUp(): void
     {
-        $response = $this->postJson('/api/usuarios', [
-            'login' => 'cliente',
-            'email' => 'cliente@example.com',
-            'password' => 'senha-segura',
-            'password_confirmation' => 'senha-segura',
-            'endereco' => [
-                'logradouro' => 'Rua Um',
-                'numero' => '10',
-                'cidade' => 'São Paulo',
-                'estado' => 'SP',
-                'pais' => 'BR',
-                'cep' => '01001-000',
-            ],
-        ]);
-
-        $usuarioId = $response->json('id');
-
-        $response->assertCreated()
-            ->assertJsonPath('cliente.usuario_id', $usuarioId)
-            ->assertJsonPath('enderecos.0.cidade', 'São Paulo');
-
-        $this->assertDatabaseHas('clientes', ['usuario_id' => $usuarioId]);
-        $this->assertDatabaseHas('enderecos', ['usuario_id' => $usuarioId, 'cep' => '01001-000']);
+        parent::setUp();
+        $this->mock(EmailVerificationService::class)->shouldReceive('enviarConfirmacaoInicial')->andReturnNull();
+        Http::preventStrayRequests();
     }
 
-    public function test_public_registration_cannot_create_an_administrator(): void
+    private function payload(): array
     {
-        $this->postJson('/api/usuarios', [
-            'login' => 'admin',
-            'email' => 'admin@example.com',
-            'password' => 'senha-segura',
-            'password_confirmation' => 'senha-segura',
-            'tipo' => 'administrador',
-            'perfil' => ['nivel_de_acesso' => NivelAcesso::Administrador->value],
-        ])->assertForbidden();
+        return ['login' => 'nova-conta', 'email' => 'nova@example.test',
+            'password' => 'V3rde!Azul27', 'password_confirmation' => 'V3rde!Azul27'];
+    }
 
+    private function administrador(array $paginas): Usuario
+    {
+        $usuario = Usuario::factory()->create(['email_validado' => true]);
+        $usuario->administrador()->create(['paginas' => $paginas]);
+        Passport::actingAs($usuario, ['admin:manage']);
+        return $usuario;
+    }
+
+    public function test_cadastro_publico_cria_cliente_com_endereco_confirmado(): void
+    {
+        Http::fake(['viacep.com.br/*' => Http::response(['cep' => '01001-000', 'uf' => 'SP', 'localidade' => 'São Paulo'])]);
+        $response = $this->postJson('/api/usuarios', $this->payload() + ['endereco' => [
+            'logradouro' => 'Rua Um', 'numero' => '10', 'cidade' => 'São Paulo',
+            'estado' => 'SP', 'pais' => 'BR', 'cep' => '01001-000',
+        ]])->assertCreated()->assertJsonPath('data.enderecos.0.cidade', 'São Paulo');
+        $id = $response->json('data.id');
+        $response->assertJsonPath('data.cliente.usuario_id', $id);
+        $this->assertDatabaseHas('enderecos', ['usuario_id' => $id, 'cep' => '01001-000']);
+    }
+
+    public function test_cadastro_publico_nao_concede_perfil_administrativo(): void
+    {
+        $this->postJson('/api/usuarios', $this->payload() + ['tipo' => 'administrador', 'perfil' => ['paginas' => ['usuarios']]])
+            ->assertUnprocessable();
         $this->assertDatabaseCount('users', 0);
     }
 
-    public function test_administrator_can_create_logistics_user(): void
+    public function test_manutencao_cria_logistica_com_o_contrato_atual(): void
     {
-        $administrador = Usuario::factory()->create();
-        Administrador::create([
-            'usuario_id' => $administrador->id,
-            'nivel_de_acesso' => NivelAcesso::Administrador,
-        ]);
-
-        Sanctum::actingAs($administrador);
-
-        $this->postJson('/api/admin/usuarios', [
-            'login' => 'webhook-pagamentos',
-            'email' => 'webhook@example.com',
-            'password' => 'senha-segura',
-            'password_confirmation' => 'senha-segura',
-            'tipo' => 'logistica',
-            'perfil' => [
-                'nome' => 'Webhook de pagamentos',
-                'webhook' => 'https://example.com/webhooks/payments',
-            ],
-        ])->assertCreated()
-            ->assertJsonPath('logistica.nome', 'Webhook de pagamentos');
-
-        $this->assertDatabaseHas('logisticas', [
-            'nome' => 'Webhook de pagamentos',
-            'webhook' => 'https://example.com/webhooks/payments',
-        ]);
+        $this->administrador(['manutencao']);
+        $this->postJson('/api/admin/usuarios', $this->payload() + [
+            'tipo' => 'logistica', 'nome' => 'Webhook', 'webhook' => 'https://example.test/webhook',
+        ])->assertCreated()->assertJsonPath('data.logistica.nome', 'Webhook');
+        $this->assertDatabaseHas('logisticas', ['nome' => 'Webhook', 'webhook' => 'https://example.test/webhook']);
     }
 
-    public function test_administrator_can_create_another_administrator(): void
+    public function test_gestao_de_usuarios_cria_administrador_com_suas_permissoes(): void
     {
-        $administrador = $this->createAdministrator(NivelAcesso::Administrador);
-        Sanctum::actingAs($administrador);
-
-        $this->postJson('/api/admin/usuarios', [
-            'login' => 'novo-admin',
-            'email' => 'novo-admin@example.com',
-            'password' => 'senha-segura',
-            'password_confirmation' => 'senha-segura',
-            'tipo' => 'administrador',
-            'perfil' => ['nivel_de_acesso' => NivelAcesso::Administrador->value],
-        ])->assertCreated()
-            ->assertJsonPath('administrador.nivel_de_acesso', NivelAcesso::Administrador->value);
-
+        $this->administrador(['usuarios']);
+        $this->postJson('/api/admin/usuarios', $this->payload() + ['tipo' => 'administrador', 'paginas' => ['usuarios']])
+            ->assertCreated()->assertJsonPath('data.administrador.paginas', ['usuarios']);
         $this->assertDatabaseCount('administradores', 2);
     }
 
-    public function test_regular_administrator_cannot_create_super_administrator(): void
+    public function test_gestor_nao_concede_permissao_que_nao_possui(): void
     {
-        Sanctum::actingAs($this->createAdministrator(NivelAcesso::Administrador));
-
-        $this->postJson('/api/admin/usuarios', [
-            'login' => 'super-admin',
-            'email' => 'super-admin@example.com',
-            'password' => 'senha-segura',
-            'password_confirmation' => 'senha-segura',
-            'tipo' => 'administrador',
-            'perfil' => ['nivel_de_acesso' => NivelAcesso::SuperAdministrador->value],
-        ])->assertForbidden();
-
+        $this->administrador(['usuarios']);
+        $this->postJson('/api/admin/usuarios', $this->payload() + ['tipo' => 'administrador', 'paginas' => ['manutencao']])
+            ->assertUnprocessable();
         $this->assertDatabaseCount('administradores', 1);
     }
 
-    public function test_super_administrator_can_create_super_administrator(): void
+    public function test_manutencao_pode_conceder_paginas_administrativas(): void
     {
-        Sanctum::actingAs($this->createAdministrator(NivelAcesso::SuperAdministrador));
-
-        $this->postJson('/api/admin/usuarios', [
-            'login' => 'super-admin-novo',
-            'email' => 'super-admin-novo@example.com',
-            'password' => 'senha-segura',
-            'password_confirmation' => 'senha-segura',
-            'tipo' => 'administrador',
-            'perfil' => ['nivel_de_acesso' => NivelAcesso::SuperAdministrador->value],
-        ])->assertCreated()
-            ->assertJsonPath('administrador.nivel_de_acesso', NivelAcesso::SuperAdministrador->value);
+        $this->administrador(['manutencao']);
+        $this->postJson('/api/admin/usuarios', $this->payload() + ['tipo' => 'administrador', 'paginas' => ['usuarios', 'pedidos']])
+            ->assertCreated()->assertJsonPath('data.administrador.paginas', ['usuarios', 'pedidos']);
     }
 
-    public function test_customer_can_have_multiple_addresses(): void
+    public function test_cliente_pode_ter_multiplos_enderecos(): void
     {
-        $response = $this->postJson('/api/usuarios', [
-            'login' => 'cliente-enderecos',
-            'email' => 'enderecos@example.com',
-            'password' => 'senha-segura',
-            'password_confirmation' => 'senha-segura',
-        ])->assertCreated();
-
-        $usuario = Usuario::findOrFail($response->json('id'));
-        $usuario->enderecos()->create([
-            'logradouro' => 'Rua Dois',
-            'numero' => '20',
-            'cidade' => 'Campinas',
-            'estado' => 'SP',
-            'pais' => 'BR',
-            'cep' => '13010-000',
-        ]);
-        $usuario->enderecos()->create([
-            'logradouro' => 'Avenida Três',
-            'numero' => '30',
-            'cidade' => 'Campinas',
-            'estado' => 'SP',
-            'pais' => 'BR',
-            'cep' => '13020-000',
-        ]);
-
+        $response = $this->postJson('/api/usuarios', $this->payload())->assertCreated();
+        $usuario = Usuario::findOrFail($response->json('data.id'));
+        foreach (['20', '30'] as $numero) {
+            $usuario->enderecos()->create(['logradouro' => 'Rua Dois', 'numero' => $numero,
+                'cidade' => 'Campinas', 'estado' => 'SP', 'pais' => 'BR', 'cep' => '13010-000']);
+        }
         $this->assertCount(2, $usuario->enderecos);
         $this->assertCount(1, $usuario->cliente()->get());
-    }
-
-    private function createAdministrator(NivelAcesso $nivel): Usuario
-    {
-        $usuario = Usuario::factory()->create();
-        Administrador::create([
-            'usuario_id' => $usuario->id,
-            'nivel_de_acesso' => $nivel,
-        ]);
-
-        return $usuario;
     }
 }

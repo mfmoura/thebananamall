@@ -8,7 +8,10 @@ export async function prepararDashboard() {
         if (url.origin !== window.location.origin || url.pathname !== '/dashboard/oauth/authorize') throw new Error('Autorização administrativa inválida.');
         const resposta = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'text/html' } });
         const retorno = new URL(resposta.url);
-        if (!resposta.ok || retorno.origin !== window.location.origin || retorno.pathname !== '/dashboard/') throw new Error('Não foi possível autorizar o painel. Tente entrar novamente.');
+        if (!resposta.ok || retorno.origin !== window.location.origin || !['/dashboard', '/dashboard/'].includes(retorno.pathname)) throw new Error('Não foi possível autorizar o painel. Tente entrar novamente.');
+        const autorizado = await requisitar('/dashboard/session');
+        if (!autorizado.api_autorizada) throw new Error('Não foi possível autorizar o painel. Tente entrar novamente.');
+        return autorizado;
     }
     return usuario;
 }

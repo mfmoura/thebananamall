@@ -10,54 +10,30 @@ class AuthTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_usuario_pode_fazer_login_e_receber_token(): void
+    public function test_login_oauth_cria_sessao_sem_expor_tokens(): void
     {
         $usuario = Usuario::factory()->create([
-            'login' => 'maria',
-            'email' => 'maria@example.com',
-            'password' => 'senha-segura',
+            'login' => 'maria', 'email_validado' => true, 'password' => 'senha-segura',
         ]);
-
-        $response = $this->postJson('/api/login', [
-            'login' => 'maria',
-            'password' => 'senha-segura',
-            'device_name' => 'phpunit',
-        ]);
-
-        $response
-            ->assertOk()
-            ->assertJsonStructure([
-                'token',
-                'token_type',
-                'usuario' => ['id', 'login', 'email'],
-            ])
-            ->assertJsonPath('token_type', 'Bearer');
-
-        $this->assertDatabaseHas('personal_access_tokens', [
-            'tokenable_id' => $usuario->id,
-            'name' => 'phpunit',
-        ]);
+        $this->postJson('/oauth/login', ['login' => 'maria', 'password' => 'senha-segura'])
+            ->assertOk()->assertJsonStructure(['continue_url'])
+            ->assertJsonMissingPath('token')->assertJsonMissingPath('access_token')
+            ->assertJsonMissingPath('refresh_token');
+        $this->assertAuthenticatedAs($usuario, 'web');
+        $this->assertDatabaseCount('personal_access_tokens', 0);
     }
 
     public function test_login_rejeita_senha_incorreta(): void
     {
-        Usuario::factory()->create([
-            'login' => 'maria',
-            'email' => 'maria@example.com',
-            'password' => 'senha-segura',
-        ]);
+        Usuario::factory()->create(['login' => 'maria', 'email_validado' => true, 'password' => 'senha-segura']);
+        $this->postJson('/oauth/login', ['login' => 'maria', 'password' => 'senha-incorreta'])->assertUnauthorized();
+        $this->assertGuest('web');
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
 
-        $response = $this->postJson('/api/login', [
-            'login' => 'maria',
-            'password' => 'senha-incorreta',
-        ]);
-
-        $response
-            ->assertUnauthorized()
-            ->assertJson([
-                'message' => 'As credenciais informadas sao invalidas.',
-            ]);
-
+    public function test_endpoint_legado_nao_emite_tokens(): void
+    {
+        $this->postJson('/api/login', ['login' => 'maria', 'password' => 'senha-segura'])->assertNotFound();
         $this->assertDatabaseCount('personal_access_tokens', 0);
     }
 }
