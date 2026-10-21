@@ -17,6 +17,7 @@ class UpdateUsuarioAdminRequest extends MutateUsuarioAdminRequest
             'login' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('users', 'login')->withoutTrashed()->ignore($usuario->id)],
             'password' => ['sometimes', 'required', 'string', 'min:8', 'max:15', 'confirmed'],
             'email' => ['prohibited'], 'tipo' => ['prohibited'], 'email_validado' => ['prohibited'],
+            'acesso_loja' => ['sometimes', Rule::prohibitedIf(! $usuario->administrador()->exists()), 'required', 'boolean'],
             'paginas' => ['sometimes', Rule::prohibitedIf(! $usuario->administrador()->exists()), 'required', 'array', 'min:1'],
             'paginas.*' => ['required', 'distinct', Rule::enum(NivelAcesso::class)],
             'nome' => ['sometimes', Rule::prohibitedIf(! $usuario->logistica()->exists()), 'required', 'string', 'max:255'],

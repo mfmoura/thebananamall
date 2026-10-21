@@ -1170,6 +1170,19 @@
                                                   }
                                   },
                                   {
+                                      "name": "Habilitar acesso à loja para administrador",
+                                      "request": {
+                                          "method": "PATCH",
+                                          "description": "Use usuarioAdminId de um administrador. acesso_loja=true habilita o perfil Cliente para carrinho e compras; false libera carrinho/reservas e exclui logicamente o perfil. Reativar restaura o mesmo perfil. Exige admin:manage e autorização para editar a conta; alterar efetivamente o acesso revoga os tokens e exige novo login. Não aceita esse campo para usuários sem perfil Administrador.",
+                                          "header": [
+                                              { "key": "Accept", "value": "application/json" },
+                                              { "key": "Content-Type", "value": "application/json" }
+                                          ],
+                                          "url": "{{baseUrl}}/admin/usuarios/{{usuarioAdminId}}",
+                                          "body": { "mode": "raw", "raw": "{\n  \"acesso_loja\": true\n}", "options": { "raw": { "language": "json" } } }
+                                      }
+                                  },
+                                  {
                                       "name":  "Alterar senha",
                                       "request":  {
                                                       "method":  "PATCH",

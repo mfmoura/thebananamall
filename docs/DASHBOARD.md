@@ -76,3 +76,8 @@ Confirmação de e-mail de administradores ocorre em /dashboard/email/verify, co
 Ao abrir o link de confirmação administrativa, a página valida o token automaticamente por POST com CSRF e segue diretamente para a troca da senha inicial quando obrigatória, sem botão adicional de confirmação. Links inválidos ou expirados mostram o erro e a opção de solicitar outro link. A troca de e-mail continua solicitando a nova senha antes de concluir.
 
 O login inicial `admin` pode ser alterado pela edição da conta. O perfil administrativo ativo preserva a proteção contra limpeza automática após a alteração. O seeder identifica a conta pelo login inicial; executá-lo novamente após renomeá-la pode criar outra conta `admin`. Provisionamento testado e validado pelo responsável em 20/10/2026.
+## Acesso à loja na edição de administradores
+
+A edição de uma conta administrativa oferece **Permitir acesso à loja como Cliente**. A opção habilita um perfil Cliente na mesma conta, permitindo carrinho e compras sem remover as permissões administrativas. Somente operadores autorizados a editar a conta podem alterá-la. A API aceita `acesso_loja` booleano no PATCH administrativo apenas para administradores.
+
+Desativar remove o carrinho e libera reservas sob o bloqueio de estoque, excluindo logicamente o perfil Cliente. Reativar restaura o mesmo registro, preservando dados e vínculos históricos. Mudanças efetivas revogam access/refresh tokens e exigem novo login; ao alterar o próprio acesso, o painel encerra a sessão administrativa. Confirmação de e-mail, troca de senha obrigatória, escopos OAuth e propriedade de carrinhos/pedidos continuam sendo verificados.

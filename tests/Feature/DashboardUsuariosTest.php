@@ -148,6 +148,54 @@ class DashboardUsuariosTest extends TestCase
         $this->deleteJson('/api/admin/usuarios/'.$alvo->id)->assertForbidden();
     }
 
+    public function test_habilita_acesso_a_loja_para_administrador_sem_duplicar_perfil(): void
+    {
+        Passport::actingAs($this->administrador(), ['admin:manage']);
+        $alvo = $this->administrador(['estoque']);
+        $token = $this->tokenDoUsuario($alvo);
+        $this->patchJson('/api/admin/usuarios/'.$alvo->id, ['acesso_loja' => true])
+            ->assertOk()->assertJsonPath('data.cliente.usuario_id', $alvo->id)
+            ->assertJsonPath('data.administrador.paginas', ['estoque']);
+        $this->assertDatabaseHas('oauth_access_tokens', ['id' => $token, 'revoked' => true]);
+        $this->assertTrue($alvo->fresh()->must_reauthenticate);
+        $tokenSemMudanca = $this->tokenDoUsuario($alvo);
+        $this->patchJson('/api/admin/usuarios/'.$alvo->id, ['acesso_loja' => true])->assertOk();
+        $this->assertSame(1, $alvo->cliente()->withTrashed()->count());
+        $this->assertDatabaseHas('oauth_access_tokens', ['id' => $tokenSemMudanca, 'revoked' => false]);
+    }
+
+    public function test_desativa_carrinho_e_restaura_o_mesmo_perfil_preservando_dados(): void
+    {
+        Passport::actingAs($this->administrador(), ['admin:manage']);
+        $alvo = $this->administrador(['estoque']);
+        $cliente = $alvo->cliente()->create(['dados_fiscais' => ['documento' => 'historico-preservado']]);
+        $this->mock(CarrinhoService::class)->shouldReceive('comBloqueioDeEstoque')->andReturnUsing(fn ($callback) => $callback())
+            ->shouldReceive('removerSobBloqueio')->once()->withArgs(fn ($dono) => $dono->is($cliente))->andReturn(true);
+        $token = $this->tokenDoUsuario($alvo);
+        $this->patchJson('/api/admin/usuarios/'.$alvo->id, ['acesso_loja' => false])
+            ->assertOk()->assertJsonPath('data.cliente', null);
+        $this->assertSoftDeleted('clientes', ['id' => $cliente->id]);
+        $this->assertDatabaseHas('oauth_access_tokens', ['id' => $token, 'revoked' => true]);
+        $this->patchJson('/api/admin/usuarios/'.$alvo->id, ['acesso_loja' => true])
+            ->assertOk()->assertJsonPath('data.cliente.id', $cliente->id)
+            ->assertJsonMissingPath('data.cliente.dados_fiscais');
+        $this->assertSame(['documento' => 'historico-preservado'], $cliente->fresh()->dados_fiscais);
+        $this->assertSame(1, $alvo->cliente()->withTrashed()->count());
+    }
+
+    public function test_acesso_loja_exige_administrador_alvo_e_permissao_de_edicao(): void
+    {
+        $alvo = $this->administrador(['estoque']);
+        Passport::actingAs($this->administrador(['usuarios']), ['admin:manage']);
+        $this->patchJson('/api/admin/usuarios/'.$alvo->id, ['acesso_loja' => true])->assertForbidden();
+        Passport::actingAs($this->administrador(), ['admin:manage']);
+        $cliente = Usuario::factory()->create();
+        $cliente->cliente()->create([]);
+        $this->patchJson('/api/admin/usuarios/'.$cliente->id, ['acesso_loja' => false])->assertUnprocessable();
+        $this->patchJson('/api/admin/usuarios/'.$alvo->id, ['acesso_loja' => 'invalido'])->assertUnprocessable();
+        $this->assertFalse($alvo->cliente()->exists());
+    }
+
     public function test_troca_email_usa_confirmacao_e_nao_muda_endereco_imediatamente(): void
     {
         $alvo = Usuario::factory()->create();

@@ -7,10 +7,12 @@ import { sessao } from '../../services/api';
 import useDados from '../../hooks/useDados';
 import { paginasUsuario, tiposUsuario, podeGerenciarUsuario } from './Usuarios';
 
-function DadosUsuario({ usuario, conta, somenteLeitura }) {
+function DadosUsuario({ usuario: usuarioInicial, conta, somenteLeitura }) {
+    const [usuario, setUsuario] = useState(usuarioInicial);
     const navigate = useNavigate();
     const [tipo, setTipo] = useState(conta.paginas.includes('manutencao') ? 'cliente' : 'administrador');
     const [paginas, setPaginas] = useState(usuario?.administrador?.paginas || []);
+    const [acessoLoja, setAcessoLoja] = useState(Boolean(usuario?.cliente));
     const [mensagem, setMensagem] = useState('');
     const editando = Boolean(usuario);
     const proprio = usuario?.id === conta.id;
@@ -38,11 +40,12 @@ function DadosUsuario({ usuario, conta, somenteLeitura }) {
                 { nome: 'nome', label: 'Nome da logística', maxLength: 255, oculto: !logistica },
                 { nome: 'webhook', label: 'Webhook', tipo: 'url', maxLength: 2048, oculto: !logistica },
             ]} valores={{ ...usuario, ...usuario?.logistica }} botao={editando ? 'Salvar alterações' : 'Cadastrar usuário'} sucesso="" enviar={async (dados) => {
-                const payload = { ...dados, ...(admin ? { paginas } : {}) };
+                const payload = { ...dados, ...(admin ? { paginas } : {}), ...(editando && admin ? { acesso_loja: acessoLoja } : {}) };
                 if (editando) {
-                    await dashboardApi.atualizarUsuario(usuario.id, payload);
-                    const alterouPermissoes = admin && [...paginas].sort().join(',') !== [...usuario.administrador.paginas].sort().join(',');
+                    const atualizado = await dashboardApi.atualizarUsuario(usuario.id, payload);
+                    const alterouPermissoes = admin && ([...paginas].sort().join(',') !== [...usuario.administrador.paginas].sort().join(',') || acessoLoja !== Boolean(usuario.cliente));
                     if (proprio && alterouPermissoes) { await encerrar(); return; }
+                    setUsuario(atualizado);
                     setMensagem('Usuário atualizado.');
                 } else {
                     const criado = await dashboardApi.criarUsuario({ ...payload, tipo });
@@ -52,6 +55,7 @@ function DadosUsuario({ usuario, conta, somenteLeitura }) {
                 {!editando ? <label>Perfil<select value={tipo} onChange={(event) => setTipo(event.target.value)}>{Object.entries(tiposUsuario).filter(([perfil]) => (conta.paginas.includes('manutencao') || (perfil === 'administrador' && conta.paginas.includes('usuarios')))).map(([valor, label]) => <option key={valor} value={valor}>{label}</option>)}</select></label>
                     : <p>Perfil: {Object.entries(tiposUsuario).filter(([perfil]) => usuario[perfil]).map(([, label]) => label).join(', ') || 'Sem perfil'}</p>}
                 {admin && <fieldset disabled={!autorizado}><legend>Permissões administrativas</legend>{Object.entries(paginasUsuario).map(([valor, label]) => <label key={valor} className="campo-checkbox"><input type="checkbox" checked={paginas.includes(valor)} disabled={(!conta.paginas.includes('manutencao') && !conta.paginas.includes(valor)) || (proprio && valor === (conta.paginas.includes('usuarios') ? 'usuarios' : 'manutencao'))} onChange={(event) => setPaginas((atuais) => event.target.checked ? [...atuais, valor] : atuais.filter((item) => item !== valor))} />{label}</label>)}</fieldset>}
+                {editando && admin && <fieldset disabled={!autorizado}><legend>Acesso à loja</legend><label className="campo-checkbox"><input type="checkbox" checked={acessoLoja} onChange={(event) => setAcessoLoja(event.target.checked)} />Permitir acesso à loja como Cliente</label><p>Permite usar carrinho e fazer compras com esta conta. Desativar libera as reservas e remove o carrinho, preservando o histórico. Alterar esta opção exige um novo login.</p></fieldset>}
                 {!editando && <p>O usuário precisará confirmar o e-mail para entrar. A solicitação de envio será enfileirada.</p>}
             </Formulario></fieldset>
         </section>
