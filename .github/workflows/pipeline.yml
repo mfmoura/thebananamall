@@ -45,10 +45,12 @@ jobs:
           node-version: '22'
           cache: npm
       - run: composer install --no-interaction --prefer-dist
-      - run: vendor/bin/phpunit
+      - name: Gerar chaves OAuth exclusivas dos testes
+        run: php artisan passport:keys
       - run: npm ci
       - run: node --test tests/Frontend/*.test.mjs
       - run: npm run build
+      - run: vendor/bin/phpunit
       - name: Verificar scripts de publicação
         run: |
           for script in scripts/deploy/*.sh; do bash -n "$script"; done
