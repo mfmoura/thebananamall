@@ -41,7 +41,7 @@ class ConfirmarEmailNotification extends EmailEnfileiradoNotification
 
         return $mensagem
             ->action('Confirmar e-mail', $this->url)
-            ->line("Este link tem validade de até {$this->minutosExpiracao} minutos a partir da solicitação.")
+            ->line('Este link tem validade de até '.$this->duracaoLegivel($this->minutosExpiracao).' a partir da solicitação.')
             ->line("Se voc\u{00EA} n\u{00E3}o solicitou esta a\u{00E7}\u{00E3}o, ignore esta mensagem.");
     }
 }
