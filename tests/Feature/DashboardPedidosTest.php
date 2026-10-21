@@ -134,6 +134,7 @@ class DashboardPedidosTest extends TestCase
         $this->getJson('/dashboard/api/admin/pedidos/'.$pedido->id)->assertOk();
         $this->patchJson('/dashboard/api/admin/pedidos/'.$pedido->id, ['status' => 'pago'])->assertNotFound();
         $this->deleteJson('/dashboard/api/admin/pedidos/'.$pedido->id)->assertNotFound();
-        $this->getJson('/dashboard/api/admin/usuarios')->assertForbidden();
+        $this->getJson('/dashboard/api/admin/usuarios')->assertOk();
+        $this->postJson('/dashboard/api/admin/usuarios', ['tipo' => 'cliente'])->assertForbidden();
     }
 }

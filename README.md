@@ -165,3 +165,7 @@ O Compose define limites de memória por serviço, heap Node, teto Redis sem evi
 Em `/conta`, o formulário de endereço consulta o ViaCEP ao completar o CEP (oito dígitos, com ou sem hífen). Preenche logradouro, cidade e UF; número e complemento permanecem manuais. O React usa `GET /bff/api/enderecos/cep/{cep}`; integrações usam `GET /api/enderecos/cep/{cep}` com OAuth. Requer conta liberada, limita a 30 consultas por minuto e cancela respostas de CEPs anteriores. A consulta não salva o endereço nem substitui a validação no servidor.
 
 Comparação do volume Windows com filesystem Linux: [relatório e resultados](docs/COMPARACAO-FILESYSTEM.md).
+## Git Flow e pipeline
+
+O fluxo de branches, checks e publicação na Oracle está em [docs/DEPLOY.md](docs/DEPLOY.md).
+`develop` publica em homologação; `main` fica reservado ao servidor oficial.

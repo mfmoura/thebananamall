@@ -21,8 +21,8 @@ class UsuarioEnumsTest extends TestCase
     #[Test]
     public function nivel_de_acesso_enum_expone_niveis_conhecidos(): void
     {
-        self::assertSame('administrador', NivelAcesso::Administrador->value);
-        self::assertSame('super_administrador', NivelAcesso::SuperAdministrador->value);
+        self::assertSame(['contabilidade', 'estoque', 'manutencao', 'usuarios', 'pedidos'], array_column(NivelAcesso::cases(), 'value'));
+        self::assertNull(NivelAcesso::tryFrom('super_administrador'));
         self::assertNull(NivelAcesso::tryFrom('desconhecido'));
     }
 }
