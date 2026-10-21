@@ -53,3 +53,8 @@ pnpm-debug.log*
 Thumbs.db
 /.idea/
 /.vscode/
+
+# Estado de publicacao exclusivo do servidor
+/.deploy/
+/docker-compose.override.yaml
+/docker-compose.deploy.yaml
