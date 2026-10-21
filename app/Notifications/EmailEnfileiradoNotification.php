@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use Carbon\CarbonInterval;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,7 +19,13 @@ abstract class EmailEnfileiradoNotification extends Notification implements Shou
 
     public function __construct()
     {
+        $this->locale('pt_BR');
         $this->onConnection('redis')->onQueue('emails')->afterCommit();
+    }
+
+    protected function duracaoLegivel(int $minutos): string
+    {
+        return CarbonInterval::minutes($minutos)->cascade()->locale('pt_BR')->forHumans(['join' => true]);
     }
 
     public function backoff(): array

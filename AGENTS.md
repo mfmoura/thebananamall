@@ -2,6 +2,12 @@
 
 Este arquivo registra as convenções do projeto para qualquer pessoa ou LLM que contribua com o código. Leia-o antes de implementar mudanças.
 
+## Fluxo Git
+
+- O projeto segue Git Flow. Antes de iniciar uma nova tarefa, crie uma branch `feature/<nome-descritivo>` a partir de `develop`.
+- Integre funcionalidades em `develop`; use branches `release/*` para preparação de versões e `hotfix/*`, a partir de `main`, para correções urgentes em produção, integrando-as também em `develop`.
+- Preserve alterações locais existentes ao trocar de branch. Não implemente novas funcionalidades diretamente em `develop` ou `main`.
+
 ## Contexto
 
 - O projeto é uma API Laravel. Não criar páginas ou fluxos de interface web sem solicitação explícita.
