@@ -18,18 +18,18 @@ class ProdutoCatalogoSeeder extends Seeder
         }
 
         $itens = [
-            ['CAMISETA-VERMELHA', 'Camiseta LCB vermelha', 'camiseta', '49.90', 'camiseta-vermelha'],
-            ['CAMISETA-PRETA', 'Camiseta LCB preta', 'camiseta', '49.90', 'camiseta-preta'],
-            ['CAMISETA-BRANCA', 'Camiseta LCB branca', 'camiseta', '49.90', 'camiseta-branca'],
-            ['REGATA', 'Regata LCB — Organização e luta', 'outro', '39.90', 'regata'],
-            ['MOLETOM', 'Moletom LCB — Solidariedade', 'outro', '119.90', 'moletom'],
-            ['CROPPED', 'Cropped LCB — Poder popular', 'outro', '44.90', 'cropped'],
-            ['BOTTON-ESTRELA', 'Botton LCB — Estrela vermelha', 'botton', '8.50', 'botton-estrela'],
-            ['BOTTON-UNIDADE', 'Botton LCB — Unidade', 'botton', '8.50', 'botton-unidade'],
-            ['BOTTON-SOLIDARIEDADE', 'Botton LCB — Solidariedade', 'botton', '8.50', 'botton-solidariedade'],
-            ['BOTTON-TRABALHADORES', 'Botton LCB — Trabalhadores', 'botton', '8.50', 'botton-trabalhadores'],
-            ['BOTTON-PODER', 'Botton LCB — Poder popular', 'botton', '8.50', 'botton-poder'],
-            ['BOTTON-LUTA', 'Botton LCB — A luta continua', 'botton', '8.50', 'botton-luta'],
+            ['CAMISETA-VERMELHA', 'Camiseta vermelha', 'camiseta', '49.90', 'camiseta-vermelha'],
+            ['CAMISETA-PRETA', 'Camiseta preta', 'camiseta', '49.90', 'camiseta-preta'],
+            ['CAMISETA-BRANCA', 'Camiseta branca', 'camiseta', '49.90', 'camiseta-branca'],
+            ['REGATA', 'Regata — Coleção essencial', 'outro', '39.90', 'regata'],
+            ['MOLETOM', 'Moletom — Solidariedade', 'outro', '119.90', 'moletom'],
+            ['CROPPED', 'Cropped — Coleção essencial', 'outro', '44.90', 'cropped'],
+            ['BOTTON-ESTRELA', 'Botton — Estrela vermelha', 'botton', '8.50', 'botton-estrela'],
+            ['BOTTON-UNIDADE', 'Botton — Unidade', 'botton', '8.50', 'botton-unidade'],
+            ['BOTTON-SOLIDARIEDADE', 'Botton — Solidariedade', 'botton', '8.50', 'botton-solidariedade'],
+            ['BOTTON-TRABALHADORES', 'Botton — Trabalhadores', 'botton', '8.50', 'botton-trabalhadores'],
+            ['BOTTON-PODER', 'Botton — Coleção essencial', 'botton', '8.50', 'botton-poder'],
+            ['BOTTON-LUTA', 'Botton — Coleção essencial', 'botton', '8.50', 'botton-luta'],
         ];
         $nota = NotaEstoque::query()->firstOrCreate(['referencia' => 'SEED-CATALOGO-REACT'], ['observacao' => 'Produtos e estoque de demonstração do catálogo.']);
         $imagens = app(ProdutoImagemService::class);

@@ -1,6 +1,6 @@
 # Pendências do projeto
 
-Atualizado em 20/10/2026. Entregas e validações já realizadas estão em [CONCLUIDAS.md](CONCLUIDAS.md), incluindo itens recuperados dos diffs e do histórico Git.
+Atualizado em 27/10/2026. Entregas e validações já realizadas estão em [CONCLUIDAS.md](CONCLUIDAS.md), incluindo itens recuperados dos diffs e do histórico Git.
 
 ## Pagamentos — concluir antes de produção
 
@@ -51,3 +51,7 @@ Removidas em `8e42039`, sem conclusão comprovada nesta revisão documental:
 - [Mercado Pago: integração e operação](docs/MERCADO-PAGO.md)
 - [Homologação: cenários, condições comerciais e evidências](docs/MERCADO-PAGO-HOMOLOGACAO.md)
 - [Postman: requisições e fluxos](postman/README.md)
+
+## Painel de identidade white-label
+
+- [ ] Implementar o [painel de customização da identidade](docs/PAINEL-IDENTIDADE-TAREFAS.md), seguindo as etapas e critérios de aceite do documento. A base atual da The Banana Mall está descrita em [IDENTIDADE-VISUAL.md](docs/IDENTIDADE-VISUAL.md).

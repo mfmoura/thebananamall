@@ -1,3 +1,3 @@
 @extends('layouts.loja')
 
-@section('title', 'Dashboard | LCB')
+@section('title', 'Administração | '.config('marca.nome'))

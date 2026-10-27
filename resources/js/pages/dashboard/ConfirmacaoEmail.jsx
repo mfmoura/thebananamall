@@ -1,3 +1,4 @@
+import { marca } from '../../marca';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Formulario, { MensagemErro, senhaCampos } from '../../components/Formulario';
@@ -38,7 +39,7 @@ export default function ConfirmacaoEmail() {
     ] : confirmar ? (exigeSenha ? senhaCampos : []) : [{ nome: 'email', label: 'E-mail', tipo: 'email', autoComplete: 'email' }];
 
     return <main className="dashboard-login"><section className="tela tela-form">
-        <p className="dashboard-marca">LCB · Administração</p>
+        <p className="dashboard-marca">{marca.nome} · Administração</p>
         <h1>{primeiraSenha ? 'Trocar senha inicial' : confirmar ? 'Confirmar e-mail administrativo' : 'Solicitar confirmação'}</h1>
         <p>{primeiraSenha ? 'Escolha uma nova senha para liberar o acesso ao painel.' : automatico ? 'Validando seu link para continuar…' : confirmar ? 'Escolha uma nova senha para concluir a troca de e-mail.' : 'Informe seu e-mail para solicitar um novo link de confirmação do painel.'}</p>
         {automatico ? <>{erro ? <MensagemErro erro={erro} /> : <p role="status">Aguarde, confirmando seu e-mail…</p>}</> : <Formulario key={pathname} bloquearTela campos={campos} botao={primeiraSenha ? 'Trocar senha' : confirmar ? 'Salvar nova senha' : 'Reenviar confirmação'}

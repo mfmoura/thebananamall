@@ -1,6 +1,6 @@
-# Loja Virtual LCB
+# The Banana Mall
 
-API da loja virtual de artigos da Liga Comunista Brasileira (LCB).
+API Laravel e loja React com base white-label e identidade padrão The Banana Mall. Veja o [guia de identidade](docs/IDENTIDADE-VISUAL.md) e a [lista de tarefas do painel de customização](docs/PAINEL-IDENTIDADE-TAREFAS.md).
 
 ## Histórico do projeto
 
@@ -39,9 +39,9 @@ O cadastro usa senhas de 8 a 15 caracteres, com a mesma validação no React e n
 
 O idioma da aplicação é `pt_BR`, com traduções Laravel em `lang/pt_BR` e mensagens de validação nativa e conexão em português no React. Configure `APP_LOCALE=pt_BR` e `APP_FALLBACK_LOCALE=pt_BR`; após alterar esses valores, execute `docker compose exec php php artisan config:clear`.
 
-O template React `resources/js/components/Rodape.jsx` compartilha o rodapé institucional da Liga em todas as páginas da loja, com logo local, links institucionais e redes sociais oficiais. O catálogo e o detalhe usam `ProdutoSkeleton` durante o carregamento; ao terminar a paginação, os placeholders e o controle de carregar mais são removidos.
+O template React `resources/js/components/Rodape.jsx` compartilha o logo horizontal The Banana Mall e links internos da loja. O cabeçalho usa o logo quadrado; os arquivos estão no [guia de identidade](docs/IDENTIDADE-VISUAL.md). O catálogo e o detalhe usam `ProdutoSkeleton` durante o carregamento; ao terminar a paginação, os placeholders e o controle de carregar mais são removidos.
 
-A loja usa a família **Breda Two**, identificada no CSS do site oficial da LCB. O arquivo WOFF2 fica em `resources/fonts/breda-two.woff2` e é servido localmente pelo Vite, sem depender do site externo durante a navegação.
+A loja usa fontes de sistema. Configure `MARCA_NOME` no `.env` para definir o nome da loja. As cores ficam nas variáveis `--marca-primaria` (#979700), `--marca-destaque` (#313100), `--marca-fundo` e `--marca-texto` em `resources/css/app.css`. Limpe o cache de configuração do Laravel após alterar o ambiente.
 
 O componente `ControleQuantidade` oferece botões de aumentar/diminuir e entrada numérica no catálogo e no detalhe. No menu flutuante, no carrinho e no checkout, `ItemCarrinho` permite alterar a quantidade ou remover o produto. Alterações do carrinho atualizam o estado e o total compartilhados após confirmação da API; operações concorrentes da interface ficam bloqueadas durante a gravação. O servidor continua validando o estoque.
 
@@ -57,7 +57,7 @@ O Vite escuta em `0.0.0.0` dentro do Docker, sem porta publicada no host. O poll
 
 O Nginx é a única entrada HTTP da aplicação. As redes `php_ingress` e `vite_ingress` conectam apenas Nginx e seu respectivo upstream. PostgreSQL e Redis ficam na rede `dados`, marcada como interna, acessível ao PHP, Horizon e scheduler; o Nginx e o Node não participam dela. O banco publica a porta 5432 somente no loopback do host (`127.0.0.1:5432`), para administração pelo próprio computador. Também é possível usar `docker compose exec db psql -U default -d default`. PHP, Node e workers preservam saída para suas integrações externas. O perfil opcional `webhooks` conecta o ngrok somente à rede `tunnel` do Nginx; seu painel de diagnóstico permanece restrito a `127.0.0.1:4040`. Essas redes controlam comunicação entre containers; o host Docker e quem controla o daemon continuam sendo acessos privilegiados.
 
-O frontend usa React 19 com Vite. A entrada é `resources/js/main.jsx`, o layout fica em `resources/js/LojaApp.jsx`, a barra flutuante em `resources/js/components/BarraSuperior.jsx` e o catálogo/detalhe em `resources/js/pages/Catalogo.jsx`. Hooks de menus e resumo do carrinho ficam em `resources/js/hooks/loja.js`. Blade fornece somente o documento HTML e o ponto de montagem React. A identidade visual e o logo vêm do [site oficial da LCB](https://ligacomunistabrasileira.org/); ícones Font Awesome são instalados pelo NPM. O React Router gerencia catálogo, detalhe de produto, carrinho, cadastro, login OAuth2/PKCE, confirmação de e-mail, recuperação de senha, conta, endereços, checkout e pedidos. Os serviços HTTP ficam em `resources/js/services` e o estado compartilhado em `resources/js/context/LojaContext.jsx`. A barra lê o carrinho real da API; o navegador não determina preços nem autoriza pedidos. Pagamento real pelo gateway e painéis administrativos/Logística continuam pendentes.
+O frontend usa React 19 com Vite. A entrada é `resources/js/main.jsx`, o layout fica em `resources/js/LojaApp.jsx`, a barra flutuante em `resources/js/components/BarraSuperior.jsx` e o catálogo/detalhe em `resources/js/pages/Catalogo.jsx`. Hooks de menus e resumo do carrinho ficam em `resources/js/hooks/loja.js`. Blade fornece somente o documento HTML e o ponto de montagem React. O tema padrão usa a identidade The Banana Mall; ícones Font Awesome são instalados pelo NPM. O React Router gerencia catálogo, detalhe de produto, carrinho, cadastro, login OAuth2/PKCE, confirmação de e-mail, recuperação de senha, conta, endereços, checkout e pedidos. Os serviços HTTP ficam em `resources/js/services` e o estado compartilhado em `resources/js/context/LojaContext.jsx`. A barra lê o carrinho real da API; o navegador não determina preços nem autoriza pedidos. Pagamento real pelo gateway e painéis administrativos/Logística continuam pendentes.
 
 Inicie os containers e aplique as migrations e dados de demonstração:
 
@@ -169,3 +169,5 @@ Comparação do volume Windows com filesystem Linux: [relatório e resultados](d
 
 O fluxo de branches, checks e publicação na Oracle está em [docs/DEPLOY.md](docs/DEPLOY.md).
 `develop` publica em homologação; `main` fica reservado ao servidor oficial.
+
+Os códigos históricos de produtos e identificadores internos legados são mantidos para compatibilidade. As mudanças nos seeders valem para novos cadastros; produtos já persistidos devem ser revisados pelo administrador, sem recriar o banco.

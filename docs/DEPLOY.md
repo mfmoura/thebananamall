@@ -103,3 +103,9 @@ gera outra pasta de release e outro backup, sem sobrescrever a versão anterior.
 
 Referências: [ambientes GitHub](https://docs.github.com/en/actions/concepts/workflows-and-actions/deployment-environments)
 e [sintaxe dos workflows](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax).
+
+## Identidade por ambiente
+
+Configure `MARCA_NOME="The Banana Mall"` no ambiente da aplicação. `APP_NAME` é independente e pode refletir o mesmo nome em notificações e integrações que usam essa configuração; revise também `MAIL_FROM_NAME`. Não altere nomes de cookies, diretórios já provisionados ou credenciais para trocar a marca. O caminho de exemplo legado deste guia não define a identidade pública.
+
+Após atualizar o ambiente, execute `docker compose exec php php artisan config:clear` e reaplique o cache conforme o procedimento do ambiente. Alterações em CSS/React exigem recompilar os assets. Consulte [IDENTIDADE-VISUAL.md](IDENTIDADE-VISUAL.md) para arquivos e validação visual.

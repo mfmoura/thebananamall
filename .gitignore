@@ -58,3 +58,22 @@ Thumbs.db
 /.deploy/
 /docker-compose.override.yaml
 /docker-compose.deploy.yaml
+
+# Credenciais, certificados e ferramentas locais
+/.codex/
+/.agents/
+/.aws/
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+/.npmrc
+/.pypirc
+
+# Artefatos temporarios e evidencias locais
+/tmp/
+/artifacts/
+/test-results/
+/playwright-report/

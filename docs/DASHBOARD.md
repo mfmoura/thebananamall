@@ -81,3 +81,7 @@ O login inicial `admin` pode ser alterado pela edição da conta. O perfil admin
 A edição de uma conta administrativa oferece **Permitir acesso à loja como Cliente**. A opção habilita um perfil Cliente na mesma conta, permitindo carrinho e compras sem remover as permissões administrativas. Somente operadores autorizados a editar a conta podem alterá-la. A API aceita `acesso_loja` booleano no PATCH administrativo apenas para administradores.
 
 Desativar remove o carrinho e libera reservas sob o bloqueio de estoque, excluindo logicamente o perfil Cliente. Reativar restaura o mesmo registro, preservando dados e vínculos históricos. Mudanças efetivas revogam access/refresh tokens e exigem novo login; ao alterar o próprio acesso, o painel encerra a sessão administrativa. Confirmação de e-mail, troca de senha obrigatória, escopos OAuth e propriedade de carrinhos/pedidos continuam sendo verificados.
+
+## Customização da identidade (planejada)
+
+O painel usa o nome e a paleta The Banana Mall. Ainda não existe uma tela administrativa para alterá-los. O estado atual está em [IDENTIDADE-VISUAL.md](IDENTIDADE-VISUAL.md); a implementação proposta, incluindo autorização, persistência, uploads e publicação, está na [lista de tarefas](PAINEL-IDENTIDADE-TAREFAS.md).

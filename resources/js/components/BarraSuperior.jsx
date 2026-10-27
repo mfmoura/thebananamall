@@ -1,3 +1,4 @@
+import { marca } from '../marca';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { retornoAposLogout } from '../services/navegacao';
@@ -65,8 +66,8 @@ export default function BarraSuperior() {
  }, [menuAberto]);
  return <header className="barra-superior">
     <nav className="barra-conteudo" aria-label="Navegação principal">
-        <Link className="marca" to="/" aria-label="LCB — página inicial">
-            <img src="/images/lcb-logo.png" alt="Liga Comunista Brasileira" width="1920" height="720" />
+        <Link className="marca" to="/" aria-label={`${marca.nome} — página inicial`}>
+            <img src="/images/the-banana-mall-square.png" alt={marca.nome} width="1254" height="1254" />
         </Link>
         <div className="menu-desktop"><AcoesBarra /></div>
         <button className="menu-mobile-botao" type="button" aria-label="Abrir menu" aria-expanded={menuAberto} aria-controls="menu-lateral" aria-haspopup="dialog" onClick={() => { lateral.current.showModal(); setMenuAberto(true); }}>

@@ -1,5 +1,7 @@
 # Homologação Mercado Pago
 
+> Identidade atual: The Banana Mall. Menções à LCB, cores e caminhos antigos neste relatório registram o contexto das execuções históricas e não comprovam atualização de cadastros externos. Consulte [IDENTIDADE-VISUAL.md](IDENTIDADE-VISUAL.md).
+
 ## Aceite do responsável — 20/10/2026
 
 O responsável solicitou: “Homologa os pagamentos e commita e push”. Registrado o aceite funcional das entregas de pagamentos e do receptor corrigido, com base nos resultados abaixo. A assinatura local sem SDK autenticou seis capturas do simulador; replay pelo kernel HTTP Laravel retornou 200 duas vezes, persistiu um evento e concluiu a conciliação em fila. Pix e cartões de crédito possuem aprovações de homologação documentadas; boleto digital tem aceite anterior do responsável.

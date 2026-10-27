@@ -14,7 +14,7 @@ class OAuthClientSeeder extends Seeder
             [
                 'owner_type' => null,
                 'owner_id' => null,
-                'name' => 'Loja Virtual LCB SPA',
+                'name' => 'Loja SPA',
                 'secret' => null,
                 'provider' => null,
                 'redirect_uris' => [config('services.frontend.oauth_redirect_uri')],

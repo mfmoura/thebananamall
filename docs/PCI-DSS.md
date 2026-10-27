@@ -1,4 +1,4 @@
-# PCI DSS — avaliação inicial da LCB
+# PCI DSS — avaliação inicial da The Banana Mall
 
 Avaliação inicial em 18/10/2026. Este documento registra evidências técnicas e lacunas; não é auditoria, SAQ preenchido nem declaração de conformidade.
 

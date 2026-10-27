@@ -1,4 +1,4 @@
-# Testes manuais no Postman
+# The Banana Mall — testes manuais no Postman
 
 Cronômetro de pagamento: `GET /pedidos/{pedidoId}/pagamento` inclui `instrucoes.criado_em` e `instrucoes.expira_em` quando retornadas pelo provedor (datas ISO 8601). O detalhe do pedido no frontend consulta esse endpoint para obter os prazos; o resumo da listagem permanece inalterado. O frontend atualiza a contagem e a barra a cada segundo com o vencimento absoluto, sem reiniciar ao recarregar. Sem vencimento, mostra o tempo de espera desde a criação; chegar a zero não confirma nem cancela o pagamento. O prazo aparece após a conciliação pela fila `pagamentos`.
 
@@ -35,7 +35,7 @@ ApÃ³s entrar pelo frontend e obter token de Cliente, execute **8. Mesclar carr
 
 ## Produtos e estoque
 
-A listagem de produtos, consulta de preÃ§os e consulta de estoque sÃ£o pÃºblicas. O campo `estoque` representa a disponibilidade (estoque contado menos reservas ativas); a consulta individual tambÃ©m retorna `estoque_contado` e `estoque_disponivel`. Carrinhos sem estoque suficiente recebem erro de validaÃ§Ã£o. OperaÃ§Ãµes de escrita exigem token de Administrador com escopo `admin:manage`. Os seeders criam produtos de demonstraÃ§Ã£o da LCB. As movimentaÃ§Ãµes exigem quantidade positiva e referÃªncia de nota; saÃ­das manuais sÃ³ usam saldo nÃ£o reservado. A exclusÃ£o de movimentaÃ§Ã£o Ã© um estorno auditÃ¡vel e a exclusÃ£o de produto o desativa para preservar o histÃ³rico.
+A listagem de produtos, consulta de preÃ§os e consulta de estoque sÃ£o pÃºblicas. O campo `estoque` representa a disponibilidade (estoque contado menos reservas ativas); a consulta individual tambÃ©m retorna `estoque_contado` e `estoque_disponivel`. Carrinhos sem estoque suficiente recebem erro de validaÃ§Ã£o. OperaÃ§Ãµes de escrita exigem token de Administrador com escopo `admin:manage`. Os seeders criam produtos de demonstraÃ§Ã£o da loja The Banana Mall. As movimentaÃ§Ãµes exigem quantidade positiva e referÃªncia de nota; saÃ­das manuais sÃ³ usam saldo nÃ£o reservado. A exclusÃ£o de movimentaÃ§Ã£o Ã© um estorno auditÃ¡vel e a exclusÃ£o de produto o desativa para preservar o histÃ³rico.
 
 O campo `codigo` Ã© o SKU textual; o `id` numÃ©rico Ã© usado pelo carrinho e pelas referÃªncias internas. PreÃ§os sÃ£o histÃ³ricos: o checkout captura o preÃ§o vigente no servidor. A collection contÃ©m chamadas para consultar o histÃ³rico, registrar novo preÃ§o e excluir preÃ§o antigo sem referÃªncias.
 
@@ -194,3 +194,7 @@ A pasta **Grade de tamanhos** cadastra um produto com grade, registra entrada po
 ## Acesso de administradores à loja
 
 Na edição administrativa, `PATCH /api/admin/usuarios/{usuario}` aceita `acesso_loja` booleano somente para contas com perfil Administrador. A requisição **Habilitar acesso à loja para administrador** usa `usuarioAdminId`, o token administrativo com `admin:manage` e as mesmas permissões de edição da conta. Envie `true` para habilitar o perfil Cliente (carrinho e compras) ou `false` para desativá-lo, liberar reservas e remover o carrinho. A desativação é lógica; reativar restaura o mesmo perfil e preserva os documentos históricos. Mudanças efetivas revogam os tokens e exigem novo login. Reenviar o mesmo valor não revoga tokens. No navegador, use o proxy `/dashboard/api/admin/usuarios/{usuario}` com cookie HttpOnly e CSRF.
+
+## Identidade da loja
+
+A identidade atual está em [IDENTIDADE-VISUAL.md](../docs/IDENTIDADE-VISUAL.md). O nome do arquivo `LojaVirtualLCB.postman_collection.json` e SKUs legados permanecem por compatibilidade. Não representam a marca exibida na loja. O painel de customização é uma entrega planejada: ainda não há endpoints de identidade para testar. Ao implementá-los, acrescentar as requisições, permissões, uploads e validações à coleção.

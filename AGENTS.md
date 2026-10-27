@@ -11,7 +11,7 @@ Este arquivo registra as convenções do projeto para qualquer pessoa ou LLM que
 
 ## Organização e responsabilidades
 
-- **Frontend React (`resources/js`)**: use componentes JSX reutilizáveis em `components`, páginas em `pages` e hooks em `hooks`. `main.jsx` monta a aplicação; `LojaApp.jsx` compartilha o layout e a barra flutuante. Blade serve somente o documento de entrada. Preserve o visual da LCB e o Font Awesome; mantenha autenticação e regras de negócio na API.
+- **Frontend React (`resources/js`)**: use componentes JSX reutilizáveis em `components`, páginas em `pages` e hooks em `hooks`. `main.jsx` monta a aplicação; `LojaApp.jsx` compartilha o layout e a barra flutuante. Blade serve somente o documento de entrada. Preserve a identidade The Banana Mall, os pontos de configuração white-label e o Font Awesome; consulte `docs/IDENTIDADE-VISUAL.md`; mantenha autenticação e regras de negócio na API.
 - **Navegação e integração**: páginas do cliente usam React Router e serviços em `resources/js/services`; o contexto `LojaContext` compartilha conta e carrinho. Consumir o envelope da API em um único cliente HTTP, exibir validações nos formulários e usar Authorization Code + PKCE. Não confiar no estado React para autorização, preços, disponibilidade ou confirmação de pagamento. As rotas de fallback do Laravel são restritas às páginas, sem interceptar `/api/*`, endpoints Passport ou arquivos.
 
 - **Controllers (`app/Http/Controllers/Api`)**: devem coordenar a requisição e a resposta HTTP. Mantenha-os finos: não coloque neles regras de negócio, validação inline ou operações de persistência.

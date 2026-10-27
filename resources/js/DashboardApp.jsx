@@ -1,3 +1,4 @@
+import { marca } from './marca';
 import { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate, useOutletContext } from 'react-router-dom';
 import Formulario, { MensagemErro } from './components/Formulario';
@@ -17,7 +18,7 @@ import ConfirmacaoEmail from './pages/dashboard/ConfirmacaoEmail';
 function Login() {
     const navigate = useNavigate();
     return <main className="dashboard-login"><section className="tela tela-form">
-        <p className="dashboard-marca">LCB · Administração</p>
+        <p className="dashboard-marca">{marca.nome} · Administração</p>
         <h1>Entrar no painel</h1>
         <p>Acesso exclusivo para administradores.</p>
         <Formulario bloquearTela limparSenhasAposEnvio={false} action="/dashboard/login" campos={[
@@ -52,7 +53,7 @@ function Layout() {
     if (erro) return <main className="tela"><MensagemErro erro={erro} /><button onClick={() => window.location.reload()}>Tentar novamente</button></main>;
     if (!usuario) return <main className="pagina"><PaginaSkeleton rotulo="Verificando acesso" /></main>;
     return <div className="dashboard-layout">
-        <aside className="dashboard-menu"><p className="dashboard-marca">LCB</p><p>Administração</p>
+        <aside className="dashboard-menu"><p className="dashboard-marca">{marca.nome}</p><p>Administração</p>
             <nav aria-label="Navegação administrativa"><NavLink to="/dashboard/" end><i className="fa-solid fa-gauge" aria-hidden="true" /> Visão geral</NavLink>
                 {usuario.paginas?.some((pagina) => ['estoque', 'manutencao', 'contabilidade'].includes(pagina)) && <NavLink to="/dashboard/logistica"><i className="fa-solid fa-warehouse" aria-hidden="true" /> Logística</NavLink>}
                 {usuario.paginas?.includes('estoque') && <NavLink to="/dashboard/produtos"><i className="fa-solid fa-box" aria-hidden="true" /> Produtos</NavLink>}
@@ -74,7 +75,7 @@ function Layout() {
 function Inicio() {
     const usuario = useOutletContext();
     return <><p className="dashboard-marca">Painel administrativo</p><h1>Visão geral</h1>
-        <section className="dashboard-boas-vindas"><i className="fa-solid fa-shield-halved" aria-hidden="true" /><h2>Bem-vindo, {usuario.login}</h2><p>Este é o espaço de administração da loja LCB.</p>
+        <section className="dashboard-boas-vindas"><i className="fa-solid fa-shield-halved" aria-hidden="true" /><h2>Bem-vindo, {usuario.login}</h2><p>Este é o espaço de administração da loja {marca.nome}.</p>
             {usuario.paginas?.includes('estoque') && <Link to="/dashboard/produtos">Gerenciar produtos</Link>}
             {(usuario.paginas?.length > 0) && <p><Link to="/dashboard/usuarios">Gerenciar usuários</Link></p>}
         </section></>;

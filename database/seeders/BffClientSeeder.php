@@ -15,7 +15,7 @@ class BffClientSeeder extends Seeder
         }
         $client = Client::query()->findOrNew(config('bff.client_id'));
         $client->forceFill([
-            'id' => config('bff.client_id'), 'name' => 'Loja LCB BFF',
+            'id' => config('bff.client_id'), 'name' => 'Loja BFF',
             'owner_type' => null, 'owner_id' => null, 'secret' => $secret,
             'provider' => null, 'redirect_uris' => [config('bff.redirect_uri'), config('bff.dashboard_redirect_uri')],
             'grant_types' => ['authorization_code', 'refresh_token'], 'revoked' => false,

@@ -16,21 +16,21 @@ class ProdutoTesteSeeder extends Seeder
         $produtos = [
             [
                 'codigo' => 'LCB-BANDEIRA-001',
-                'nome' => 'Bandeira da Liga Comunista Brasileira',
+                'nome' => 'Bandeira decorativa',
                 'categoria' => CategoriaProduto::Bandeira,
                 'preco' => '35.00',
                 'nome_legado' => 'Produto de teste 1',
             ],
             [
                 'codigo' => 'LCB-BOTTON-001',
-                'nome' => 'Botton LCB — A luta continua',
+                'nome' => 'Botton — Coleção essencial',
                 'categoria' => CategoriaProduto::Botton,
                 'preco' => '8.50',
                 'nome_legado' => 'Produto de teste 2',
             ],
             [
                 'codigo' => 'LCB-CAMISETA-001',
-                'nome' => 'Camiseta LCB — Trabalhadores de todo o mundo, uni-vos',
+                'nome' => 'Camiseta — Coleção essencial',
                 'categoria' => CategoriaProduto::Camiseta,
                 'preco' => '49.90',
                 'nome_legado' => null,

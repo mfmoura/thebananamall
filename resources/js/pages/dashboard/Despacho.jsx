@@ -2,9 +2,9 @@ import { useState } from 'react';
 import PedidosAdmin from './Pedidos';
 
 const exemplos = [
-    { id: 'DEMO-101', cliente: 'Cliente de exemplo A', cidade: 'São Paulo / SP', nota: '000101', itens: [{ nome: 'Bandeira LCB', quantidade: 2 }, { nome: 'Adesivo LCB', quantidade: 3 }] },
-    { id: 'DEMO-102', cliente: 'Cliente de exemplo B', cidade: 'Campinas / SP', nota: '000102', itens: [{ nome: 'Camiseta LCB · M', quantidade: 1 }] },
-    { id: 'DEMO-103', cliente: 'Cliente de exemplo C', cidade: 'Curitiba / PR', nota: '000103', itens: [{ nome: 'Bandeira LCB', quantidade: 1 }] },
+    { id: 'DEMO-101', cliente: 'Cliente de exemplo A', cidade: 'São Paulo / SP', nota: '000101', itens: [{ nome: 'Bandeira', quantidade: 2 }, { nome: 'Adesivo', quantidade: 3 }] },
+    { id: 'DEMO-102', cliente: 'Cliente de exemplo B', cidade: 'Campinas / SP', nota: '000102', itens: [{ nome: 'Camiseta · M', quantidade: 1 }] },
+    { id: 'DEMO-103', cliente: 'Cliente de exemplo C', cidade: 'Curitiba / PR', nota: '000103', itens: [{ nome: 'Bandeira', quantidade: 1 }] },
 ];
 
 export default function Despacho() {

@@ -1,4 +1,4 @@
 @extends('layouts.loja')
 
-@section('title', 'Loja | Liga Comunista Brasileira')
+@section('title', config('marca.nome'))
 

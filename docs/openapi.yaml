@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: Loja Virtual LCB API
+  title: The Banana Mall API
   version: 1.0.0
   description: >-
-    API REST da Loja Virtual LCB. Respostas JSON em /api usam o envelope
+    API REST da The Banana Mall. Respostas JSON em /api usam o envelope
     {status, statusCode, data}. Downloads fiscais bem-sucedidos retornam XML/PDF.
     Status HTTP continua sendo enviado no transporte.
 servers:
